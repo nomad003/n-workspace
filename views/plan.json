@@ -1,0 +1,49 @@
+{
+ "id": "plan",
+ "name": "计划",
+ "order": 1,
+ "tabs": [
+  "actions",
+  "reviews",
+  "domains",
+  "learning"
+ ],
+ "domains": {
+  "root": [
+   "life"
+  ],
+  "path": [
+   "life/生活拓展/"
+  ]
+ },
+ "life_notes": {
+  "root": [
+   "life"
+  ],
+  "path": [
+   "life/"
+  ],
+  "not_path": [
+   "life/生活拓展/",
+   "life/生活事务/",
+   "life/数字生活/"
+  ]
+ },
+ "learning_notes": {
+  "root": [
+   "life"
+  ],
+  "path": [
+   "learning/"
+  ]
+ },
+ "learning_tasks": {
+  "title~": [
+   "研究",
+   "原理",
+   "Agent",
+   "专题",
+   "实践"
+  ]
+ }
+}

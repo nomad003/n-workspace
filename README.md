@@ -1,10 +1,8 @@
 # n-workspace
 
-Personal life/work dashboard: 6 modules: 总览 (7-day due items, risks, agents) · 事务 (tasks / 生活事务 / 日记) · 个人资产 (个人信息 / 账号 / 订阅 / 理财 tabs) · 工作与内容 (reports / 内容运营 / agent ops) · 知识库 (home, directory tree, maturity view incl. 学习与成长, note pages with wikilinks + backlinks, full-text search) · 数据源 (source registry: n-life-data primary, n-knowledge-base secondary, X / Bilibili reserved; sync ref/commit, fetch time, missing fields).
+Personal life/work dashboard: 5 sections (v8 redesign): **今天** (5 blocks: 接下来 30 天 · 本季度计划 · 需要处理 · 最近在做 · Agents) · **计划** (12 个月行动清单 by horizon, 复盘 cadence, 生活领域, 学习路线 — parsed from `life/12个月行动清单.md` and `life/复盘节奏.md` by `scripts/plan.mjs`) · **知识** (projects first, directory tree, logs archive, full-text search, note pages with wikilinks/backlinks) · **账号与订阅** (attention → identities → categories; drill-down `#accounts/identities`, `#accounts/cat/<slug>`, `#account/<id>`; subscriptions) · **Agents**. Plus **设置** (data sources, one 数据补全 queue, theme).
 
-Lean UI: one-line headers, summaries first with full tables behind 『展开全部』, placeholder values hidden and counted as 『N 项待补充』, flat sidebar, right rail only on 总览, ≤1 chart per page. Code: `app/src/main.js` (shell, router, ⌘K) + `app/src/pages/*.js` + `ui.js` / `data.js`.
-**This repo is code only.** All data comes from the private KB `nomad003/n-knowledge-base` at build time and is never committed
-(`/kb/`, `/data/`, `/dist/`, `.env*` are gitignored).
+Design: calm neutrals, one indigo accent, light/dark; type-led lists instead of KPI strips, no charts on home, placeholders never shown inline (they are collected in 设置 → 数据补全). 2FA "needs attention" is defined once in `core.js` (`twoFaState`, `weak2fa`) and used everywhere. Code: `app/src/main.js` (shell, router, ⌘K) + `app/src/pages/*.js` + `ui.js` / `data.js` / `identity.js`.
 
 ## Quick start (macOS / Linux)
 

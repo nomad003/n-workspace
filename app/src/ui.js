@@ -12,7 +12,7 @@ export const riskC = r => ({ P0: "err", P1: "modes", P2: "agent", P3: "ext", P4:
 export const urg = d => d == null ? "infra" : d <= 7 ? "err" : d <= 30 ? "modes" : d <= 90 ? "agent" : "ai";
 export const cd = (date, approx) => { const n = daysUntil(date); if (n == null) return "";
   return `<span class="cd L-${urg(n)}">${approx ? "<small>约</small>" : ""}${n < 0 ? `逾期 ${-n}` : n === 0 ? "今天" : n}<small>${n === 0 ? "" : "天"}</small></span>`; };
-export const noteHref = r => `#kb/note?id=${encodeURIComponent(r.id)}`;
+export const noteHref = r => `#knowledge/note?id=${encodeURIComponent(r.id)}`;
 export const noteLink = r => r ? `<a class="nl" href="${noteHref(r)}">${esc(r.title)}</a>${r.root === "life" ? `<span class="rt">life</span>` : ""}` : "";
 
 // Placeholder values (待补充/待确认/不适用…) are hidden; pages show "N 项待补充" instead.
@@ -22,7 +22,7 @@ export function countUnknown(x, skip = new Set(["notes", "privacy", "kind", "nam
   if (x && typeof x === "object") return Object.entries(x).reduce((a, [kk, y]) => a + countUnknown(y, skip, kk), 0);
   return x == null || known(x) ? 0 : 1;
 }
-export const pending = (n, what = "") => n ? `<div class="pend"><b>${n}</b> 项待补充${what ? ` · ${esc(what)}` : ""}<span>（已隐藏，详见 <a href="#sources">数据源</a>）</span></div>` : "";
+export const pending = (n, what = "") => n ? `<div class="pend"><b>${n}</b> 项待补充${what ? ` · ${esc(what)}` : ""}<span>（已隐藏，详见 <a href="#settings">数据源</a>）</span></div>` : "";
 export const fmt = v => {
   if (v == null || v === "") return "";
   if (typeof v === "boolean") return badge(v ? "是" : "否");
@@ -56,7 +56,8 @@ export const card = (title, body, { span = "s6", right = "", cls = "" } = {}) =>
 export const stat = (n, k, { unit = "", warn = false, href = "" } = {}) => `<${href ? `a href="${href}"` : "div"} class="stat ${warn ? "warn" : ""}"><div class="n">${n}${unit ? `<small>${unit}</small>` : ""}</div><div class="k">${k}</div></${href ? "a" : "div"}>`;
 export const kpis = rows => `<div class="stats">${rows.map(r => stat(...r)).join("")}</div>`;
 // One-line page header: title + inline meta chips.
-export const header = (title, color, chips = []) => `<header class="ph L-${color}"><h1>${title}</h1>${chips.filter(Boolean).map(c => `<span class="hchip">${c}</span>`).join("")}<span class="sp"></span><button class="btn sm" data-cmdk>⌘K 搜索</button></header>`;
+// Page header (v8): small context line, one title, optional one-sentence lede. No chips, no per-page ⌘K button.
+export const header = (title, _color, meta = [], lede = "") => `<header class="ph"><div class="ctx">${meta.filter(Boolean).join(" · ")}</div><h1>${title}</h1>${lede ? `<p class="lede">${lede}</p>` : ""}</header>`;
 export const tabs = (base, list, active) => `<nav class="tabs">${list.map(([id, label, n]) => `<a href="#${base}/${id}" class="${id === active ? "on" : ""}">${esc(label)}${n != null && n !== "" ? `<b>${n}</b>` : ""}</a>`).join("")}</nav>`;
 export const steps = rows => `<div class="steps">${rows.map(r => `<div class="step L-${r.c}"><div class="n">${r.n}</div><div class="k">${esc(r.k)}</div></div>`).join("")}</div>`;
 export const urow = (date, approx, title, meta, extra = "") => `<div class="urow L-${urg(daysUntil(date))}">${cd(date, approx)}<div><b>${title}</b><span class="m">${meta}</span></div><span class="m x">${extra}</span></div>`;

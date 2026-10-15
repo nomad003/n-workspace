@@ -98,7 +98,7 @@ export function render(rest = [], P = new URLSearchParams()) {
   const checks = m.ids.map(i => { const c = checklist(i, m.accs), ok = c.filter(x => x[1] === "ok").length;
     return `<div class="chk"><h4>${esc(i.label)} <span class="note">${ok}/${c.length}</span></h4>${c.map(([t, st, d]) => `<div class="ci ${st}"><span>${st === "ok" ? "✓" : st === "bad" ? "✗" : "?"}</span>${esc(t)}${d ? `<small>${esc(d)}</small>` : ""}</div>`).join("")}</div>`; }).join("");
   const missTotal = live.reduce((n, a) => n + missingOf(a).length, 0);
-  return `${pending(missTotal, `关键字段（${KEY_FIELDS.join(" / ")}）`)}<div class="pend info">${esc(src)}</div>
+  return `<p class="note">${esc(src)} · 缺失字段汇总见 <a href="#settings">设置 → 数据补全</a></p>
     ${kpis([[imp.length, "P0/P1 重要账号"], [sec.weak2fa.length, "重要账号 2FA 未确认", { warn: sec.weak2fa.length > 0 }], [sec.noRecovery.length, "缺恢复方式", { warn: sec.noRecovery.length > 0 }], [sec.unbound.length, "未绑定身份"], [sec.noPM.length, "未用密码管理器", { warn: sec.noPM.length > 0 }]])}
     ${catNav("")}<h3 class="subh">身份</h3><div class="idcards" id="idview">${idv}</div>
     <h3 class="subh">安全概览</h3>${sec4}
@@ -133,7 +133,7 @@ export function mount(el) {
 }
 
 function catNav(cur) {
-  const all = model.accs; return `<nav class="catnav"><a class="${cur ? "" : "on"}" href="#assets/accounts">全部 <b>${all.length}</b></a>${catPages().map(p => `<a class="${cur === p.slug ? "on" : ""}" href="#assets/accounts/cat/${p.slug}">${esc(p.label)} <b>${all.filter(a => catOf(a).slug === p.slug).length}</b></a>`).join("")}</nav>`;
+  const all = model.accs; return `<nav class="catnav"><a class="${cur ? "" : "on"}" href="#accounts/identities">全部 <b>${all.length}</b></a>${catPages().map(p => `<a class="${cur === p.slug ? "on" : ""}" href="#accounts/cat/${p.slug}">${esc(p.label)} <b>${all.filter(a => catOf(a).slug === p.slug).length}</b></a>`).join("")}</nav>`;
 }
 function renderCat(slug) {
   const m = model = buildModel(M.accounts?.items || [], M.identities?.items || []), pg = catPages().find(p => p.slug === slug);

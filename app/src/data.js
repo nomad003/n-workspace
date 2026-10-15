@@ -1,7 +1,7 @@
 // Loaded data + derived helpers shared by pages.
-import { match, nextRenewal, taskDue, known, isAgentTask, daysUntil } from "./core.js";
+import { match, nextRenewal, taskDue, known, isAgentTask, daysUntil, twoFaState, weak2fa } from "./core.js";
 export const bundle = await fetch("../data/bundle.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null);
-const IDS = ["overview", "affairs", "assets", "workcontent", "kb", "sources"];
+const IDS = ["today", "plan", "knowledge", "accounts", "agents", "settings"];
 export const views = (await Promise.all(IDS.map(id => fetch(`../views/${id}.json`).then(r => r.json())))).sort((a, b) => a.order - b.order);
 export const V = Object.fromEntries(views.map(v => [v.id, v]));
 export const M = bundle?.modules || {};
@@ -11,12 +11,12 @@ export const notesWhere = f => f ? records.filter(r => match(r, f)).sort((a, b) 
 let idx; export const kbIndex = async () => idx ||= await fetch("../data/kb-index.json", { cache: "no-store" }).then(r => r.ok ? r.json() : []).catch(() => []);
 export const noteBody = r => fetch(`../data/notes/${r.f}.json`, { cache: "no-store" }).then(x => x.ok ? x.json() : null).catch(() => null);
 
-export const FX = V.overview?.fx || { CNY: 1, USD: 7.1, JPY: 0.047, HKD: 0.91 };
+export const FX = V.today?.fx || { CNY: 1, USD: 7.1, JPY: 0.047, HKD: 0.91 };
 export const tasks = () => M.tasks?.items || [];
 export const openTasks = () => tasks().filter(t => !/done|closed|cancel/i.test(t.status || ""));
 export const stageOf = t => /progress|doing/i.test(t.status) ? "in-progress" : /pend|block|wait/i.test(t.status) ? "pending" : /done|closed/i.test(t.status) ? "done" : "open";
 export const TSTAGE = [["open", "待办", "agent"], ["in-progress", "进行中", "coding"], ["pending", "等待", "modes"], ["done", "完成", "ai"]];
-export const isLifeTask = t => match(t, V.affairs?.life_tasks || {});
+export const isLifeTask = t => match(t, { "source~": ["12个月行动清单", "人生资产负债表"] });
 export const subs = () => M.subscriptions?.items || [];
 const CAT = [[/openai|chatgpt|grok|perplexity|google ai|openrouter|claude/i, "AI 工具", "coding"], [/icloud|drive|dropbox|storage/i, "存储", "ext"], [/vps|hostinger|cloud|hyper3d|server/i, "云 / 开发", "agent"],
   [/视频|music|netflix|bilibili|vip/i, "影音会员", "tui"], [/许可|license/i, "软件许可", "ai"]];
@@ -28,7 +28,7 @@ export const toCNY = (amt, cur) => FX[String(cur).toUpperCase()] == null ? null 
 export const monthlyCNY = () => subs().filter(liveSub).reduce((t, s) => { const k = CYCLE(s), v = toCNY(s.amount, s.currency); return k && v != null ? t + v / k : t; }, 0);
 export const dupKey = s => String(s.service || "").toLowerCase().replace(/[（(].*$|\bvia\b.*$/g, "").trim();
 export const dupSet = () => { const c = {}; subs().forEach(s => c[dupKey(s)] = (c[dupKey(s)] || 0) + 1); return new Set(Object.keys(c).filter(k => c[k] > 1)); };
-export const has2fa = a => { const v = a.two_fa; if (!known(v)) return "待确认"; return /^(no|none|false|off|无|否|未开|关闭)/i.test(String(v)) ? "未开启" : "已开启"; };
+export const has2fa = a => ({ on: "已开启", off: "未开启", unknown: "待确认", na: "不适用" })[twoFaState(a.two_fa)];
 export const AGENTS = ["Bot", "X", "KB", "Pi", "Github", "Register", "Blibli"];
 export function agentState(a) {
   const ts = tasks().filter(t => t.owner === a), ch = (M.content?.items || []).filter(c => c.owner_agent === a);
@@ -42,7 +42,7 @@ export const accId = a => String(a.service ?? "").trim().toLowerCase().replace(/
 export const accHref = a => `#account/${encodeURIComponent(accId(a))}`;
 export const accounts = () => M.accounts?.items || [];
 export const accById = id => accounts().find(a => accId(a) === id);
-const AC = () => V.assets?.account_categories || { pages: [], by_category: {} };
+const AC = () => V.accounts?.account_categories || { pages: [], by_category: {} };
 export const catPages = () => AC().pages;
 const anchorRe = /^(Gmail \/ Google|Microsoft 账号|QQ ?邮箱|手机号运营商)/;
 export function catOf(a) {
@@ -62,3 +62,6 @@ export async function relatedNotes(a) {
   const byTitle = ix.filter(n => hit(n.title, a)), byText = ix.filter(n => !byTitle.includes(n) && hit(n.text, a));
   return { byTitle, byText: byText.sort((x, y) => (y.text.toLowerCase().split(t).length) - (x.text.toLowerCase().split(t).length)) };
 }
+
+export const noteByPath = (root, p) => byId.get(`${root}:${p}`);
+export const plan = () => bundle?.plan || null;

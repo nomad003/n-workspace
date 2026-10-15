@@ -1,0 +1,13 @@
+{
+ "id": "agents",
+ "name": "Agents",
+ "order": 4,
+ "agent_notes": {
+  "root": [
+   "life"
+  ],
+  "path": [
+   "agent-ops/"
+  ]
+ }
+}

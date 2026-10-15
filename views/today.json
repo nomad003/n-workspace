@@ -1,0 +1,10 @@
+{
+ "id": "today",
+ "name": "今天",
+ "order": 0,
+ "due_days": 7,
+ "window_days": 30,
+ "risk_renewal_days": 14,
+ "max_rows": 5,
+ "recent_notes": 4
+}

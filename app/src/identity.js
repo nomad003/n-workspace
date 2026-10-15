@@ -2,13 +2,13 @@
 // Prefers explicit fields (data/identities.yaml; accounts.email_id / login_via / recovery / url). When they are absent it
 // falls back to parsing login_method / phone_binding text. Inferred links are flagged `inferred`; no value is invented
 // (addresses, URLs and 2FA states only come from data).
-import { known } from "./core.js";
+import { known, twoFaState, weak2fa, priorityOf } from "./core.js";
 const as = v => v == null ? [] : Array.isArray(v) ? v : String(v).split(/[,，、;；]\s*/);
 const RANK = { P0: 0, P1: 1, P2: 2, P3: 3, P4: 4 };
 export const rank = r => { const m = String(r ?? "").toUpperCase().match(/^P(\d)/); return m ? +m[1] : 9; };
-export const prio = a => known(a.priority) ? a.priority : known(a.risk) ? a.risk : null; // priority (P0/P1/P2+) wins over risk
+export const prio = priorityOf;
 export const prank = a => rank(prio(a));
-export const fa = v => /^[—–-]+$/.test(String(v ?? "").trim()) ? "na" : !known(v) || /^(不确定|uncertain|unsure|未知)/i.test(String(v).trim()) ? "unknown" : /^(no|none|false|off|无|否|未开|关闭)/i.test(String(v)) ? "off" : "on";
+export const fa = twoFaState; // shared definition from core.js
 
 // Fallback identity catalogue, used only when identities.yaml is absent. Keys match login_method text.
 const FALLBACK = [
@@ -148,7 +148,7 @@ export const unbound = a => unk(a.email_id);
 export function security(m) {
   const live = m.accs.filter(a => !/closed/i.test(a.status ?? "")), by = xs => xs.sort((x, y) => prank(x) - prank(y) || rank(x.risk) - rank(y.risk));
   return {
-    weak2fa: by(live.filter(a => prank(a) <= 1 && fa(a.two_fa) !== "on")),
+    weak2fa: by(weak2fa(m.accs)),
     noRecovery: by(live.filter(a => unk(a.recovery))),
     unbound: by(live.filter(unbound)),
     noPM: by(live.filter(noPM)),
