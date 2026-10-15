@@ -36,3 +36,29 @@ export function agentState(a) {
   return { name: a, tasks: ts, channels: ch, label: st[0], c: st[1] };
 }
 export { match, nextRenewal, taskDue, known, isAgentTask, daysUntil };
+
+// ---- accounts: stable ids, category pages (views/assets.json account_categories), relations
+export const accId = a => String(a.service ?? "").trim().toLowerCase().replace(/[\s/·]+/g, "-").replace(/[()（）.]+/g, "").replace(/-+/g, "-").replace(/^-|-$/g, "");
+export const accHref = a => `#account/${encodeURIComponent(accId(a))}`;
+export const accounts = () => M.accounts?.items || [];
+export const accById = id => accounts().find(a => accId(a) === id);
+const AC = () => V.assets?.account_categories || { pages: [], by_category: {} };
+export const catPages = () => AC().pages;
+const anchorRe = /^(Gmail \/ Google|Microsoft 账号|QQ ?邮箱|手机号运营商)/;
+export function catOf(a) {
+  const c = AC(), ov = c.service_overrides?.[a.service]; if (ov) return { slug: ov, rule: "override" };
+  if (c.identity_anchors) { const ids = M.identities?.items || []; // anchor = provider's own account: its email_id is that identity and it logs in with the provider account itself
+    const own = ids.some(i => [].concat(a.email_id ?? []).includes(i.id) && /-account$|^phone-sms/.test(String(a.login_via ?? "")) && anchorRe.test(a.service)) || anchorRe.test(a.service);
+    if (own) return { slug: "identity", rule: "identity" }; }
+  for (const s of c.split || []) if (a.category === s.category && new RegExp(s.service_re, "i").test(a.service ?? "")) return { slug: s.to, rule: "split" };
+  const m = c.by_category?.[a.category]; return m ? { slug: m, rule: "category" } : { slug: "other", rule: "unmapped" };
+}
+const tok = a => String(a.service ?? "").split(/\s*[/（(]\s*/)[0].trim();
+const hit = (txt, a) => { const t = tok(a); if (t.length < 2 || (/^[\x00-\x7f]+$/.test(t) && t.length < 3)) return false; return String(txt ?? "").toLowerCase().includes(t.toLowerCase()); };
+export const relatedSubs = a => subs().filter(s => hit(s.service, a) || hit(a.service, { service: s.service }) || hit(s.notes, a));
+export const relatedTasks = a => tasks().filter(t => hit(t.title, a) || hit(t.notes, a));
+export async function relatedNotes(a) {
+  const ix = await kbIndex(), t = tok(a).toLowerCase();
+  const byTitle = ix.filter(n => hit(n.title, a)), byText = ix.filter(n => !byTitle.includes(n) && hit(n.text, a));
+  return { byTitle, byText: byText.sort((x, y) => (y.text.toLowerCase().split(t).length) - (x.text.toLowerCase().split(t).length)) };
+}

@@ -1,5 +1,5 @@
 // 个人资产 · 账号: identity-centred view — identity cards, dependency graph (SVG), SPOFs, grouped table with filters + drawer, checklists.
-import { M, V } from "../data.js";
+import { M, V, accHref, catOf, catPages } from "../data.js";
 import { buildModel, checklist, rank, prank, prio, fa, edgeStats, security, missingOf, noPM, unbound, mask, KEY_FIELDS } from "../identity.js";
 import { esc, known, pending, countUnknown, card, more, kpis, badge, riskC, fmt } from "../ui.js";
 const FA = { na: ["不适用", "infra"], on: ["已开启", "ai"], off: ["未开启", "err"], unknown: ["待确认", "modes"] };
@@ -44,15 +44,15 @@ const via = a => { const v = String(a.login_via ?? "").replace(/[（(].*$/, "").
 const idl = (m, v) => [].concat(v ?? []).map(x => m.ids.find(i => i.id === String(x).replace(/[（(].*$/, "").trim())?.label).filter(Boolean);
 function filtered(m) {
   const q = S.q.toLowerCase();
-  return m.accs.filter(a => (!S.prio.size || S.prio.has(String(prio(a)).replace("+", "")))
+  return m.accs.filter(a => (!S.cat || catOf(a).slug === S.cat) && (!S.prio.size || S.prio.has(String(prio(a)).replace("+", "")))
     && (!S.email || (S.email === "_none" ? unbound(a) : [].concat(a.email_id ?? []).some(x => String(x).startsWith(S.email))))
     && (!S.miss || missingOf(a).length > 0)
     && (!q || Object.values(a).some(v => typeof v === "string" && v.toLowerCase().includes(q)))).sort((x, y) => prank(x) - prank(y) || rank(x.risk) - rank(y.risk));
 }
 const acard = (m, a) => { const miss = missingOf(a), url = known(a.url) && /^https?:\/\//.test(a.url) ? a.url : null, f = FA[fa(a.two_fa)];
   const row = (k, label, val) => `<dt>${label}</dt><dd>${miss.includes(k) ? `<span class="miss">待补充</span>` : val}</dd>`;
-  return `<article class="acard ${/closed/i.test(a.status ?? "") ? "closed" : ""} ${miss.length ? "has-miss" : ""}" data-acc="${a._k}">
-    <header><b>${esc(a.service)}</b>${PR(a)}${m.spof.some(s => s.key === a._k) ? `<span class="sd L-err">单点</span>` : ""}<span class="sp"></span>${miss.length ? `<span class="mc" title="${esc(miss.join("、"))}">${miss.length} 缺</span>` : `<span class="mc ok">完整</span>`}</header>
+  return `<article class="acard ${/closed/i.test(a.status ?? "") ? "closed" : ""} ${miss.length ? "has-miss" : ""}">
+    <header><a class="an" href="${accHref(a)}"><b>${esc(a.service)}</b></a>${PR(a)}${m.spof.some(s => s.key === a._k) ? `<span class="sd L-err">单点</span>` : ""}<span class="sp"></span>${miss.length ? `<span class="mc" title="${esc(miss.join("、"))}">${miss.length} 缺</span>` : `<span class="mc ok">完整</span>`}</header>
     <dl class="kv sm">${row("email_id", "身份", idl(m, a.email_id).map(x => `<span class="tag">${esc(x)}</span>`).join("") || esc(mask(a.email_id)))}
     ${row("login_via", "登录", esc(via(a)))}${row("recovery", "恢复", idl(m, a.recovery).map(x => `<span class="tag">${esc(x)}</span>`).join("") || esc(a.recovery))}
     ${row("two_fa", "2FA", `<span class="sd L-${f[1]}" title="${esc(a.two_fa ?? "")}">${f[1] === "ai" ? esc(String(a.two_fa).slice(0, 18)) : f[0]}</span>`)}
@@ -75,7 +75,10 @@ function drawer(m) {
     ${miss.length ? `<div class="pend"><b>${miss.length}</b> 项待补充<span>：${miss.map(esc).join("、")}</span></div>` : ""}</aside>`;
 }
 
-export function render() {
+export function render(rest = [], P = new URLSearchParams()) {
+  if (P.get("id")) S.openId = P.get("id");
+  S.cat = rest[0] === "cat" ? rest[1] || "" : "";
+  if (S.cat) return renderCat(S.cat);
   const accounts = M.accounts?.items || [], m = model = buildModel(accounts, M.identities?.items || []), sec = security(m);
   const live = m.accs.filter(x => !/closed/i.test(x.status || "")), imp = live.filter(a => prank(a) <= 1);
   const st = edgeStats(m), src = m.explicit ? `身份来自 identities.yaml · 关系 ${st.real} 条来自字段，${st.inferred} 条由 login_method 推断补全` : "身份由 login_method 推断（未找到 identities.yaml）";
@@ -86,9 +89,9 @@ export function render() {
       <div class="ia mono">${known(i.address) ? esc(mask(String(i.address).replace(/[（(].*$/, ""))) : `<span class="note">地址未录入</span>`}</div>${known(i.role) ? `<div class="ir">${esc(i.role)}</div>` : ""}
       <dl class="kv sm"><dt>2FA</dt><dd><span class="sd L-${f[1]}" title="${esc(i.two_fa ?? "")}">${f[0]}</span></dd><dt>恢复</dt><dd>${i.recovery.length ? i.recovery.map(r => `<span class="tag">${esc(r)}</span>`).join("") : `<span class="sd L-err">无记录</span>`}</dd>
       <dt>P0/P1</dt><dd><b>${bound.filter(a => prank(a) <= 1).length}</b> 个</dd></dl><span class="exp">展开绑定账号 ▾</span></summary>
-      <div class="bl">${bound.map(a => `<a class="brow" data-acc="${a._k}">${PR(a)}<span>${esc(a.service)}</span><span class="sd L-${FA[fa(a.two_fa)][1]}">${FA[fa(a.two_fa)][0]}</span></a>`).join("") || `<p class="empty">无</p>`}</div></details>`; }).join("");
+      <div class="bl">${bound.map(a => `<a class="brow" href="${accHref(a)}">${PR(a)}<span>${esc(a.service)}</span><span class="sd L-${FA[fa(a.two_fa)][1]}">${FA[fa(a.two_fa)][0]}</span></a>`).join("") || `<p class="empty">无</p>`}</div></details>`; }).join("");
   // 2. security overview
-  const sl = (title, xs, why, warn) => card(`${title}`, xs.length ? `<div class="slist">${xs.slice(0, 8).map(a => `<a class="srow" data-acc="${a._k}">${PR(a)}<span class="t">${esc(a.service)}</span><span class="m">${esc(why(a))}</span></a>`).join("")}</div>${xs.length > 8 ? more(xs.length - 8, `<div class="slist">${xs.slice(8).map(a => `<a class="srow" data-acc="${a._k}">${PR(a)}<span class="t">${esc(a.service)}</span><span class="m">${esc(why(a))}</span></a>`).join("")}</div>`, "展开全部") : ""}` : `<p class="empty">无</p>`, { span: "s6", right: `<b class="${warn && xs.length ? "warnn" : ""}">${xs.length}</b>` });
+  const sl = (title, xs, why, warn) => card(`${title}`, xs.length ? `<div class="slist">${xs.slice(0, 8).map(a => `<a class="srow" href="${accHref(a)}">${PR(a)}<span class="t">${esc(a.service)}</span><span class="m">${esc(why(a))}</span></a>`).join("")}</div>${xs.length > 8 ? more(xs.length - 8, `<div class="slist">${xs.slice(8).map(a => `<a class="srow" href="${accHref(a)}">${PR(a)}<span class="t">${esc(a.service)}</span><span class="m">${esc(why(a))}</span></a>`).join("")}</div>`, "展开全部") : ""}` : `<p class="empty">无</p>`, { span: "s6", right: `<b class="${warn && xs.length ? "warnn" : ""}">${xs.length}</b>` });
   const sec4 = `<div class="grid" id="secov">${sl("P0/P1 · 2FA 未确认 / 不确定 / 否", sec.weak2fa, a => String(a.two_fa ?? ""), 1)}${sl("缺恢复方式", sec.noRecovery, a => `recovery: ${a.recovery ?? "—"}`, 1)}
     ${sl("未绑定身份（email_id 待补充）", sec.unbound, a => a.category ?? "", 0)}${sl("未使用密码管理器", sec.noPM, a => a.password_location, 1)}</div>${sec.pmUnknown ? `<p class="note">另有 ${sec.pmUnknown} 个账号 password_location 待补充。</p>` : ""}`;
   const spofHtml = s => `<div class="al L-${LVL[s.level][0]}"><span class="lv">${LVL[s.level][1]}</span>${esc(s.title)}${s.items.length ? `<div class="m">${s.kind === "account" ? "链：" : ""}${s.items.map(esc).join(s.kind === "account" ? " → " : "、")}</div>` : ""}</div>`;
@@ -97,7 +100,7 @@ export function render() {
   const missTotal = live.reduce((n, a) => n + missingOf(a).length, 0);
   return `${pending(missTotal, `关键字段（${KEY_FIELDS.join(" / ")}）`)}<div class="pend info">${esc(src)}</div>
     ${kpis([[imp.length, "P0/P1 重要账号"], [sec.weak2fa.length, "重要账号 2FA 未确认", { warn: sec.weak2fa.length > 0 }], [sec.noRecovery.length, "缺恢复方式", { warn: sec.noRecovery.length > 0 }], [sec.unbound.length, "未绑定身份"], [sec.noPM.length, "未用密码管理器", { warn: sec.noPM.length > 0 }]])}
-    <h3 class="subh">身份</h3><div class="idcards" id="idview">${idv}</div>
+    ${catNav("")}<h3 class="subh">身份</h3><div class="idcards" id="idview">${idv}</div>
     <h3 class="subh">安全概览</h3>${sec4}
     ${m.spof.length ? more(m.spof.length, m.spof.map(spofHtml).join(""), "单点故障") : ""}
     ${more("", graph(m), "依赖图 · 身份 → 账号")}
@@ -119,10 +122,31 @@ export function mount(el) {
   el.addEventListener("click", e => {
     if (!el.querySelector("#atbl")) return;
     const r = e.target.closest("[data-prio]"); if (r) { const v = r.dataset.prio; S.prio.has(v) ? S.prio.delete(v) : S.prio.add(v); r.classList.toggle("on"); T(); return; }
+    const c = e.target.closest(".acard"); if (c && !e.target.closest("a")) { location.hash = c.querySelector("a.an").getAttribute("href"); return; }
     if (e.target.closest("[data-all]")) { S.all = !S.all; T(); return; }
     if (e.target.closest("[data-close]")) { S.open = null; D(); return; }
     const a = e.target.closest("[data-acc]"); if (a) { e.preventDefault(); S.open = a.dataset.acc; D(); }
   }, o);
+  const tgt = S.openId && el.querySelector(`[data-idn="${CSS.escape(S.openId)}"]`); if (tgt && location.hash.includes("id=")) { tgt.open = true; setTimeout(() => tgt.scrollIntoView({ block: "center" }), 50); }
   el.addEventListener("toggle", e => { if (e.target.dataset?.idn && e.target.open) S.openId = e.target.dataset.idn; }, { ...o, capture: true });
   addEventListener("keydown", e => { if (e.key === "Escape" && S.open) { S.open = null; D(); } }, o);
+}
+
+function catNav(cur) {
+  const all = model.accs; return `<nav class="catnav"><a class="${cur ? "" : "on"}" href="#assets/accounts">全部 <b>${all.length}</b></a>${catPages().map(p => `<a class="${cur === p.slug ? "on" : ""}" href="#assets/accounts/cat/${p.slug}">${esc(p.label)} <b>${all.filter(a => catOf(a).slug === p.slug).length}</b></a>`).join("")}</nav>`;
+}
+function renderCat(slug) {
+  const m = model = buildModel(M.accounts?.items || [], M.identities?.items || []), pg = catPages().find(p => p.slug === slug);
+  if (!pg) return `<p class="empty">未知分类：${esc(slug)}</p>`;
+  const xs = m.accs.filter(a => catOf(a).slug === slug), live = xs.filter(a => !/closed/i.test(a.status ?? ""));
+  const w2 = live.filter(a => fa(a.two_fa) !== "on"), w2i = w2.filter(a => prank(a) <= 1), nr = live.filter(a => missingOf(a).includes("recovery"));
+  const srcCats = [...new Set(xs.map(a => a.category))].filter(Boolean);
+  const top = (t, ys) => ys.length ? `<div class="slist">${ys.slice(0, 6).map(a => `<a class="srow" href="${accHref(a)}">${PR(a)}<span class="t">${esc(a.service)}</span><span class="m">${esc(t(a))}</span></a>`).join("")}</div>${ys.length > 6 ? more(ys.length - 6, `<div class="slist">${ys.slice(6).map(a => `<a class="srow" href="${accHref(a)}">${PR(a)}<span class="t">${esc(a.service)}</span><span class="m">${esc(t(a))}</span></a>`).join("")}</div>`, "展开全部") : ""}` : `<p class="empty">无</p>`;
+  return `${catNav(slug)}<p class="note">来源 category：${srcCats.map(c => `<span class="tag">${esc(c)}</span>`).join("") || "—"}</p>
+    ${kpis([[xs.length, "账号"], [w2.length, "2FA 未确认", { warn: w2.length > 0 }], [w2i.length, "其中 P0/P1", { warn: w2i.length > 0 }], [nr.length, "缺恢复方式", { warn: nr.length > 0 }]])}
+    <div class="grid">${card("2FA 未确认 · 按优先级", top(a => String(a.two_fa ?? ""), w2.sort((x, y) => prank(x) - prank(y))), { span: "s6", right: w2.length })}${card("缺恢复方式", top(a => `recovery: ${a.recovery ?? "—"}`, nr.sort((x, y) => prank(x) - prank(y))), { span: "s6", right: nr.length })}</div>
+    <div class="grid"><section class="card s12" id="acct"><h3>${esc(pg.label)} · 账号</h3>
+      <div class="afilters"><input id="aq" placeholder="搜索…" value="${esc(S.q)}">${["P0", "P1", "P2"].map(r => `<button class="fchip ${S.prio.has(r) ? "on" : ""}" data-prio="${r}">${r === "P2" ? "P2+" : r}</button>`).join("")}
+      <select id="aem"><option value="">全部邮箱 / 身份</option>${m.ids.map(i => `<option value="${esc(i.id)}" ${S.email === i.id ? "selected" : ""}>${esc(i.label)}</option>`).join("")}<option value="_none">未绑定</option></select>
+      <label class="fchk"><input type="checkbox" id="amiss" ${S.miss ? "checked" : ""}> 有缺失字段</label></div><div id="atbl">${tableHtml(m)}</div></section></div><div id="adrawer"></div>`;
 }
