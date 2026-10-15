@@ -1,7 +1,7 @@
 // Zero-dependency static server bound to 127.0.0.1 only (serves app/, views/, data/ for local use).
 import http from "node:http"; import fs from "node:fs"; import path from "node:path";
 const ROOT = path.resolve(process.env.SERVE_ROOT || "."), PORT = +(process.env.PORT || 5173), HOST = "127.0.0.1";
-const ALLOW = ["/app/", "/views/", "/data/bundle.json", "/schema/", "/index.html", "/"];
+const ALLOW = ["/app/", "/views/", "/data/bundle.json", "/data/kb-index.json", "/data/notes/", "/schema/", "/index.html", "/"];
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css", ".json": "application/json; charset=utf-8", ".png": "image/png", ".svg": "image/svg+xml" };
 http.createServer((req, res) => {
   let p = decodeURIComponent(new URL(req.url, "http://x").pathname);

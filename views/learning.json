@@ -1,1 +1,0 @@
-{"id": "learning", "name": "学习与成长", "order": 6, "layout": "notes", "notes": {"any": [{"type": ["note", "course"], "area": ["cs", "ai-ml", "game-backend", "reading", "tools", "investment", "health"], "root": ["kb"]}, {"root": ["life"], "path": ["learning/"]}]}, "group_by": "maturity", "default_group": "stub", "columns_board": ["stub", "learning", "evolving", "evergreen"]}

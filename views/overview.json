@@ -1,1 +1,8 @@
-{"id":"overview","name":"总览","order":0,"layout":"overview","window_days":30,"risk_renewal_days":14}
+{
+ "id": "overview",
+ "name": "总览",
+ "order": 0,
+ "due_days": 7,
+ "window_days": 30,
+ "risk_renewal_days": 7
+}

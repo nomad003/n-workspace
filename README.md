@@ -1,6 +1,8 @@
 # n-workspace
 
-Personal life/work dashboard: 9 modules (总览, 个人信息, 账号中心, 订阅与支出, 理财, 工作与项目, 学习与成长, 内容运营, 生活事务).
+Personal life/work dashboard: 6 modules: 总览 (7-day due items, risks, agents) · 事务 (tasks / 生活事务 / 日记) · 个人资产 (个人信息 / 账号 / 订阅 / 理财 tabs) · 工作与内容 (reports / 内容运营 / agent ops) · 知识库 (home, directory tree, maturity view incl. 学习与成长, note pages with wikilinks + backlinks, full-text search) · 数据源 (source registry: n-life-data primary, n-knowledge-base secondary, X / Bilibili reserved; sync ref/commit, fetch time, missing fields).
+
+Lean UI: one-line headers, summaries first with full tables behind 『展开全部』, placeholder values hidden and counted as 『N 项待补充』, flat sidebar, right rail only on 总览, ≤1 chart per page. Code: `app/src/main.js` (shell, router, ⌘K) + `app/src/pages/*.js` + `ui.js` / `data.js`.
 **This repo is code only.** All data comes from the private KB `nomad003/n-knowledge-base` at build time and is never committed
 (`/kb/`, `/data/`, `/dist/`, `.env*` are gitignored).
 
@@ -31,7 +33,7 @@ Two content roots, fetched as plain folders (not submodules) into gitignored `kb
 | `KB_TOKEN` / `LIFE_TOKEN` | `gh auth token` | used only in memory for the clone, never written to disk |
 | `SKIP_FETCH=1` | – | reuse existing `kb/` and `life/` |
 | `SHOW_PRIVATE` | on | personal local tool. `SHOW_PRIVATE=0` drops all life content and every KB note/data item not marked `privacy: public` |
-| `PORT` | 5173 | server port (always bound to 127.0.0.1; only `app/`, `views/`, `schema/` and `data/bundle.json` are served) |
+| `PORT` | 5173 | server port (always bound to 127.0.0.1; only `app/`, `views/`, `schema/`, `data/bundle.json`, `data/kb-index.json` and `data/notes/` are served) |
 
 `npm run demo` builds from `examples/` (synthetic, fake data).
 
@@ -48,7 +50,7 @@ Two content roots, fetched as plain folders (not submodules) into gitignored `kb
 
 ## Future deploy: Cloudflare Pages + Access (not set up)
 
-1. Pages project from this repo; build command `sh scripts/fetch-root.sh kb && sh scripts/fetch-root.sh life && node scripts/build-index.mjs && mkdir -p dist && cp -R app views index.html dist/ && mkdir -p dist/data && cp data/bundle.json dist/data/`, output `dist`.
+1. Pages project from this repo; build command `sh scripts/fetch-root.sh kb && sh scripts/fetch-root.sh life && node scripts/build-index.mjs && mkdir -p dist && cp -R app views index.html dist/ && mkdir -p dist/data && cp -R data/bundle.json data/kb-index.json data/notes dist/data/`, output `dist`.
 2. Add `KB_TOKEN` (fine-grained, read-only on the KB) as an encrypted build env var. Do **not** add `gh`.
 3. **Before the first deploy**, put the whole Pages domain (including `*.pages.dev` previews) behind **Cloudflare Access** (Zero Trust → Applications → self-hosted, allow only your email/IdP). The bundle contains private data whenever `SHOW_PRIVATE` is not `0`.
 4. Consider `SHOW_PRIVATE=0` for any deploy not protected by Access.
@@ -59,3 +61,10 @@ Design system adapted from [pi-analysis](https://pi-analysis.pages.dev/) (nomad0
 neutral surfaces with a violet accent, per-category color tokens (`--l`, `--l-bg`, `--l-fg`), chips/status dots, radial-glow hero with a masked grid,
 stats strip, light/dark theme (persisted in `localStorage`), and a mobile drawer. Charts are dependency-free SVG (`app/src/charts.js`):
 donut, stacked bars, horizontal bars, progress, timeline and an agent→module flow diagram.
+
+## Build outputs (all gitignored under `data/`)
+
+* `data/bundle.json` — module data, lite note records, source registry (`sources`), overview.
+* `data/kb-index.json` — per-note title/path/tags/links/backlinks + plain text (≤30k chars) for client-side full-text search, loaded lazily.
+* `data/notes/<hash>.json` — note HTML rendered at build time with [`marked`](https://github.com/markedjs/marked); wikilinks / `kb://` / `life://` rewritten to in-app links, scripts/iframes/`on*` attributes stripped.
+* `<root>/.nw-source.json` — written by `fetch-root.sh` (repo, ref, commit, commit date, fetch time) and shown on 数据源.
