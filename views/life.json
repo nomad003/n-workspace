@@ -1,1 +1,1 @@
-{"name":"生活与账号","filter":{"area":["life"]},"group_by":"type","layout":"table","fields":["type","status","updated","tags"]}
+{"id":"life","name":"生活事务","order":8,"data":"tasks","data_filter":{"module":["life","home","family"]},"layout":"table","columns":["title","status","due","priority"],"notes":{"area":["life"],"not_path":["13-Life/生活拓展/X账号运营","13-Life/Profile","13-Life/简历","13-Life/生活事务/订阅与续费","13-Life/生活事务/互联网账号总表","13-Life/生活事务/账号敏感信息"]}}

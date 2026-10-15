@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "n-workspace/tasks",
+  "title": "Task",
+  "description": "KB file n-knowledge-base/data/tasks.yaml. Either a top-level list or {items|tasks: [...]}. Unknown fields are kept; secret-like fields (password/secret/token/recovery_code/pin/cvv) are dropped by the loader.",
+  "oneOf": [
+    {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/item"
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/item"
+          }
+        },
+        "tasks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/item"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "item": {
+      "type": "object",
+      "required": [
+        "title"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "todo",
+            "doing",
+            "blocked",
+            "done",
+            "cancelled"
+          ]
+        },
+        "due": {
+          "type": "string",
+          "format": "date",
+          "description": "Alias: deadline, due_date"
+        },
+        "priority": {
+          "enum": [
+            "p0",
+            "p1",
+            "p2",
+            "p3",
+            "high",
+            "medium",
+            "low"
+          ]
+        },
+        "owner": {
+          "description": "me, or agent:<name> for agent tasks"
+        },
+        "agent": {
+          "type": "string"
+        },
+        "module": {
+          "type": "string"
+        },
+        "project": {
+          "type": "string"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "privacy": {
+          "enum": [
+            "public",
+            "private"
+          ],
+          "default": "private"
+        }
+      }
+    }
+  }
+}

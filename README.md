@@ -1,22 +1,42 @@
 # n-workspace
 
-Code-only workspace viewer for a private knowledge base. **This repo is public and never holds data or secrets.**
+Personal life/work dashboard: 9 modules (总览, 个人信息, 账号中心, 订阅与支出, 理财, 工作与项目, 学习与成长, 内容运营, 生活事务).
+**This repo is code only.** All data comes from the private KB `nomad003/n-knowledge-base` at build time and is never committed
+(`/kb/`, `/data/`, `/dist/`, `.env*` are gitignored).
 
-## Layout
-- `schema/` — record schema (`record.schema.json`): type, area, project, status, maturity, owner, privacy, created, updated, tags, origin.
-- `views/` — view configs: 今日 (`today`), 项目看板 (`projects`), 学习 (`learning`), 生活与账号 (`life`).
-- `app/` — static renderer (vanilla JS).
-- `scripts/fetch-kb.sh` — build-time clone of the private KB using `KB_TOKEN` from env / CI secret only.
-- `scripts/build-index.mjs` — parses frontmatter into `data/records.json`.
+## Quick start (macOS / Linux)
 
-## Usage
-```bash
-export KB_TOKEN=...        # fine-grained, read-only, never committed
-npm run build              # fetch KB -> kb/, index -> data/
-npm run serve              # open /app/
+Prerequisites: **Node.js ≥ 18**, `git`, a POSIX `sh`, plus either `KB_TOKEN` (a GitHub token with read access to the KB) or the `gh` CLI logged in (`gh auth login`).
+
+```sh
+npm start          # install deps if needed → fetch KB → build data/bundle.json → serve http://127.0.0.1:5173/app/
 ```
 
-## Privacy rules
-- `kb/`, `data/`, `dist/`, `.env` are gitignored. Never commit KB content.
-- Records default to `privacy: private` and are hidden unless `SHOW_PRIVATE=1` at local build time.
-- Deploy built output only to a private target (local, or Cloudflare Pages + Access). Do not publish to public GitHub Pages.
+| env | default | meaning |
+|---|---|---|
+| `KB_TOKEN` | `gh auth token` | GitHub token; used only in memory for the clone, never written to disk |
+| `KB_REF` | `main` | KB branch to fetch (e.g. a `feat/data-*` branch) |
+| `KB_LOCAL` | – | copy from a local KB clone instead of fetching |
+| `SKIP_FETCH=1` | – | reuse the existing `kb/` |
+| `SHOW_PRIVATE` | on | personal local tool: private records are included. `SHOW_PRIVATE=0` hides everything not marked `privacy: public` |
+| `PORT` | 5173 | server port (always bound to 127.0.0.1) |
+
+`npm run demo` builds from `examples/` (synthetic, fake data) to preview all widgets.
+
+## Data model
+
+* Notes: Markdown frontmatter (`schema/record.schema.json`). Privacy comes **only** from frontmatter `privacy`; missing means private. File names (e.g. `.local.md`) are never used.
+* Structured data: `n-knowledge-base/data/{accounts,subscriptions,finance,profile,tasks,content}.yaml` (schemas in `schema/*.schema.json`).
+  Loaders accept a top-level list, `{items: [...]}`, or an object of named lists; common field aliases are mapped
+  (`2fa`/`mfa`→`two_fa`, `renewal_date`/`next_billing`/`expires`→`next_renewal`, `deadline`→`due`, …). Fields that look like secrets
+  (password, token, secret, recovery codes, pin, cvv) are dropped and never reach the bundle. Missing files are reported in the UI.
+* `views/*.json` configure each module: which YAML file, which notes (by `path` prefix / `area` / `type`), columns, grouping.
+* 总览 computes countdowns (renewals, task due dates, document expiry) and risk alerts: accounts without 2FA or flagged at risk,
+  renewals within `risk_renewal_days`, overdue tasks. Agent tasks are tasks with `owner: agent:<name>`.
+
+## Future deploy: Cloudflare Pages + Access (not set up)
+
+1. Pages project from this repo; build command `sh scripts/fetch-kb.sh && node scripts/build-index.mjs && mkdir -p dist && cp -R app views index.html dist/ && mkdir -p dist/data && cp data/bundle.json dist/data/`, output `dist`.
+2. Add `KB_TOKEN` (fine-grained, read-only on the KB) as an encrypted build env var. Do **not** add `gh`.
+3. **Before the first deploy**, put the whole Pages domain (including `*.pages.dev` previews) behind **Cloudflare Access** (Zero Trust → Applications → self-hosted, allow only your email/IdP). The bundle contains private data whenever `SHOW_PRIVATE` is not `0`.
+4. Consider `SHOW_PRIVATE=0` for any deploy not protected by Access.

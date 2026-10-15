@@ -1,1 +1,0 @@
-{"name":"今日","filter":{"status":["active","draft"],"updated_within_days":3},"fallback":{"sort":["-updated"],"limit":10},"sort":["-updated"],"layout":"list"}

@@ -1,8 +1,8 @@
-data/
-dist/
+/data/
+/dist/
 .env
 .env.*
-kb/
+/kb/
 .kb-cache/
 node_modules/
 *.local.md

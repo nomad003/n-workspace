@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "n-workspace/subscriptions",
+  "title": "Subscription",
+  "description": "KB file n-knowledge-base/data/subscriptions.yaml. Either a top-level list or {items|subscriptions: [...]}. Unknown fields are kept; secret-like fields (password/secret/token/recovery_code/pin/cvv) are dropped by the loader.",
+  "oneOf": [
+    {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/item"
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/item"
+          }
+        },
+        "subscriptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/item"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "item": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "number"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "cycle": {
+          "enum": [
+            "weekly",
+            "monthly",
+            "quarterly",
+            "yearly",
+            "once"
+          ]
+        },
+        "next_renewal": {
+          "type": "string",
+          "format": "date",
+          "description": "Aliases: renewal_date, next_billing, renew_at, expires"
+        },
+        "auto_renew": {
+          "type": "boolean"
+        },
+        "payment_method": {
+          "type": "string"
+        },
+        "account": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "active",
+            "paused",
+            "cancelled",
+            "trial"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        },
+        "privacy": {
+          "enum": [
+            "public",
+            "private"
+          ],
+          "default": "private"
+        }
+      }
+    }
+  }
+}

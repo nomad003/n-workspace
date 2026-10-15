@@ -1,1 +1,0 @@
-{"name":"项目看板","filter":{"any":[{"type":["project","task"]},{"area":["projects"]}]},"group_by":"status","columns":["draft","active","done","archived"],"layout":"kanban"}

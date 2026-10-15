@@ -3,12 +3,16 @@
  "private": true,
  "type": "module",
  "scripts": {
-  "fetch-kb": "bash scripts/fetch-kb.sh",
-  "index": "node scripts/build-index.mjs",
-  "build": "npm run fetch-kb && npm run index",
-  "serve": "npx serve -l tcp://127.0.0.1:5173 ."
+  "start": "sh scripts/start.sh",
+  "fetch-kb": "sh scripts/fetch-kb.sh",
+  "build": "node scripts/build-index.mjs",
+  "serve": "node scripts/serve.mjs",
+  "demo": "KB_DEST=examples SHOW_PRIVATE=1 node scripts/build-index.mjs && node scripts/serve.mjs"
  },
  "dependencies": {
   "js-yaml": "^5.4.3"
+ },
+ "engines": {
+  "node": ">=18"
  }
 }

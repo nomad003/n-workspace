@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "n-workspace/finance",
+  "title": "Finance entry",
+  "description": "Top-level list, or an object of named lists (accounts, holdings, insurance, loans, goals...) which are flattened with kind=<list name>.",
+  "oneOf": [
+    {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/item"
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/item"
+          }
+        },
+        "finance": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/item"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "item": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "description": "cash|bank|broker|fund|stock|crypto|insurance|loan|goal"
+        },
+        "institution": {
+          "type": "string"
+        },
+        "balance": {
+          "type": "number"
+        },
+        "amount": {
+          "type": "number"
+        },
+        "currency": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "number"
+        },
+        "cost": {
+          "type": "number"
+        },
+        "price": {
+          "type": "number"
+        },
+        "target": {
+          "type": "number"
+        },
+        "due": {
+          "type": "string",
+          "format": "date"
+        },
+        "updated": {
+          "type": "string",
+          "format": "date"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "privacy": {
+          "enum": [
+            "public",
+            "private"
+          ],
+          "default": "private"
+        }
+      }
+    }
+  }
+}
