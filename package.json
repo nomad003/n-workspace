@@ -11,7 +11,8 @@
   "fetch-life": "sh scripts/fetch-root.sh life"
  },
  "dependencies": {
-  "js-yaml": "^5.4.3"
+  "js-yaml": "^5.4.3",
+  "marked": "^18.1.1"
  },
  "engines": {
   "node": ">=18"

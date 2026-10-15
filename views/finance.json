@@ -1,1 +1,0 @@
-{"id":"finance","name":"理财","order":4,"data":"finance","layout":"table","group_field":"kind","columns":["kind","institution","type","identifier","item","amount","value","rate_term","status","notes"],"notes":{"path":["04-Investment","13-Life/人生资产负债表","13-Life/生活拓展/投资","13-Life/生活拓展/收入拓展"]}}

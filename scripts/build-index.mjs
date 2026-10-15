@@ -1,7 +1,7 @@
 // Build data/bundle.json (gitignored) from the KB: notes frontmatter + n-knowledge-base/data/*.yaml.
 // Local builds include private records by default (personal tool). Opt out with SHOW_PRIVATE=0.
-import fs from "node:fs"; import path from "node:path"; import * as yaml from "js-yaml";
-import { toItems, normalize, isPublic, match, overview } from "../app/src/core.js";
+import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto"; import * as yaml from "js-yaml"; import { marked } from "marked";
+import { toItems, normalize, isPublic, match, overview, known } from "../app/src/core.js";
 
 // Two content roots (gitignored, fetched by scripts/fetch-root.sh):
 //   KB_ROOT   = n-knowledge-base (notes keep their frontmatter privacy)
@@ -19,6 +19,7 @@ const [DATA_DIR, DATA_ROOT] = process.env.DATA_DIR ? [process.env.DATA_DIR, proc
   : DATA_CANDIDATES.find(([d]) => fs.existsSync(d)) || [path.join(LIFE_ROOT, "data"), "life"];
 if (DATA_ROOT === "kb") warnings.push(`data/*.yaml read from KB fallback ${DATA_DIR} (expected ${path.join(LIFE_ROOT, "data")})`);
 const OUT = "data";
+fs.mkdirSync(OUT, { recursive: true });
 const showPrivate = process.env.SHOW_PRIVATE !== "0";
 const MODULE_FILES = ["accounts", "subscriptions", "finance", "profile", "tasks", "content"];
 const templateNames = new Set();
@@ -59,6 +60,7 @@ function walk(root, d, rootName) {
     f.root = rootName; f.id = `${rootName}:${rel}`;
     f.origin = { source: rootName === "life" ? "n-life-data" : "n-knowledge-base", ...(f.origin || {}), source_path: rel };
     f.links = linksIn(text, rootName);
+    Object.defineProperty(f, "_text", { value: text.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n?/, ""), enumerable: false });
     records.push(f);
   }
 }
@@ -127,17 +129,73 @@ for (const name of MODULE_FILES) {
 const shown = showPrivate ? records : records.filter(isPublic);
 const views = Object.fromEntries(fs.readdirSync("views").filter(f => f.endsWith(".json"))
   .map(f => JSON.parse(fs.readFileSync(path.join("views", f), "utf8"))).map(v => [v.id, v]));
-const bundle = { generated: new Date().toISOString(), show_private: showPrivate, kb_ref: process.env.KB_REF || null, life_ref: hasLife ? (process.env.LIFE_REF || "main") : null,
-  roots: { kb: fs.existsSync(KB_ROOT), life: hasLife }, data_root: DATA_ROOT, broken_links: broken, broken_list: brokenList.slice(0, 500),
-  data_dir: DATA_DIR, missing, warnings, records: shown,
-  private_hidden: records.length - shown.length, modules };
+
+/* ---------- note bodies: Markdown -> HTML (per-note JSON, loaded on demand) + full-text index ---------- */
+const noteFile = id => crypto.createHash("sha1").update(id).digest("hex").slice(0, 16);
+const escH = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const href = id => `#kb/note?id=${encodeURIComponent(id)}`;
+function renderNote(r) {
+  const code = []; // protect code from link rewriting
+  let md = r._text.replace(/```[\s\S]*?```|`[^`\n]*`/g, m => `\u0000${code.push(m) - 1}\u0000`);
+  md = md.replace(/!\[\[([^\]]+)\]\]/g, (m, t) => `<span class="att">附件 · ${escH(t.split("|")[0].split("/").pop())}</span>`);
+  md = md.replace(/\[\[([^\]|#\n]+?)\\?(#[^\]|\n]*)?(?:\\?\|([^\]\n]*))?\]\]/g, (m, t, h, alias) => {
+    const target = t.replace(/\\+$/, "").trim(), label = escH((alias || target.split("/").pop()).replace(/\\$/, ""));
+    if (ATTACH_RE.test(target)) return `<span class="att">附件 · ${escH(target.split("/").pop())}</span>`;
+    const id = resolve({ root: r.root, path: target }, r);
+    return id ? `<a class="wl" href="${href(id)}">${label}</a>` : templateNames.has(target.split("/").pop()) ? `<span class="wl tpl">${label}</span>` : `<span class="wl broken" title="未解析">${label}</span>`;
+  });
+  md = md.replace(/(\]\()?\b(kb|life):\/\/([^\s)\]"'`<>|，。；]+)/g, (m, inLink, root, p) => {
+    const id = resolve({ root, path: safeDecode(p).replace(/[.,;:）]+$/, "") }, r); const url = id ? href(id) : "#kb";
+    return inLink ? `](${url}` : id ? `[${escH(byId.get(id).title)}](${url})` : `<span class="wl broken">${escH(m)}</span>`;
+  });
+  md = md.replace(/\u0000(\d+)\u0000/g, (m, i) => code[+i]);
+  let html = marked.parse(md, { gfm: true, breaks: false });
+  html = html.replace(/<(script|iframe|object|embed|style)[\s\S]*?<\/\1>/gi, "").replace(/\son\w+="[^"]*"/gi, "").replace(/href="javascript:[^"]*"/gi, 'href="#"')
+    .replace(/<img[^>]*?(?:alt="([^"]*)")?[^>]*>/gi, (m, alt) => `<span class="att">图片${alt ? " · " + alt : ""}</span>`)
+    .replace(/<a href="(?!#|https?:|mailto:)([^"]*)"/g, '<a class="att" data-local="$1"');
+  return html;
+}
+const plain = t => t.replace(/```[\s\S]*?```/g, " ").replace(/!?\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (m, a, b) => b || a).replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+  .replace(/[#>*_`~|-]+/g, " ").replace(/\s+/g, " ").trim();
+fs.rmSync(path.join(OUT, "notes"), { recursive: true, force: true }); fs.mkdirSync(path.join(OUT, "notes"), { recursive: true });
+const kbIndex = [];
+for (const r of shown) {
+  const f = noteFile(r.id);
+  fs.writeFileSync(path.join(OUT, "notes", f + ".json"), JSON.stringify({ id: r.id, html: renderNote(r) }));
+  r.file = f;
+  kbIndex.push({ id: r.id, f, title: r.title, root: r.root, path: r.origin.source_path, area: r.area ?? null, type: r.type ?? null, status: r.status ?? null,
+    maturity: r.maturity ?? null, tags: r.tags, updated: r.updated ?? null, links: r.links.filter(l => l.id).map(l => l.id), backlinks: r.backlinks, text: plain(r._text).slice(0, 30000) });
+}
+fs.writeFileSync(path.join(OUT, "kb-index.json"), JSON.stringify(kbIndex));
+
+/* ---------- source registry (数据源) ---------- */
+const readMeta = d => { try { return JSON.parse(fs.readFileSync(path.join(d, ".nw-source.json"), "utf8")); } catch { return null; } };
+function missingFields(m) {
+  const per = {}; const walkF = (x, k) => { if (Array.isArray(x)) x.forEach(y => walkF(y, k)); else if (x && typeof x === "object") for (const [kk, y] of Object.entries(x)) walkF(y, kk); else if (k && !["notes", "privacy", "kind", "name", "source", "id"].includes(k)) { per[k] ||= [0, 0]; per[k][1]++; if (!known(x)) per[k][0]++; } };
+  walkF(m.items?.length ? m.items : m.data, null);
+  return Object.entries(per).filter(([, [u]]) => u > 0).map(([field, [unknown, total]]) => ({ field, unknown, total })).sort((a, b) => b.unknown - a.unknown);
+}
+const dataFiles = MODULE_FILES.map(n => ({ name: `${n}.yaml`, root: modules[n].root || null, source: modules[n].source, items: modules[n].items?.length || Object.keys(modules[n].data || {}).length, updated: modules[n].updated || null, missing_fields: modules[n].source ? missingFields(modules[n]) : [] }));
+const sources = [
+  { id: "life", name: "n-life-data", role: "primary", kind: "git", present: hasLife, meta: readMeta(LIFE_ROOT), notes: records.filter(r => r.root === "life").length, privacy: "全部私密",
+    data_files: dataFiles.filter(d => d.root === "life"), expects: ["life/", "daily/", "work-reports/", "agent-ops/", "learning/", "moc/", "data/*.yaml"] },
+  { id: "kb", name: "n-knowledge-base", role: "secondary", kind: "git", present: fs.existsSync(KB_ROOT), meta: readMeta(KB_REPO_ROOT) || readMeta(KB_ROOT), notes: records.filter(r => r.root === "kb").length, privacy: "按 frontmatter privacy",
+    data_files: dataFiles.filter(d => d.root === "kb"), expects: ["n-knowledge-base/**.md"] },
+  { id: "x", name: "X (@handle)", role: "reserved", kind: "api", present: false, meta: null, notes: 0, privacy: "—", data_files: [], expects: ["posts / followers 快照（未接入）"] },
+  { id: "bilibili", name: "Bilibili", role: "reserved", kind: "api", present: false, meta: null, notes: 0, privacy: "—", data_files: [], expects: ["视频 / 粉丝快照（未接入）"] },
+];
+
+const lite = shown.map(r => ({ id: r.id, f: r.file, title: r.title, root: r.root, area: r.area ?? null, type: r.type ?? null, status: r.status ?? null, maturity: r.maturity ?? null,
+  tags: r.tags, updated: r.updated ?? null, origin: { source_path: r.origin.source_path }, privacy: r.privacy }));
+const bundle = { generated: new Date().toISOString(), show_private: showPrivate, kb_ref: sources[1].meta?.ref || process.env.KB_REF || null, life_ref: hasLife ? (sources[0].meta?.ref || process.env.LIFE_REF || "main") : null,
+  roots: { kb: fs.existsSync(KB_ROOT), life: hasLife }, broken_links: broken, broken_list: brokenList.slice(0, 200),
+  missing, warnings, records: lite, private_hidden: records.length - shown.length, modules, sources };
 bundle.overview = overview(bundle, views.overview);
-fs.mkdirSync(OUT, { recursive: true });
 fs.writeFileSync(path.join(OUT, "bundle.json"), JSON.stringify(bundle));
-console.log(`roots: kb=${fs.existsSync(KB_ROOT)} life=${hasLife}; data from ${DATA_ROOT} (${DATA_DIR}); links: ${records.reduce((a, r) => a + r.links.length, 0)} (${broken} unresolved)`);
-console.log(`notes: ${records.length} (kb ${records.filter(r => r.root === "kb").length}, life ${records.filter(r => r.root === "life").length})`);
-console.log(`notes: ${records.length} (${shown.length} included, private ${showPrivate ? "SHOWN" : "hidden"})`);
-for (const [id, v] of Object.entries(views)) if (v.notes) console.log(`  ${id}: ${shown.filter(r => match(r, v.notes)).length} notes`);
-console.log(`data: ${MODULE_FILES.map(n => `${n}=${modules[n].source ? (modules[n].items.length || Object.keys(modules[n].data || {}).length) : "missing"}`).join(" ")}`);
+const size = f => (fs.statSync(path.join(OUT, f)).size / 1024).toFixed(0) + " KB";
+console.log(`roots: kb=${fs.existsSync(KB_ROOT)} (${sources[1].meta?.commit?.slice(0, 7) ?? "?"}) life=${hasLife} (${sources[0].meta?.commit?.slice(0, 7) ?? "?"}); links ${records.reduce((a, r) => a + r.links.length, 0)} (${broken} unresolved)`);
+console.log(`notes: ${records.length} (kb ${records.filter(r => r.root === "kb").length}, life ${records.filter(r => r.root === "life").length}); ${shown.length} included, private ${showPrivate ? "SHOWN" : "hidden"}`);
+console.log(`files: bundle.json ${size("bundle.json")}, kb-index.json ${size("kb-index.json")}, notes/ ${kbIndex.length} files`);
+console.log(`data: ${dataFiles.map(d => `${d.name}=${d.root ?? "missing"}:${d.items}`).join(" ")}`);
 console.log(`overview: ${bundle.overview.upcoming.length} upcoming, ${bundle.overview.alerts.length} alerts`);
 for (const w of warnings) console.warn("warn:", w);

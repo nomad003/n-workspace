@@ -1,1 +1,0 @@
-{"id":"accounts","name":"账号中心","order":2,"data":"accounts","layout":"table","columns":["service","category","account","login_method","two_fa","risk","status","last_checked","password_location","notes"],"sort":["risk"],"notes":{"path":["13-Life/生活事务/互联网账号总表","13-Life/数字生活","13-Life/生活事务/设备与数字资产"]}}
