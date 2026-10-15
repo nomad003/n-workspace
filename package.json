@@ -1,2 +1,14 @@
-{"name":"n-workspace","private":true,"type":"module",
- "scripts":{"fetch-kb":"bash scripts/fetch-kb.sh","index":"node scripts/build-index.mjs","build":"npm run fetch-kb && npm run index","serve":"npx serve ."}}
+{
+ "name": "n-workspace",
+ "private": true,
+ "type": "module",
+ "scripts": {
+  "fetch-kb": "bash scripts/fetch-kb.sh",
+  "index": "node scripts/build-index.mjs",
+  "build": "npm run fetch-kb && npm run index",
+  "serve": "npx serve -l tcp://127.0.0.1:5173 ."
+ },
+ "dependencies": {
+  "js-yaml": "^5.4.3"
+ }
+}

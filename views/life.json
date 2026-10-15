@@ -1,1 +1,1 @@
-{"name":"生活与账号","filter":{"area":["13-Life"]},"group_by":"type","layout":"table","fields":["type","status","updated","tags"]}
+{"name":"生活与账号","filter":{"area":["life"]},"group_by":"type","layout":"table","fields":["type","status","updated","tags"]}

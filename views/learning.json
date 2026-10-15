@@ -1,1 +1,1 @@
-{"name":"学习","filter":{"type":["note","course"]},"group_by":"maturity","columns":["stub","learning","evolving","evergreen"],"layout":"kanban"}
+{"name":"学习","filter":{"type":["note","course"],"area":["cs","ai-ml","game-backend","reading","tools","investment","health"]},"group_by":"maturity","default_group":"stub","columns":["stub","learning","evolving","evergreen"],"layout":"kanban"}
