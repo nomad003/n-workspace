@@ -2,8 +2,8 @@
 import { as, match, overview, daysUntil, nextRenewal, taskDue, known, isAgentTask } from "./core.js";
 import { donut, stackedBars, hbars, progress, timeline, flow } from "./charts.js";
 
-const IDS = ["overview", "profile", "accounts", "subscriptions", "finance", "work", "learning", "content", "life"];
-const COLOR = { overview: "coding", profile: "tui", accounts: "agent", subscriptions: "modes", finance: "ai", work: "coding", learning: "ext", content: "tui", life: "infra" };
+const IDS = ["overview", "tasks", "profile", "accounts", "finance", "subscriptions", "work", "content", "learning", "notes", "life"];
+const COLOR = { tasks: "agent", notes: "ext", overview: "coding", profile: "tui", accounts: "agent", subscriptions: "modes", finance: "ai", work: "coding", learning: "ext", content: "tui", life: "infra" };
 const AGENTS = ["Bot", "X", "KB", "Pi", "Github", "Register", "Blibli"];
 const bundle = await fetch("../data/bundle.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null);
 const views = (await Promise.all(IDS.map(id => fetch(`../views/${id}.json`).then(r => r.json())))).sort((a, b) => a.order - b.order);
@@ -34,6 +34,7 @@ const fmt = v => v == null || v === "" ? "" : typeof v === "boolean" ? badge(v ?
   : Array.isArray(v) ? v.map(x => `<span class="tag">${x && typeof x === "object" ? esc(Object.entries(x).map(([k, y]) => `${k}: ${y}`).join(" · ")) : esc(x)}</span>`).join("")
   : typeof v === "object" ? `<dl class="kv">${Object.entries(v).map(([k, x]) => `<dt>${esc(k)}</dt><dd>${fmt(x)}</dd>`).join("")}</dl>`
   : !known(v) ? `<span class="unk">${esc(v)}</span>` : esc(v);
+const isPinned = id => JSON.parse(localStorage.getItem("nw-pins") || "[]").includes(id);
 const BADGE_COLS = new Set(["status", "two_fa", "stage"]);
 function cell(r, c) {
   const v = r[c];
@@ -52,8 +53,11 @@ function table(rows, cols, { first = cols[0], rowClass = () => "" } = {}) {
 }
 const card = (title, body, { span = "s6", right = "", cls = "" } = {}) => `<section class="card ${span} ${cls}"><h3>${title}${right ? `<span class="r">${right}</span>` : ""}</h3>${body}</section>`;
 const stat = (n, k, { unit = "", warn = false } = {}) => `<div class="stat ${warn ? "warn" : ""}"><div class="n">${n}${unit ? `<small>${unit}</small>` : ""}</div><div class="k">${k}</div></div>`;
+const GROUP_OF = id => (NAV.find(g => g.items.includes(id)) || { label: "" }).label;
 const hero = (v, title, lead, inner = "", isHero = false) => `<header class="phero L-${COLOR[v.id]} ${isHero ? "hero" : ""}"><div class="in">
-  <span class="eyebrow"><b>${String(v.order).padStart(2, "0")}</b>${esc(bundle?.kb_ref ? `KB · ${bundle.kb_ref}` : "n-knowledge-base")}${bundle?.modules?.[v.data]?.updated ? ` · 更新 ${esc(bundle.modules[v.data].updated)}` : ""}</span>
+  <div class="pbar"><nav class="crumbs"><a href="#overview">n-workspace</a><span class="sep">/</span><span>${esc(GROUP_OF(v.id))}</span><span class="sep">/</span><span class="here">${esc(v.name)}</span></nav>
+  <span class="spacer"></span><span class="eyebrow"><b>KB</b>${esc(bundle?.kb_ref || "n-knowledge-base")}${bundle?.modules?.[v.data]?.updated ? ` · ${esc(bundle.modules[v.data].updated)}` : ""}</span>
+  <button class="btn sm pin-btn" data-pin="${v.id}">${isPinned(v.id) ? "★ 已固定" : "☆ 固定"}</button><button class="btn sm" data-cmdk>${ICONS.search}<span>搜索</span><kbd>⌘K</kbd></button></div>
   <h1>${title}</h1>${lead ? `<p class="lead">${lead}</p>` : ""}${inner}</div></header>`;
 
 /* ---------- derived data ---------- */
@@ -243,16 +247,165 @@ function taskPage(v, title, lead) {
 }
 
 /* ---------- router ---------- */
-function render(id) {
-  const v = V[id] || V.overview, el = document.getElementById("view");
-  document.querySelectorAll("nav a").forEach(a => a.classList.toggle("on", a.dataset.id === v.id));
+/* ---------- added pages: 任务 / 知识库 ---------- */
+PAGES.tasks = v => {
+  const ts = tasks(), ag = ts.filter(isAgentTask);
+  return hero(v, "任务", "全部任务（个人 + Agent），按阶段流转。", kpis([[ts.length, "全部"], [ts.filter(t => stageOf(t) === "open").length, "待办"], [ts.filter(t => stageOf(t) === "in-progress").length, "进行中"], [ts.filter(t => stageOf(t) === "pending").length, "等待"], [ag.length, "Agent 负责"]]))
+    + `<div class="body"><div class="grid">${card("看板 · 按阶段", kanban(ts), { span: "s12", right: `${ts.length} 项` })}</div>
+    <div class="grid">${card("按负责人 / Agent", ownerChart(), { span: "s12" })}</div>
+    <h3 class="subh">tasks.yaml · ${ts.length}</h3>${table(ts.map(t => ({ ...t, module: V[moduleOfTask(t)]?.name })), ["id", "title", "owner", "status", "module", "notes"])}</div>`;
+};
+PAGES.notes = (v, q = "") => {
+  const areas = Object.entries(records.reduce((a, r) => (a[r.area || "?"] = (a[r.area || "?"] || 0) + 1, a), {})).sort((a, b) => b[1] - a[1]);
+  const [area, text] = [q.match(/area=([^&]*)/)?.[1], decodeURIComponent(q.match(/q=([^&]*)/)?.[1] || "")];
+  const rs = records.filter(r => (!area || r.area === decodeURIComponent(area)) && (!text || (r.title + " " + r.tags.join(" ") + " " + r.origin?.source_path).toLowerCase().includes(text.toLowerCase())))
+    .sort((a, b) => String(b.updated).localeCompare(String(a.updated)));
+  return hero(v, "知识库", "全部笔记浏览：按领域筛选，或用 ⌘K 搜索标题。", kpis([[records.length, "笔记"], [areas.length, "领域"], [records.filter(r => r.status === "active").length, "active"], [records.filter(r => r.status === "draft").length, "draft"]]))
+    + `<div class="body"><div class="filters"><a class="fchip ${!area ? "on" : ""}" href="#notes">全部 <b>${records.length}</b></a>${areas.map(([a, n]) => `<a class="fchip ${decodeURIComponent(area || "") === a ? "on" : ""}" href="#notes?area=${encodeURIComponent(a)}">${esc(a)} <b>${n}</b></a>`).join("")}</div>
+    ${text ? `<div class="banner">搜索：<b>${esc(text)}</b> · ${rs.length} 条 <a href="#notes">清除</a></div>` : ""}
+    ${table(rs.slice(0, 200).map(r => ({ ...r, path: r.origin?.source_path })), ["title", "area", "type", "status", "maturity", "updated", "path"])}${rs.length > 200 ? `<p class="note">仅显示前 200 条</p>` : ""}</div>`;
+};
+function kpis(rows) { return `<div class="stats">${rows.map(([n, k, o]) => stat(n, k, o || {})).join("")}</div>`; }
+
+/* ---------- icons ---------- */
+const P = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const ICONS = {
+  overview: P('<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>'),
+  tasks: P('<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/>'),
+  profile: P('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
+  accounts: P('<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>'),
+  finance: P('<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>'),
+  subscriptions: P('<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/>'),
+  work: P('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>'),
+  content: P('<path d="M4 4h16v12H8l-4 4z"/>'),
+  learning: P('<path d="M2 7l10-4 10 4-10 4z"/><path d="M6 9v5c0 2 3 3 6 3s6-1 6-3V9"/>'),
+  notes: P('<path d="M4 4h11l5 5v11H4z"/><path d="M14 4v6h6"/>'),
+  life: P('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>'),
+  search: P('<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>'),
+  chev: P('<path d="M6 9l6 6 6-6"/>'),
+  star: P('<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>'),
+  bot: P('<rect x="4" y="8" width="16" height="12" rx="3"/><path d="M12 4v4M9 14h.01M15 14h.01"/>'),
+};
+
+/* ---------- sidebar ---------- */
+const NAV = [
+  { id: "g-desk", label: "工作台", items: ["overview", "tasks"] },
+  { id: "g-me", label: "我", items: ["profile", "accounts", "finance", "subscriptions"] },
+  { id: "g-career", label: "事业", items: ["work", "content"] },
+  { id: "g-grow", label: "成长", items: ["learning", "notes"] },
+  { id: "g-life", label: "生活", items: ["life"] },
+];
+const LS = { get: (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set: (k, v) => localStorage.setItem(k, JSON.stringify(v)) };
+const OV = bundle ? overview(bundle, V.overview) : { alerts: [], upcoming: [], agentTasks: [] };
+const ALERT_MOD = { subscriptions: "subscriptions", accounts: "accounts", tasks: "tasks", profile: "profile" };
+const alertsFor = id => OV.alerts.filter(a => ALERT_MOD[a.module] === id || (id === "overview"));
+const navCount = id => ({ tasks: openTasks().length, accounts: M.accounts?.items?.length, subscriptions: M.subscriptions?.items?.length, finance: M.finance?.items?.length, work: tasks().filter(t => match(t, V.work.data_filter)).length, life: tasks().filter(t => match(t, V.life.data_filter)).length, content: M.content?.items?.length, learning: records.filter(r => match(r, V.learning.notes)).length, notes: records.length })[id] ?? "";
+function navItem(id) {
+  const v = V[id]; if (!v) return ""; const al = id === "overview" ? [] : alertsFor(id), hi = al.some(a => a.level === "high");
+  return `<a href="#${id}" data-id="${id}" class="ni L-${COLOR[id]}"><span class="ic">${ICONS[id] || ""}</span><span class="lb">${esc(v.name)}</span>
+    ${al.length ? `<span class="ab ${hi ? "hi" : ""}" title="${al.length} 条提醒">${al.length}</span>` : ""}<span class="cnt">${navCount(id)}</span>
+    <button class="pin ${isPinned(id) ? "on" : ""}" data-pin="${id}" title="固定">${ICONS.star}</button></a>`;
+}
+function agentStatus() {
+  const AG = ["Bot", "X", "KB", "Pi", "Github", "Register", "Blibli"];
+  return AG.map(a => { const ts = tasks().filter(t => t.owner === a), ch = (M.content?.items || []).filter(c => c.owner_agent === a);
+    const st = ts.some(t => stageOf(t) === "in-progress") ? ["运行中", "ai"] : ts.some(t => stageOf(t) === "pending") ? ["等待", "modes"] : ts.length || ch.length ? ["排队", "agent"] : ["空闲", "infra"];
+    return `<div class="ag L-${st[1]}" title="${esc(a)} · ${st[0]} · 任务 ${ts.length}${ch.length ? ` · 渠道 ${ch.length}` : ""}"><span class="st"></span><span class="lb">${esc(a)}</span><span class="cnt">${ts.length || ""}</span><span class="sl">${st[0]}</span></div>`; }).join("");
+}
+function sidebar() {
+  const p = M.profile?.data?.personal || {}, name = known(p.name) ? p.name : "我", pins = LS.get("nw-pins", []), col = LS.get("nw-collapsed", []);
+  document.getElementById("side").innerHTML = `
+   <div class="me"><span class="av">${esc(String(name).slice(-1))}</span><div class="who"><b>${esc(name)}</b><small>${esc([p.occupation, p.location].filter(known).join(" · ") || "n-workspace")}</small></div><button class="iconbtn theme sm" aria-label="切换主题"></button></div>
+   <button class="search" data-cmdk>${ICONS.search}<span>搜索模块与记录…</span><kbd>⌘K</kbd></button>
+   <div class="nav-scroll">
+   ${pins.length ? `<div class="grp"><div class="gh static">${ICONS.star}<span>固定</span></div><div class="gi">${pins.map(navItem).join("")}</div></div>` : ""}
+   ${NAV.map(g => `<div class="grp ${col.includes(g.id) ? "closed" : ""}"><button class="gh" data-grp="${g.id}"><span>${g.label}</span><span class="gc">${g.items.reduce((n, id) => n + alertsFor(id).filter(() => id !== "overview").length, 0) || ""}</span><span class="chev">${ICONS.chev}</span></button><div class="gi">${g.items.map(navItem).join("")}</div></div>`).join("")}
+   </div>
+   <div class="agents"><div class="gh static">${ICONS.bot}<span>Agents</span><span class="gc">${OV.agentTasks.length}</span></div>${agentStatus()}</div>
+   <div class="side-foot">${bundle ? `构建 ${esc(new Date(bundle.generated).toLocaleString("zh-CN", { hour12: false }))} · ${bundle.show_private ? "含私密 · 仅本机" : `隐藏私密 ${bundle.private_hidden}`}` : ""}</div>`;
+  wireTheme();
+}
+function wireTheme() {
+  document.querySelectorAll(".theme").forEach(b => { b.innerHTML = ICON_MOON + ICON_SUN; b.onclick = e => { e.preventDefault();
+    const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = t; localStorage.setItem("nw-theme", t); }; });
+}
+document.addEventListener("click", e => {
+  const pin = e.target.closest("[data-pin]");
+  if (pin) { e.preventDefault(); e.stopPropagation(); const id = pin.dataset.pin, ps = LS.get("nw-pins", []);
+    LS.set("nw-pins", ps.includes(id) ? ps.filter(x => x !== id) : [...ps, id]); sidebar(); render(); return; }
+  const g = e.target.closest("[data-grp]");
+  if (g) { const id = g.dataset.grp, c = LS.get("nw-collapsed", []); LS.set("nw-collapsed", c.includes(id) ? c.filter(x => x !== id) : [...c, id]); g.parentElement.classList.toggle("closed"); return; }
+  if (e.target.closest("[data-cmdk]")) { e.preventDefault(); openK(); }
+});
+
+/* ---------- right rail ---------- */
+const MOD_UP = { overview: () => true, subscriptions: u => u.kind === "续费", tasks: u => u.kind === "截止", work: u => u.kind === "截止", life: u => u.kind === "截止", profile: u => u.kind === "证件到期" };
+function rail(v) {
+  const LV = { high: ["err", "高"], medium: ["modes", "中"], low: ["infra", "低"] };
+  const al = v.id === "overview" ? [] : alertsFor(v.id), up = OV.upcoming.filter(MOD_UP[v.id] || (() => false));
+  const comp = completeness().find(c => c.label === (v.data === "tasks" ? "tasks" : v.data));
+  const rel = v.notes ? records.filter(r => match(r, v.notes)).sort((a, b) => String(b.updated).localeCompare(String(a.updated))).slice(0, 6) : [];
+  const box = (t, b, r = "") => `<section class="rbox"><h4>${t}${r ? `<span>${r}</span>` : ""}</h4>${b}</section>`;
+  let h = "";
+  if (v.id === "overview") h += box("Agents", `<div class="agents in-rail">${agentStatus()}</div>`, `${OV.agentTasks.length} 任务`) + box("数据完整度", progress(completeness()));
+  if (up.length) h += box("倒计时", `<div class="mini">${up.slice(0, 6).map(u => `<div class="mr">${cd(u.date, u.approx)}<span>${esc(u.name)}</span></div>`).join("")}</div>`, up.length);
+  if (al.length) h += box("提醒", al.map(a => `<div class="al L-${LV[a.level][0]}"><span class="lv">${LV[a.level][1]}</span>${esc(a.msg.length > 70 ? a.msg.slice(0, 70) + "…" : a.msg)}</div>`).join(""), al.length);
+  if (comp) h += box("数据完整度", progress([comp]) + `<p class="note">${comp.done}/${comp.total} 个字段已填，其余为 待补充/待确认。</p>`);
+  if (rel.length) h += box("相关笔记", `<div class="mini">${rel.map(r => `<a class="mr" href="#notes?q=${encodeURIComponent(r.title)}">${ICONS.notes}<span>${esc(r.title)}</span><small>${esc(r.updated)}</small></a>`).join("")}</div>`);
+  if (bundle?.modules?.[v.data]?.source) h += box("来源", `<p class="note mono">${esc(bundle.modules[v.data].source)}<br>更新 ${esc(bundle.modules[v.data].updated || "—")}</p>`);
+  return h ? `<aside class="rail">${h}</aside>` : "";
+}
+
+/* ---------- Cmd-K palette ---------- */
+function searchIndex() {
+  const idx = views.map(v => ({ kind: "模块", title: v.name, sub: GROUP_OF(v.id), href: `#${v.id}`, icon: v.id }));
+  for (const a of M.accounts?.items || []) idx.push({ kind: "账号", title: a.service, sub: [a.category, a.risk, a.status].filter(known).join(" · "), href: "#accounts", icon: "accounts" });
+  for (const s of subs()) idx.push({ kind: "订阅", title: s.service, sub: [s.plan, s.status, known(s.amount) ? `${s.amount} ${s.currency}` : ""].filter(Boolean).join(" · "), href: "#subscriptions", icon: "subscriptions" });
+  for (const t of tasks()) idx.push({ kind: "任务", title: t.title, sub: `${t.owner} · ${t.status}`, href: `#${moduleOfTask(t)}`, icon: "tasks" });
+  for (const f of M.finance?.items || []) idx.push({ kind: "理财", title: f.institution || f.item, sub: [f.kind, f.type].filter(Boolean).join(" · "), href: "#finance", icon: "finance" });
+  for (const c of M.content?.items || []) idx.push({ kind: "内容", title: `${c.platform} ${c.handle ?? ""}`, sub: c.stage, href: "#content", icon: "content" });
+  for (const r of records) idx.push({ kind: "笔记", title: r.title, sub: r.origin?.source_path, href: `#notes?q=${encodeURIComponent(r.title)}`, icon: "notes" });
+  return idx;
+}
+let IDX, kSel = 0, kRes = [];
+const kEl = document.createElement("div"); kEl.className = "cmdk"; kEl.hidden = true;
+kEl.innerHTML = `<div class="kbox" role="dialog" aria-label="搜索"><div class="kin">${ICONS.search}<input placeholder="搜索模块、账号、订阅、任务、笔记…" autocomplete="off"><kbd>esc</kbd></div><div class="klist"></div><div class="kfoot"><span><kbd>↑</kbd><kbd>↓</kbd> 选择</span><span><kbd>↵</kbd> 打开</span><span><kbd>⌘K</kbd> 切换</span></div></div>`;
+document.body.appendChild(kEl);
+const kIn = kEl.querySelector("input"), kList = kEl.querySelector(".klist");
+function kRender() {
+  const q = kIn.value.trim().toLowerCase(); IDX ||= searchIndex();
+  const score = x => { const t = String(x.title ?? "").toLowerCase(), s = String(x.sub ?? "").toLowerCase(); if (!q) return x.kind === "模块" ? 1 : 0; return t.startsWith(q) ? 3 : t.includes(q) ? 2 : s.includes(q) ? 1 : 0; };
+  kRes = IDX.map(x => [score(x), x]).filter(([s]) => s > 0).sort((a, b) => b[0] - a[0]).slice(0, 40).map(([, x]) => x); kSel = Math.min(kSel, Math.max(0, kRes.length - 1));
+  const groups = [...new Set(kRes.map(x => x.kind))];
+  let i = 0; kList.innerHTML = kRes.length ? groups.map(g => `<div class="kg">${g}</div>` + kRes.filter(x => x.kind === g).map(x => { const j = kRes.indexOf(x);
+    return `<a class="ki L-${COLOR[x.icon] || "infra"} ${j === kSel ? "sel" : ""}" data-i="${j}" href="${x.href}"><span class="ic">${ICONS[x.icon] || ""}</span><span class="t">${esc(x.title)}</span><span class="s">${esc(x.sub ?? "")}</span></a>`; }).join("")).join("") : `<p class="empty" style="padding:16px">无结果</p>`;
+  kList.querySelector(".sel")?.scrollIntoView({ block: "nearest" });
+}
+function openK(q = "") { kEl.hidden = false; kIn.value = q; kSel = 0; kRender(); setTimeout(() => kIn.focus(), 0); }
+const closeK = () => { kEl.hidden = true; };
+kIn.addEventListener("input", () => { kSel = 0; kRender(); });
+kEl.addEventListener("click", e => { if (e.target === kEl) closeK(); if (e.target.closest(".ki")) closeK(); });
+addEventListener("keydown", e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); kEl.hidden ? openK() : closeK(); return; }
+  if (kEl.hidden) { if (e.key === "/" && !/input|textarea/i.test(document.activeElement.tagName)) { e.preventDefault(); openK(); } return; }
+  if (e.key === "Escape") closeK();
+  else if (e.key === "ArrowDown") { kSel = Math.min(kSel + 1, kRes.length - 1); kRender(); e.preventDefault(); }
+  else if (e.key === "ArrowUp") { kSel = Math.max(kSel - 1, 0); kRender(); e.preventDefault(); }
+  else if (e.key === "Enter" && kRes[kSel]) { location.hash = kRes[kSel].href; closeK(); }
+});
+window.nwOpenK = openK;
+
+/* ---------- router ---------- */
+function render() {
+  const [id, q = ""] = location.hash.slice(1).split("?"), v = V[id] || V.overview, el = document.getElementById("view");
+  document.querySelectorAll("#side a.ni").forEach(a => a.classList.toggle("on", a.dataset.id === v.id));
   document.body.classList.remove("nav-open");
   if (!bundle) { el.innerHTML = hero(v, v.name, "") + `<div class="body"><div class="banner">未找到 data/bundle.json，请先运行 <code>npm start</code>。</div></div>`; return; }
-  el.innerHTML = PAGES[v.id](v); scrollTo(0, 0);
+  let html = PAGES[v.id](v, q); const i = html.indexOf('<div class="body">');
+  const r = rail(v);
+  if (i >= 0 && r) html = html.slice(0, i) + `<div class="pg"><div class="body pg-main">` + html.slice(i + 18) + r + `</div>`;
+  el.innerHTML = html;
 }
-const navCount = id => ({ accounts: M.accounts?.items?.length, subscriptions: M.subscriptions?.items?.length, finance: M.finance?.items?.length, work: tasks().filter(t => match(t, V.work.data_filter)).length, life: tasks().filter(t => match(t, V.life.data_filter)).length, content: M.content?.items?.length, learning: records.filter(r => match(r, V.learning.notes)).length })[id] ?? "";
-document.getElementById("nav").innerHTML = `<div class="nav-g">Workspace</div>` + views.map((v, i) =>
-  `${i === 1 ? `<div class="nav-g">模块</div>` : ""}<a href="#${v.id}" data-id="${v.id}" class="L-${COLOR[v.id]}"><span class="no">${String(i).padStart(2, "0")}</span>${esc(v.name)}<span class="cnt">${navCount(v.id)}</span><span class="dot"></span></a>`).join("");
-document.getElementById("meta").innerHTML = bundle ? `构建 ${esc(new Date(bundle.generated).toLocaleString("zh-CN", { hour12: false }))}<br>${bundle.show_private ? "含私密记录 · 仅本机" : `已隐藏私密 ${bundle.private_hidden} 条`}${bundle.kb_ref ? `<br>KB <span class="mono">${esc(bundle.kb_ref)}</span>` : ""}` : "";
-addEventListener("hashchange", () => render(location.hash.slice(1)));
-render(location.hash.slice(1) || "overview");
+sidebar();
+addEventListener("hashchange", () => { render(); scrollTo(0, 0); });
+render();
