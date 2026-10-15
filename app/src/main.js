@@ -44,6 +44,7 @@ function linkify(v) {
 const BADGE_COLS = new Set(["status", "two_fa", "stage"]);
 function cell(r, c) {
   const v = r[c];
+  if (c === "path") return `<span class="mono" style="font-size:11.5px">${esc(v)}</span>`;
   if (c === "title" && v && typeof v === "object" && v.id) return `<a href="${noteHref(v)}">${esc(v.title)}</a> ${v.root === "life" ? `<span class="chip L-tui">life</span>` : ""}`;
   if (c === "risk" && known(v)) return `<span class="chip L-${riskC(v)}">${esc(v)}</span>`;
   if (BADGE_COLS.has(c) && v != null && typeof v !== "object") return badge(v);

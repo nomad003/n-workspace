@@ -137,7 +137,8 @@ export function overview(bundle, cfg = {}, now = Date.now()) {
 // kb:// and life:// link resolution against bundle records (exact, +.md, or unique basename).
 export function resolveLink(records, href) {
   const m = String(href).match(/^(kb|life):\/\/(.+)$/); if (!m) return null;
-  const root = m[1], clean = decodeURI(m[2]).replace(/^\/+/, "").replace(/^n-knowledge-base\//, "").replace(/#.*$/, "");
+  const root = m[1]; let clean = m[2]; try { clean = decodeURIComponent(clean); } catch {}
+  clean = clean.replace(/^\/+/, "").replace(/^n-knowledge-base\//, "").replace(/#.*$/, "").replace(/\.md$/, "");
   const hit = records.find(r => r.root === root && (r.origin?.source_path === clean || r.origin?.source_path === clean + ".md"));
   if (hit) return hit;
   const base = clean.split("/").pop().replace(/\.md$/, ""), hs = records.filter(r => r.root === root && r.origin?.source_path.replace(/\.md$/, "").split("/").pop() === base);

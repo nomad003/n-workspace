@@ -21,26 +21,36 @@ if (DATA_ROOT === "kb") warnings.push(`data/*.yaml read from KB fallback ${DATA_
 const OUT = "data";
 const showPrivate = process.env.SHOW_PRIVATE !== "0";
 const MODULE_FILES = ["accounts", "subscriptions", "finance", "profile", "tasks", "content"];
+const templateNames = new Set();
 const SKIP_DIRS = new Set(["templates", "11-Templates", "node_modules"]);
 
 function frontmatter(t) {
   const m = t.replace(/^\uFEFF/, "").match(/^---\r?\n([\s\S]*?)\r?\n---/); if (!m) return null;
   try { const o = yaml.load(m[1], { schema: yaml.JSON_SCHEMA }); return o && typeof o === "object" ? o : null; } catch { return undefined; }
 }
-// kb://path and life://path links (in note bodies and data values) -> record ids "<root>:<path>".
-const LINK_RE = /\b(kb|life):\/\/([^\s)\]"'`<>|]+)/g;
-export const linksIn = t => [...String(t).matchAll(LINK_RE)].map(m => ({ root: m[1], path: decodeURI(m[2]).replace(/[.,;:，。；）]+$/, "") }));
+// Links: kb://n-knowledge-base/<path> and life://<path> (cross-root, %20-encoded), plus [[wikilinks]] (same root).
+const LINK_RE = /\b(kb|life):\/\/([^\s)\]"'`<>|，。；]+)/g;
+const WIKI_RE = /\[\[([^\]|#\n]+?)(?:#[^\]|\n]*)?(?:\|[^\]\n]*)?\]\]/g;
+const ATTACH_RE = /\.(png|jpe?g|gif|webp|svg|pdf|mp4|mov|zip|enc|bin|html?|mmd|canvas|excalidraw)$/i;
+function linksIn(t, root) {
+  const body = String(t).replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, ""); // ignore code
+  const out = [...body.matchAll(LINK_RE)].map(m => ({ root: m[1], path: safeDecode(m[2]).replace(/[.,;:）]+$/, ""), kind: "uri" }));
+  for (const m of body.matchAll(WIKI_RE)) { const p = m[1].replace(/\\+$/, "").trim(); if (!p || ATTACH_RE.test(p)) continue; out.push({ root, path: p, kind: "wiki" }); }
+  return out;
+}
+function listMd(d) { try { return fs.readdirSync(d, { recursive: true }).filter(f => String(f).endsWith(".md")).map(f => path.basename(String(f), ".md")); } catch { return []; } }
+function safeDecode(x) { try { return decodeURIComponent(x); } catch { return x; } }
 const records = [];
 function walk(root, d, rootName) {
   for (const e of fs.readdirSync(d, { withFileTypes: true })) {
     const p = path.join(d, e.name);
-    if (e.isDirectory()) { if (!e.name.startsWith(".") && !SKIP_DIRS.has(e.name) && path.resolve(p) !== path.resolve(DATA_DIR)) walk(root, p, rootName); continue; }
-    if (!e.name.endsWith(".md") || /^(README|AGENTS|CLAUDE)\.md$/.test(e.name) && d === root) continue;
+    if (e.isDirectory()) { if (SKIP_DIRS.has(e.name)) for (const t of listMd(p)) templateNames.add(t); if (!e.name.startsWith(".") && !SKIP_DIRS.has(e.name) && path.resolve(p) !== path.resolve(DATA_DIR)) walk(root, p, rootName); continue; }
+    if (/\.tar\.enc$|\.enc$/.test(e.name) || !e.name.endsWith(".md") || /^(README|AGENTS|CLAUDE)\.md$/.test(e.name) && d === root) continue;
     const text = fs.readFileSync(p, "utf8"), rel = path.relative(root, p).split(path.sep).join("/");
     let f = frontmatter(text);
     if (f === undefined) { warnings.push(`unparseable frontmatter: ${rootName}://${rel}`); continue; }
     if (!f) { if (rootName !== "life") continue; f = {}; } // life notes may lack frontmatter
-    if (f.type === "template" || f.status === "template") continue;
+    if (f.type === "template" || f.status === "template") { templateNames.add(path.basename(p, ".md")); continue; }
     for (const k of ["created", "updated"]) if (f[k] != null) f[k] = String(f[k]);
     if (rootName === "life") { f.privacy = "private"; f.area ??= rel.split("/")[0]; f.status ??= "active"; f.type ??= rel.split("/")[0]; f.updated ??= fs.statSync(p).mtime.toISOString().slice(0, 10); }
     else f.privacy = f.privacy === "public" ? "public" : "private";
@@ -48,7 +58,7 @@ function walk(root, d, rootName) {
     f.title = f.title || path.basename(p, ".md");
     f.root = rootName; f.id = `${rootName}:${rel}`;
     f.origin = { source: rootName === "life" ? "n-life-data" : "n-knowledge-base", ...(f.origin || {}), source_path: rel };
-    f.links = linksIn(text);
+    f.links = linksIn(text, rootName);
     records.push(f);
   }
 }
@@ -56,15 +66,21 @@ if (fs.existsSync(KB_ROOT)) walk(KB_ROOT, KB_ROOT, "kb"); else warnings.push(`KB
 if (hasLife) walk(LIFE_ROOT, LIFE_ROOT, "life");
 // resolve links: exact path, path + ".md", or unique basename match within the root.
 const byId = new Map(records.map(r => [r.id, r]));
-function resolve({ root, path: p }) {
-  const clean = p.replace(/^\/+/, "").replace(/^n-knowledge-base\//, "").replace(/#.*$/, "");
-  for (const c of [clean, clean + ".md"]) if (byId.has(`${root}:${c}`)) return `${root}:${c}`;
-  const base = clean.split("/").pop().replace(/\.md$/, "");
-  const hits = records.filter(r => r.root === root && r.origin.source_path.replace(/\.md$/, "").split("/").pop() === base);
-  return hits.length === 1 ? hits[0].id : null;
+// Obsidian-style resolution: exact vault path, path relative to the linking note, then basename (shortest path wins).
+function resolve({ root, path: p }, from) {
+  // kb:// links carry the vault folder ("n-knowledge-base/<path>"); records are relative to the vault.
+  const clean = p.replace(/^\/+/, "").replace(/^n-knowledge-base\//, "").replace(/#.*$/, "").replace(/\.md$/, "");
+  const dir = from && from.root === root ? path.posix.dirname(from.origin.source_path) : "";
+  for (const c of [clean, dir && dir !== "." ? path.posix.join(dir, clean) : null].filter(Boolean))
+    for (const x of [c, c + ".md"]) if (byId.has(`${root}:${x}`)) return `${root}:${x}`;
+  const base = clean.split("/").pop();
+  const hits = records.filter(r => r.root === root && r.origin.source_path.replace(/\.md$/, "").split("/").pop() === base)
+    .sort((a, b) => a.origin.source_path.length - b.origin.source_path.length);
+  return hits.length ? hits[0].id : null;
 }
-let broken = 0;
-for (const r of records) r.links = r.links.map(l => { const id = resolve(l); if (!id) broken++; return { href: `${l.root}://${l.path}`, id }; });
+let broken = 0; const brokenList = [];
+for (const r of records) r.links = r.links.map(l => { const id = resolve(l, r); const tpl = !id && templateNames.has(l.path.split("/").pop().replace(/\.md$/, "")); if (!id && !tpl) { broken++; brokenList.push(`${r.id} -> ${l.kind === "wiki" ? `[[${l.path}]]` : `${l.root}://${l.path}`}`); }
+  return { href: l.kind === "wiki" ? `[[${l.path}]]` : `${l.root}://${l.path}`, id, kind: tpl ? "template" : l.kind }; });
 const backlinks = {};
 for (const r of records) for (const l of r.links) if (l.id) (backlinks[l.id] ||= []).push(r.id);
 for (const r of records) r.backlinks = backlinks[r.id] || [];
@@ -112,7 +128,7 @@ const shown = showPrivate ? records : records.filter(isPublic);
 const views = Object.fromEntries(fs.readdirSync("views").filter(f => f.endsWith(".json"))
   .map(f => JSON.parse(fs.readFileSync(path.join("views", f), "utf8"))).map(v => [v.id, v]));
 const bundle = { generated: new Date().toISOString(), show_private: showPrivate, kb_ref: process.env.KB_REF || null, life_ref: hasLife ? (process.env.LIFE_REF || "main") : null,
-  roots: { kb: fs.existsSync(KB_ROOT), life: hasLife }, data_root: DATA_ROOT, broken_links: broken,
+  roots: { kb: fs.existsSync(KB_ROOT), life: hasLife }, data_root: DATA_ROOT, broken_links: broken, broken_list: brokenList.slice(0, 500),
   data_dir: DATA_DIR, missing, warnings, records: shown,
   private_hidden: records.length - shown.length, modules };
 bundle.overview = overview(bundle, views.overview);
