@@ -1,6 +1,7 @@
 #!/bin/sh
 # One-command local start: fetch KB -> build bundle -> serve on 127.0.0.1.
 set -eu
+export KB_REF="${KB_REF:-main}"
 cd "$(dirname "$0")/.."
 command -v node >/dev/null 2>&1 || { echo "error: Node.js >= 18 required" >&2; exit 1; }
 [ -d node_modules/js-yaml ] || npm install --no-audit --no-fund --silent

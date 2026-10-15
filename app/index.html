@@ -1,4 +1,14 @@
-<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>n-workspace</title><link rel="stylesheet" href="src/style.css"></head>
-<body><aside><h1>n-workspace</h1><nav id="nav"></nav><footer id="meta"></footer></aside><main id="view"></main>
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>n-workspace</title>
+<script>document.documentElement.dataset.theme=localStorage.getItem("nw-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")</script>
+<link rel="stylesheet" href="src/style.css"></head>
+<body>
+<header class="topbar only-mobile"><button class="iconbtn" id="menu" aria-label="菜单"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+<a class="brand" href="#overview"><span class="logo"><span>n</span></span>n-workspace</a><span class="spacer"></span><button class="iconbtn theme" aria-label="切换主题"></button></header>
+<aside class="side" id="side">
+ <a class="brand" href="#overview"><span class="logo"><span>n</span></span><span>n-workspace</span><small class="ver">life·work</small></a>
+ <nav id="nav"></nav>
+ <div class="side-foot"><div id="meta"></div><button class="iconbtn theme" aria-label="切换主题"></button></div>
+</aside>
+<main id="view"></main>
 <script type="module" src="src/main.js"></script></body></html>
