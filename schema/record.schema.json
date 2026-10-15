@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "n-workspace/record",
+  "title": "Record",
+  "type": "object",
+  "required": ["type", "status", "privacy", "created"],
+  "properties": {
+    "type": {"type": "string"},
+    "area": {"type": "string"},
+    "project": {"type": "string"},
+    "status": {"enum": ["active", "done", "draft", "archived", "template"]},
+    "maturity": {"enum": ["stub", "learning", "evolving", "evergreen"]},
+    "owner": {"type": "string"},
+    "privacy": {"enum": ["public", "private"], "default": "private"},
+    "created": {"type": "string", "format": "date"},
+    "updated": {"type": "string", "format": "date"},
+    "tags": {"type": "array", "items": {"type": "string"}},
+    "origin": {
+      "type": "object",
+      "properties": {
+        "source": {"type": "string"},
+        "source_path": {"type": "string"},
+        "source_id": {"type": "string"},
+        "synced": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

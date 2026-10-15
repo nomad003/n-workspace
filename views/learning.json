@@ -1,0 +1,1 @@
+{"name":"学习","filter":{"type":["note","course"]},"group_by":"maturity","columns":["stub","learning","evolving","evergreen"],"layout":"kanban"}

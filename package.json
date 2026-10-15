@@ -1,0 +1,2 @@
+{"name":"n-workspace","private":true,"type":"module",
+ "scripts":{"fetch-kb":"bash scripts/fetch-kb.sh","index":"node scripts/build-index.mjs","build":"npm run fetch-kb && npm run index","serve":"npx serve ."}}

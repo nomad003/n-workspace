@@ -1,0 +1,3 @@
+body{font-family:system-ui;margin:0;display:flex}nav{width:160px;padding:1rem;border-right:1px solid #ddd}
+nav a{display:block;margin:.4rem 0;cursor:pointer}main{flex:1;padding:1rem}.cols{display:flex;gap:1rem}
+.col{flex:1;background:#f6f6f6;padding:.5rem;border-radius:6px}.card{background:#fff;margin:.4rem 0;padding:.4rem;border-radius:4px}
