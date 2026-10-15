@@ -1,127 +1,71 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "n-workspace/accounts",
-  "title": "Account",
-  "description": "KB file n-knowledge-base/data/accounts.yaml. Either a top-level list or {items|accounts: [...]}. Unknown fields are kept; secret-like fields (password/secret/token/recovery_code/pin/cvv) are dropped by the loader.",
-  "oneOf": [
-    {
+  "title": "Accounts",
+  "description": "n-knowledge-base data/accounts.yaml (feat/data-layer, see data/README.md). Top level has privacy, updated, sources. Unknown values are written 待补充. Secret-like fields are dropped by the loader.",
+  "type": "object",
+  "properties": {
+    "privacy": {
+      "enum": [
+        "public",
+        "private"
+      ]
+    },
+    "updated": {
+      "description": "YYYY-MM-DD, YYYY-MM, or annotated string; 待补充/待确认/不适用 = unknown"
+    },
+    "sources": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/item"
+        "type": "string"
       }
     },
-    {
-      "type": "object",
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/item"
-          }
-        },
-        "accounts": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/item"
-          }
-        }
-      }
-    }
-  ],
-  "$defs": {
-    "item": {
-      "type": "object",
-      "required": [
-        "name"
-      ],
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "platform": {
-          "type": "string"
-        },
-        "category": {
-          "type": "string"
-        },
-        "url": {
-          "type": "string"
-        },
-        "username": {
-          "type": "string"
-        },
-        "email": {
-          "type": "string"
-        },
-        "phone": {
-          "type": "string"
-        },
-        "two_fa": {
-          "description": "true/false or method string (totp|sms|passkey|hardware|none). Aliases: 2fa, mfa, twofa",
-          "oneOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "string"
-            }
-          ]
-        },
-        "two_fa_method": {
-          "type": "string"
-        },
-        "status": {
-          "enum": [
-            "active",
-            "dormant",
-            "closed",
-            "at_risk"
-          ]
-        },
-        "risk": {
-          "description": "free text or level low|medium|high"
-        },
-        "risk_level": {
-          "enum": [
-            "low",
-            "medium",
-            "high"
-          ]
-        },
-        "last_login": {
-          "type": "string",
-          "format": "date"
-        },
-        "last_checked": {
-          "type": "string",
-          "format": "date"
-        },
-        "recovery": {
-          "type": "string"
-        },
-        "owner": {
-          "type": "string"
-        },
-        "tags": {
-          "type": "array",
-          "items": {
+    "accounts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "account": {
+            "type": "string"
+          },
+          "login_method": {
+            "type": "string"
+          },
+          "phone_binding": {
+            "description": "tail digits only"
+          },
+          "two_fa": {
+            "description": "status text; 待确认 = unknown"
+          },
+          "password_location": {
+            "type": "string"
+          },
+          "status": {
+            "description": "active | to-close | closed"
+          },
+          "risk": {
+            "description": "P0–P4 importance"
+          },
+          "last_checked": {
+            "description": "YYYY-MM-DD, YYYY-MM, or annotated string; 待补充/待确认/不适用 = unknown"
+          },
+          "notes": {
             "type": "string"
           }
-        },
-        "notes": {
-          "type": "string"
-        },
-        "privacy": {
-          "enum": [
-            "public",
-            "private"
-          ],
-          "default": "private"
         }
       }
+    },
+    "conventions": {
+      "type": "object"
     }
   }
 }

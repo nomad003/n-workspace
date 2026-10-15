@@ -2,27 +2,35 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "n-workspace/profile",
   "title": "Profile",
+  "description": "n-knowledge-base data/profile.yaml: personal, family, contacts (masked), emergency (indexes only), resume.",
   "type": "object",
-  "description": "Free-form key/value map (name, birthday, city, contacts, documents...). Document items with an expires date feed the 总览 countdowns.",
   "properties": {
-    "documents": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "number": {
-            "type": "string"
-          },
-          "expires": {
-            "type": "string",
-            "format": "date"
-          }
-        }
-      }
+    "privacy": {
+      "enum": [
+        "public",
+        "private"
+      ]
+    },
+    "updated": {
+      "description": "YYYY-MM-DD, YYYY-MM, or annotated string; 待补充/待确认/不适用 = unknown"
+    },
+    "sources": {
+      "type": "array"
+    },
+    "personal": {
+      "type": "object"
+    },
+    "family": {
+      "type": "object"
+    },
+    "contacts": {
+      "type": "object"
+    },
+    "emergency": {
+      "type": "object"
+    },
+    "resume": {
+      "type": "object"
     }
-  },
-  "additionalProperties": true
+  }
 }

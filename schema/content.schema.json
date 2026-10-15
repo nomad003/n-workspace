@@ -1,88 +1,64 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "n-workspace/content",
-  "title": "Content item",
-  "description": "KB file n-knowledge-base/data/content.yaml. Either a top-level list or {items|content: [...]}. Unknown fields are kept; secret-like fields (password/secret/token/recovery_code/pin/cvv) are dropped by the loader.",
-  "oneOf": [
-    {
+  "title": "Content",
+  "description": "n-knowledge-base data/content.yaml (feat/data-layer, see data/README.md). Top level has privacy, updated, sources. Unknown values are written 待补充. Secret-like fields are dropped by the loader.",
+  "type": "object",
+  "properties": {
+    "privacy": {
+      "enum": [
+        "public",
+        "private"
+      ]
+    },
+    "updated": {
+      "description": "YYYY-MM-DD, YYYY-MM, or annotated string; 待补充/待确认/不适用 = unknown"
+    },
+    "sources": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/item"
+        "type": "string"
       }
     },
-    {
-      "type": "object",
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/item"
-          }
-        },
-        "content": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/item"
-          }
-        }
-      }
-    }
-  ],
-  "$defs": {
-    "item": {
-      "type": "object",
-      "required": [
-        "platform"
-      ],
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "platform": {
-          "description": "x|bilibili|..."
-        },
-        "account": {
-          "type": "string"
-        },
-        "title": {
-          "type": "string"
-        },
-        "status": {
-          "enum": [
-            "idea",
-            "draft",
-            "scheduled",
-            "published"
-          ]
-        },
-        "publish_at": {
-          "type": "string",
-          "format": "date"
-        },
-        "url": {
-          "type": "string"
-        },
-        "metrics": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "number"
-          }
-        },
-        "followers": {
-          "type": "number"
-        },
-        "tags": {
-          "type": "array",
-          "items": {
+    "channels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "platform": {
+            "type": "string"
+          },
+          "handle": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "owner_agent": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "snapshots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "description": "YYYY-MM-DD, YYYY-MM, or annotated string; 待补充/待确认/不适用 = unknown"
+                },
+                "posts": {},
+                "followers": {},
+                "following": {}
+              }
+            }
+          },
+          "rules": {},
+          "next": {},
+          "notes": {
             "type": "string"
           }
-        },
-        "privacy": {
-          "enum": [
-            "public",
-            "private"
-          ],
-          "default": "private"
         }
       }
     }

@@ -26,13 +26,13 @@ npm start          # install deps if needed → fetch KB → build data/bundle.j
 ## Data model
 
 * Notes: Markdown frontmatter (`schema/record.schema.json`). Privacy comes **only** from frontmatter `privacy`; missing means private. File names (e.g. `.local.md`) are never used.
-* Structured data: `n-knowledge-base/data/{accounts,subscriptions,finance,profile,tasks,content}.yaml` (schemas in `schema/*.schema.json`).
+* Structured data: KB repo-root `data/{accounts,subscriptions,finance,profile,tasks,content}.yaml` (field names follow the KB `data/README.md`; schemas in `schema/*.schema.json`). Placeholders like `待补充` are treated as unknown. Task due dates are inferred from `YYYY-MM` hints in `notes` (shown as 约). `renew_date` accepts ISO dates and 约每月 N 日.
   Loaders accept a top-level list, `{items: [...]}`, or an object of named lists; common field aliases are mapped
   (`2fa`/`mfa`→`two_fa`, `renewal_date`/`next_billing`/`expires`→`next_renewal`, `deadline`→`due`, …). Fields that look like secrets
   (password, token, secret, recovery codes, pin, cvv) are dropped and never reach the bundle. Missing files are reported in the UI.
 * `views/*.json` configure each module: which YAML file, which notes (by `path` prefix / `area` / `type`), columns, grouping.
 * 总览 computes countdowns (renewals, task due dates, document expiry) and risk alerts: accounts without 2FA or flagged at risk,
-  renewals within `risk_renewal_days`, overdue tasks. Agent tasks are tasks with `owner: agent:<name>`.
+  renewals within `risk_renewal_days`, overdue tasks. Agent tasks are tasks whose `owner` is not `user`.
 
 ## Future deploy: Cloudflare Pages + Access (not set up)
 

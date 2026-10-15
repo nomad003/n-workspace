@@ -1,1 +1,1 @@
-{"id":"subscriptions","name":"订阅与支出","order":3,"data":"subscriptions","layout":"table","columns":["name","category","amount","currency","cycle","next_renewal","auto_renew","status"],"totals":true,"notes":{"path":["13-Life/生活事务/订阅与续费"]}}
+{"id":"subscriptions","name":"订阅与支出","order":3,"data":"subscriptions","layout":"table","columns":["service","plan","amount","currency","cycle","billing","renew_date","billed_date","status","source","notes"],"totals":true,"notes":{"path":["13-Life/生活事务/订阅与续费"]}}

@@ -4,7 +4,8 @@ import fs from "node:fs"; import path from "node:path"; import * as yaml from "j
 import { toItems, normalize, isPublic, match, overview } from "../app/src/core.js";
 
 const SRC = process.env.KB_DEST || (fs.existsSync("kb/n-knowledge-base") ? "kb/n-knowledge-base" : "kb");
-const DATA_DIR = process.env.KB_DATA_DIR || path.join(SRC, "data");
+// KB keeps data/ at the repo root (kb/data); older layouts put it inside the vault.
+const DATA_DIR = process.env.KB_DATA_DIR || ["kb/data", path.join(SRC, "data")].find(d => fs.existsSync(d)) || path.join(SRC, "data");
 const OUT = "data";
 const showPrivate = process.env.SHOW_PRIVATE !== "0";
 const MODULE_FILES = ["accounts", "subscriptions", "finance", "profile", "tasks", "content"];
@@ -43,17 +44,19 @@ for (const name of MODULE_FILES) {
   if (name === "profile") {
     const data = doc && typeof doc === "object" && !Array.isArray(doc) ? normalize(doc, "profile") : {};
     if (data.documents) data.documents = as(data.documents).map(x => normalize(x, "doc"));
-    modules[name] = { data: showPrivate || isPublic(data) ? data : {}, items: [], source: path.relative(SRC, file) };
+    for (const k of ["privacy", "updated", "sources"]) delete data[k];
+    modules[name] = { data: showPrivate || doc?.privacy === "public" ? data : {}, items: [], source: path.relative(".", file) };
   } else {
-    const all = toItems(doc, name);
-    modules[name] = { items: showPrivate ? all : all.filter(isPublic), hidden: showPrivate ? 0 : all.filter(x => !isPublic(x)).length, source: path.relative(SRC, file) };
+    const filePrivacy = doc && !Array.isArray(doc) ? doc.privacy : undefined; // file-level privacy applies to items without their own
+    const all = toItems(doc, name).map(x => ({ ...x, privacy: x.privacy ?? filePrivacy ?? "private" }));
+    modules[name] = { items: showPrivate ? all : all.filter(isPublic), hidden: showPrivate ? 0 : all.filter(x => !isPublic(x)).length, source: path.relative(".", file), updated: doc?.updated ? String(doc.updated instanceof Date ? doc.updated.toISOString().slice(0, 10) : doc.updated) : null };
   }
 }
 const shown = showPrivate ? records : records.filter(isPublic);
 const views = Object.fromEntries(fs.readdirSync("views").filter(f => f.endsWith(".json"))
   .map(f => JSON.parse(fs.readFileSync(path.join("views", f), "utf8"))).map(v => [v.id, v]));
 const bundle = { generated: new Date().toISOString(), show_private: showPrivate, kb_ref: process.env.KB_REF || null,
-  data_dir: path.relative(SRC, DATA_DIR), missing, warnings, records: shown,
+  data_dir: DATA_DIR, missing, warnings, records: shown,
   private_hidden: records.length - shown.length, modules };
 bundle.overview = overview(bundle, views.overview);
 fs.mkdirSync(OUT, { recursive: true });

@@ -1,93 +1,124 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "n-workspace/finance",
-  "title": "Finance entry",
-  "description": "Top-level list, or an object of named lists (accounts, holdings, insurance, loans, goals...) which are flattened with kind=<list name>.",
-  "oneOf": [
-    {
+  "title": "Finance",
+  "description": "n-knowledge-base data/finance.yaml (feat/data-layer, see data/README.md). Top level has privacy, updated, sources. Unknown values are written 待补充. Secret-like fields are dropped by the loader.",
+  "type": "object",
+  "properties": {
+    "privacy": {
+      "enum": [
+        "public",
+        "private"
+      ]
+    },
+    "updated": {
+      "description": "YYYY-MM-DD, YYYY-MM, or annotated string; 待补充/待确认/不适用 = unknown"
+    },
+    "sources": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/item"
+        "type": "string"
       }
     },
-    {
-      "type": "object",
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/item"
-          }
-        },
-        "finance": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/item"
+    "accounts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "institution": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "identifier": {
+            "description": "never the full number"
+          },
+          "status": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
           }
         }
       }
-    }
-  ],
-  "$defs": {
-    "item": {
+    },
+    "income": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "string"
+          },
+          "amount": {}
+        }
+      }
+    },
+    "expenses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "string"
+          },
+          "amount": {}
+        }
+      }
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "string"
+          },
+          "amount": {},
+          "balance": {},
+          "value": {}
+        }
+      }
+    },
+    "liabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "string"
+          },
+          "balance": {},
+          "rate_term": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "string"
+          },
+          "amount": {}
+        }
+      }
+    },
+    "snapshot": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "properties": {
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "kind": {
-          "description": "cash|bank|broker|fund|stock|crypto|insurance|loan|goal"
-        },
-        "institution": {
-          "type": "string"
-        },
-        "balance": {
-          "type": "number"
-        },
-        "amount": {
-          "type": "number"
+        "date": {
+          "description": "YYYY-MM-DD, YYYY-MM, or annotated string; 待补充/待确认/不适用 = unknown"
         },
         "currency": {
           "type": "string"
         },
-        "symbol": {
+        "scope": {
           "type": "string"
-        },
-        "quantity": {
-          "type": "number"
-        },
-        "cost": {
-          "type": "number"
-        },
-        "price": {
-          "type": "number"
-        },
-        "target": {
-          "type": "number"
-        },
-        "due": {
-          "type": "string",
-          "format": "date"
-        },
-        "updated": {
-          "type": "string",
-          "format": "date"
-        },
-        "notes": {
-          "type": "string"
-        },
-        "privacy": {
-          "enum": [
-            "public",
-            "private"
-          ],
-          "default": "private"
         }
       }
     }

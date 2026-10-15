@@ -1,95 +1,66 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "n-workspace/subscriptions",
-  "title": "Subscription",
-  "description": "KB file n-knowledge-base/data/subscriptions.yaml. Either a top-level list or {items|subscriptions: [...]}. Unknown fields are kept; secret-like fields (password/secret/token/recovery_code/pin/cvv) are dropped by the loader.",
-  "oneOf": [
-    {
+  "title": "Subscriptions",
+  "description": "n-knowledge-base data/subscriptions.yaml (feat/data-layer, see data/README.md). Top level has privacy, updated, sources. Unknown values are written 待补充. Secret-like fields are dropped by the loader.",
+  "type": "object",
+  "properties": {
+    "privacy": {
+      "enum": [
+        "public",
+        "private"
+      ]
+    },
+    "updated": {
+      "description": "YYYY-MM-DD, YYYY-MM, or annotated string; 待补充/待确认/不适用 = unknown"
+    },
+    "sources": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/item"
+        "type": "string"
       }
     },
-    {
-      "type": "object",
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/item"
+    "subscriptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "string"
+          },
+          "plan": {
+            "type": "string"
+          },
+          "amount": {
+            "description": "number or 待补充"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "billing": {
+            "type": "string"
+          },
+          "renew_date": {
+            "description": "ISO date, annotated date, 约每月 N 日, 待补充, 不适用"
+          },
+          "status": {
+            "description": "active / canceled / one-time / 待核实 / refund-requested / 疑似暂停 / 预充值 …"
+          },
+          "cycle": {
+            "description": "月 / 年 / 一次性 / 非固定 …"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "billed_date": {
+            "description": "YYYY-MM-DD, YYYY-MM, or annotated string; 待补充/待确认/不适用 = unknown"
+          },
+          "tax": {
+            "type": "string"
           }
-        },
-        "subscriptions": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/item"
-          }
-        }
-      }
-    }
-  ],
-  "$defs": {
-    "item": {
-      "type": "object",
-      "required": [
-        "name"
-      ],
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "category": {
-          "type": "string"
-        },
-        "amount": {
-          "type": "number"
-        },
-        "currency": {
-          "type": "string"
-        },
-        "cycle": {
-          "enum": [
-            "weekly",
-            "monthly",
-            "quarterly",
-            "yearly",
-            "once"
-          ]
-        },
-        "next_renewal": {
-          "type": "string",
-          "format": "date",
-          "description": "Aliases: renewal_date, next_billing, renew_at, expires"
-        },
-        "auto_renew": {
-          "type": "boolean"
-        },
-        "payment_method": {
-          "type": "string"
-        },
-        "account": {
-          "type": "string"
-        },
-        "status": {
-          "enum": [
-            "active",
-            "paused",
-            "cancelled",
-            "trial"
-          ]
-        },
-        "notes": {
-          "type": "string"
-        },
-        "privacy": {
-          "enum": [
-            "public",
-            "private"
-          ],
-          "default": "private"
         }
       }
     }
