@@ -331,3 +331,25 @@ table.idt tr.arow{cursor:pointer}table.idt tr.arow:hover{background:var(--accent
 .chk{border:1px solid var(--border);border-radius:12px;padding:12px 14px}.chk h4{margin:0 0 8px;font-size:13.5px}
 .ci{display:flex;gap:8px;align-items:baseline;font-size:12.5px;padding:3px 0}.ci span{width:14px;font-weight:700}.ci small{margin-left:auto;color:var(--text-3)}
 .ci.ok span{color:var(--ai)}.ci.bad span{color:var(--err)}.ci.unknown span{color:var(--modes)}
+
+/* ---------- account security ---------- */
+details.idc>summary{list-style:none;cursor:pointer}details.idc>summary::-webkit-details-marker{display:none}
+details.idc .bc{font-size:12px;color:var(--text-2)}details.idc .bc b{font:700 15px var(--mono);color:var(--text)}
+details.idc .exp{display:block;font-size:11.5px;color:var(--text-3);margin-top:8px}details.idc[open] .exp{display:none}
+details.idc[open]{grid-column:span 2}
+.bl{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:4px;margin-top:10px;border-top:1px solid var(--border);padding-top:10px;max-height:340px;overflow:auto}
+.brow,.srow{display:flex;align-items:center;gap:6px;font-size:12.5px;padding:4px 6px;border-radius:7px;cursor:pointer;color:var(--text);text-decoration:none}
+.brow:hover,.srow:hover{background:var(--accent-soft)}.brow span:nth-child(2){flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slist{display:grid}.srow{border-bottom:1px solid var(--border);border-radius:0;padding:6px 2px}.srow .t{font-weight:600}.srow .m{margin-left:auto;font-size:11.5px;color:var(--text-3);max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.warnn{color:var(--err);font-size:14px}
+.acards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.acard{border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:var(--surface);cursor:pointer;display:grid;gap:6px}
+.acard:hover{border-color:var(--accent)}.acard.has-miss{border-left:3px solid var(--modes)}.acard.closed{opacity:.55}
+.acard header{display:flex;align-items:center;gap:6px}.acard header .sp{flex:1}
+.acard .mc{font:600 10.5px var(--mono);color:var(--modes-fg);background:var(--modes-bg);padding:1px 6px;border-radius:6px}.acard .mc.ok{color:var(--ai-fg);background:var(--ai-bg)}
+.acard footer{display:flex;align-items:center;gap:8px;font-size:12px}.acard footer .m{margin-left:auto;color:var(--text-3)}
+.miss{font-size:11.5px;color:var(--modes-fg);background:var(--modes-bg);padding:0 6px;border-radius:5px}
+.seclink{font-weight:600;color:var(--accent);text-decoration:none}.seclink:hover{text-decoration:underline}
+.fchk{font-size:12.5px;display:flex;gap:5px;align-items:center;color:var(--text-2)}
+.moreb{margin-top:10px}
+a.al.w2{display:block;text-decoration:none;color:inherit}a.al.w2 .m{display:block;font-size:11.5px;color:var(--text-3);margin-top:3px}

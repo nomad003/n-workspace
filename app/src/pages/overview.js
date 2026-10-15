@@ -1,16 +1,19 @@
 // 总览: only items due within 7 days, risks, and agents (+ source sync in the rail).
 import { overview } from "../core.js";
-import { bundle, V, AGENTS, agentState, openTasks } from "../data.js";
+import { buildModel, security } from "../identity.js";
+import { bundle, M, V, AGENTS, agentState, openTasks } from "../data.js";
 import { esc, header, kpis, card, urow, more } from "../ui.js";
 const LV = { high: ["err", "高"], medium: ["modes", "中"], low: ["infra", "低"] };
 export default function () {
   const v = V.overview, o = overview(bundle, v), days = v.due_days ?? 7;
   const due = o.upcoming.filter(u => u.days <= days), next = o.upcoming.find(u => u.days > days);
+  const w2 = security(buildModel(M.accounts?.items || [], M.identities?.items || [])).weak2fa;
+  if (w2.length) o.alerts = [{ level: "high", module: "accounts", msg: `${w2.length} 个重要账号 2FA 未确认`, href: "#assets/accounts", w2: true }, ...o.alerts.filter(a => !/2FA/.test(a.msg))];
   const high = o.alerts.filter(a => a.level === "high").length;
   const ags = AGENTS.map(agentState), active = ags.filter(a => a.label !== "空闲").length;
   const src = (bundle.sources || []).filter(s => s.role !== "reserved"), ok = src.filter(s => s.present).length;
   const today = new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "short" });
-  const al = a => `<div class="al L-${LV[a.level][0]}"><span class="lv">${LV[a.level][1]}</span>${esc(a.msg)}</div>`;
+  const al = a => a.w2 ? `<a class="al L-err w2" href="${a.href}"><span class="lv">高</span><b>${esc(a.msg)}</b><span class="m">P0/P1：${esc(w2.slice(0, 6).map(x => x.service).join("、"))}${w2.length > 6 ? " …" : ""} →</span></a>` : `<div class="al L-${LV[a.level][0]}"><span class="lv">${LV[a.level][1]}</span>${esc(a.msg)}</div>`;
   const main = `${kpis([[due.length, `${days} 天内到期`, { warn: due.some(u => u.days < 0) }], [o.alerts.length, `风险 · 高 ${high}`, { warn: high > 0 }], [`${active}/${AGENTS.length}`, "Agents 活跃"], [openTasks().length, "未完成任务", { href: "#affairs/tasks" }], [`${ok}/${src.length}`, "数据源已同步", { href: "#sources" }]])}
     <div class="grid">${card(`${days} 天内到期`, due.length ? `<div class="ulist">${due.map(u => urow(u.date, u.approx, esc(u.name), `${esc(u.kind)} · ${esc(u.date)}`, esc(u.extra || ""))).join("")}</div>`
       : `<p class="empty">${days} 天内没有到期项。${next ? `下一项：<b>${esc(next.name)}</b>（${esc(next.kind)}，${next.days} 天后）` : ""}</p>`, { span: "s12", right: `${due.length} 项` })}</div>
