@@ -1,6 +1,6 @@
 // Build data/bundle.json (gitignored) from the KB: notes frontmatter + n-knowledge-base/data/*.yaml.
 // Local builds include private records by default (personal tool). Opt out with SHOW_PRIVATE=0.
-import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto"; import * as yaml from "js-yaml"; import { marked } from "marked";
+import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto"; import * as yaml from "js-yaml"; import { marked } from "marked"; import { parsePlan } from "./plan.mjs";
 import { toItems, normalize, isPublic, match, overview, known } from "../app/src/core.js";
 
 // Two content roots (gitignored, fetched by scripts/fetch-root.sh):
@@ -191,7 +191,8 @@ const lite = shown.map(r => ({ id: r.id, f: r.file, title: r.title, root: r.root
 const bundle = { generated: new Date().toISOString(), show_private: showPrivate, kb_ref: sources[1].meta?.ref || process.env.KB_REF || null, life_ref: hasLife ? (sources[0].meta?.ref || process.env.LIFE_REF || "main") : null,
   roots: { kb: fs.existsSync(KB_ROOT), life: hasLife }, broken_links: broken, broken_list: brokenList.slice(0, 200),
   missing, warnings, records: lite, private_hidden: records.length - shown.length, modules, sources };
-bundle.overview = overview(bundle, views.overview);
+bundle.overview = overview(bundle, views.today);
+if (hasLife) bundle.plan = parsePlan(LIFE_ROOT);
 fs.writeFileSync(path.join(OUT, "bundle.json"), JSON.stringify(bundle));
 const size = f => (fs.statSync(path.join(OUT, f)).size / 1024).toFixed(0) + " KB";
 console.log(`roots: kb=${fs.existsSync(KB_ROOT)} (${sources[1].meta?.commit?.slice(0, 7) ?? "?"}) life=${hasLife} (${sources[0].meta?.commit?.slice(0, 7) ?? "?"}); links ${records.reduce((a, r) => a + r.links.length, 0)} (${broken} unresolved)`);

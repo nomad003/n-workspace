@@ -1,0 +1,71 @@
+{
+ "id": "knowledge",
+ "name": "知识",
+ "order": 2,
+ "learning": {
+  "any": [
+   {
+    "type": [
+     "note",
+     "course"
+    ],
+    "area": [
+     "cs",
+     "ai-ml",
+     "game-backend",
+     "reading",
+     "tools",
+     "investment",
+     "health"
+    ],
+    "root": [
+     "kb"
+    ]
+   },
+   {
+    "root": [
+     "life"
+    ],
+    "path": [
+     "learning/"
+    ]
+   }
+  ]
+ },
+ "projects": {
+  "root": [
+   "kb"
+  ],
+  "path": [
+   "10-Projects/"
+  ]
+ },
+ "topics": {
+  "root": [
+   "kb"
+  ],
+  "not_path": [
+   "10-Projects/",
+   "00-MOC/",
+   "11-Templates/"
+  ]
+ },
+ "logs": {
+  "daily": {
+   "root": [
+    "life"
+   ],
+   "path": [
+    "daily/"
+   ]
+  },
+  "reports": {
+   "root": [
+    "life"
+   ],
+   "path": [
+    "work-reports/"
+   ]
+  }
+ }
+}

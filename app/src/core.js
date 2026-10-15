@@ -87,8 +87,20 @@ export function taskDue(t) {
   return { date: ymd(new Date(+m[1], +m[2], 0)), approx: true };
 }
 const SUB_INACTIVE = /cancel|one-time|refund|预充值/i;
-const has2fa = a => { const v = a.two_fa; if (v == null || !known(v)) return null;
-  if (typeof v === "boolean") return v; return !/^(no|none|false|off|无|否|未开|未开启|关闭|0)/i.test(String(v).trim()); };
+// ---- 2FA: the ONE shared definition (used by 今天, 账号与订阅, account detail, identity model)
+// state: "on" | "off" | "unknown" (待补充/待确认/不确定/missing) | "na" ("—", e.g. a phone number)
+export function twoFaState(v) {
+  if (typeof v === "boolean") return v ? "on" : "off";
+  const t = String(v ?? "").trim();
+  if (/^[—–-]+$/.test(t)) return "na";
+  if (!known(t) || /^(不确定|uncertain|unsure|未知)/i.test(t)) return "unknown";
+  return /^(no|none|false|off|无|否|未开|未开启|关闭|0)/i.test(t) ? "off" : "on";
+}
+export const priorityOf = a => known(a?.priority) ? String(a.priority) : known(a?.risk) ? String(a.risk) : null; // priority (P0/P1/P2+) wins over risk
+export const isImportant = a => /^P[01]\b/i.test(priorityOf(a) ?? "");
+export const isLiveAccount = a => !/closed/i.test(a?.status ?? "");
+/** Important (P0/P1), live accounts whose 2FA is not confirmed on (off / unknown / 不确定). */
+export const weak2fa = accounts => (accounts || []).filter(a => isLiveAccount(a) && isImportant(a) && !["on", "na"].includes(twoFaState(a.two_fa)));
 export const isAgentTask = t => t.owner != null && !/^(user|me|我)$/i.test(String(t.owner).trim());
 
 export function overview(bundle, cfg = {}, now = Date.now()) {
@@ -117,15 +129,9 @@ export function overview(bundle, cfg = {}, now = Date.now()) {
     if (d <= 180) upcoming.push({ kind: "证件到期", name: doc.name, date: doc.expires, days: d });
     if (d <= 60) alerts.push({ level: d < 0 ? "high" : "medium", module: "profile", msg: `证件 ${doc.name} ${d < 0 ? "已过期" : `${d} 天后到期`}` });
   }
-  const unknown2fa = [];
-  for (const a of m.accounts?.items || []) {
-    if (/closed/i.test(a.status || "")) continue;
-    const f = has2fa(a), core = /^P[01]$/i.test(String(a.risk ?? ""));
-    if (f === false) alerts.push({ level: core ? "high" : "medium", module: "accounts", msg: `账号未开启 2FA：${a.service}（${a.risk ?? "?"}）` });
-    else if (f === null && core) unknown2fa.push(a.service);
-    if (/to-close/i.test(a.status || "")) alerts.push({ level: "low", module: "accounts", msg: `待注销账号：${a.service}` });
-  }
-  if (unknown2fa.length) alerts.push({ level: "medium", module: "accounts", msg: `P0/P1 账号 2FA 待确认（${unknown2fa.length}）：${unknown2fa.join("、")}` });
+  const accs = m.accounts?.items || [], w2 = weak2fa(accs);
+  if (w2.length) alerts.push({ level: "high", module: "accounts", kind: "2fa", n: w2.length, msg: `${w2.length} 个重要账号 2FA 未确认`, items: w2.map(a => a.service) });
+  for (const a of accs) if (/to-close/i.test(a.status || "")) alerts.push({ level: "low", module: "accounts", msg: `待注销账号：${a.service}` });
   upcoming.sort((a, b) => a.days - b.days);
   const order = { high: 0, medium: 1, low: 2 }; alerts.sort((a, b) => order[a.level] - order[b.level]);
   const agentTasks = (m.tasks?.items || []).filter(isAgentTask).filter(t => !/done|closed|cancel/i.test(t.status || ""));
