@@ -1,20 +1,15 @@
 // 个人资产: 个人信息 / 账号 / 订阅 / 理财 as tabs.
 import { V, M, notesWhere, subs, subCat, catColor, liveSub, CYCLE, toCNY, monthlyCNY, dupSet, dupKey, has2fa, nextRenewal, daysUntil, known } from "../data.js";
 import { esc, header, tabs, table, more, card, fmt, kpis, pending, countUnknown, noteList, cd, riskC } from "../ui.js";
-import { donut, hbars } from "../charts.js";
+import { render as renderAccounts, mount as mountAccounts } from "./accounts.js";
+import { hbars } from "../charts.js";
 export default function (sub = "profile") {
   const v = V.assets, a = M.accounts?.items || [], s = subs(), f = M.finance?.items || [];
   const t = tabs("assets", [["profile", "个人信息"], ["accounts", "账号", a.length], ["subscriptions", "订阅", s.length], ["finance", "理财", f.length]], sub);
   const head = (chips) => header("个人资产", "tui", chips) + t;
   const notes = id => { const rs = notesWhere(v.notes[id]); return rs.length ? more(rs.length, noteList(rs, 999), "相关笔记") : ""; };
   if (sub === "accounts") {
-    const live = a.filter(x => !/closed/i.test(x.status || "")), core = live.filter(x => /^P[01]$/i.test(x.risk || ""));
-    const f2 = ["已开启", "未开启", "待确认"].map((l, i) => ({ label: l, v: live.filter(x => has2fa(x) === l).length, c: ["ai", "err", "modes"][i] }));
-    return { html: head([`${a.length} 个账号`]) + `<div class="body">${pending(countUnknown(a), "账号字段")}
-      ${kpis([[live.length, "在册"], [core.length, "P0 / P1 核心"], [f2[0].v, "2FA 已确认", { warn: f2[0].v === 0 }], [a.length - live.length, "已关闭"]])}
-      <div class="grid">${card("2FA 状态", donut(f2, { title: "未关闭账号" }), { span: "s4" })}
-      ${card("核心账号 · P0 / P1", table(core.sort((x, y) => String(x.risk).localeCompare(String(y.risk))), ["service", "risk", "category", "login_method", "status"]), { span: "s8", right: `${core.length}` })}</div>
-      ${more(a.length, table([...a].sort((x, y) => String(x.risk ?? "~").localeCompare(String(y.risk ?? "~"))), v.columns.accounts), "展开全部账号")}${notes("accounts")}</div>` };
+    return { html: head([`${a.length} 个账号`, M.identities?.items?.length ? "identities.yaml" : "身份推断"]) + `<div class="body">${renderAccounts()}${notes("accounts")}</div>`, mount: mountAccounts };
   }
   if (sub === "subscriptions") {
     const dups = dupSet(), live = s.filter(liveSub);

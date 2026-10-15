@@ -93,7 +93,7 @@ async function render() {
   document.querySelectorAll("#side a.ni").forEach(a => a.classList.toggle("on", a.dataset.id === id));
   document.body.classList.remove("nav-open");
   if (!bundle) { el.innerHTML = `<div class="body"><div class="pend">未找到 data/bundle.json，请先运行 <code>npm start</code>。</div></div>`; return; }
-  try { const out = await PAGES[id](sub || undefined, new URLSearchParams(qs)); if (my === seq) el.innerHTML = out.html; }
+  try { const out = await PAGES[id](sub || undefined, new URLSearchParams(qs)); if (my === seq) { el._acct?.abort(); el.innerHTML = out.html; out.mount?.(el); } }
   catch (err) { console.error(err); if (my === seq) el.innerHTML = `<div class="body"><div class="pend">页面渲染失败：${esc(err.message)}</div></div>`; }
 }
 sidebar();
