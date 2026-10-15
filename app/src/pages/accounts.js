@@ -1,8 +1,8 @@
 // 个人资产 · 账号: identity-centred view — identity cards, dependency graph (SVG), SPOFs, grouped table with filters + drawer, checklists.
 import { M, V } from "../data.js";
-import { buildModel, checklist, rank, fa } from "../identity.js";
+import { buildModel, checklist, rank, fa, edgeStats } from "../identity.js";
 import { esc, known, pending, countUnknown, card, more, kpis, badge, riskC, fmt } from "../ui.js";
-const FA = { on: ["已开启", "ai"], off: ["未开启", "err"], unknown: ["待确认", "modes"] };
+const FA = { na: ["不适用", "infra"], on: ["已开启", "ai"], off: ["未开启", "err"], unknown: ["待确认", "modes"] };
 const LVL = { high: ["err", "高"], medium: ["modes", "中"] };
 const ET = { login: "注册/登录", oauth: "OAuth", recovery: "恢复/绑定", notify: "通知" };
 let model;
@@ -28,7 +28,7 @@ function graph(m) {
   }
   for (const i of m.ids) for (const r of i.recoveryIds) if (iy.has(r)) { const y1 = iy.get(i.id), y2 = iy.get(r), x = IX - 4, d = Math.min(60, 18 + Math.abs(y2 - y1) / 6);
     arcs += `<path class="ge recovery" marker-end="url(#ah)" d="M${x} ${y1} C ${x - d} ${y1}, ${x - d} ${y2}, ${x} ${y2}"/>`; }
-  const inodes = m.ids.map(i => { const y = iy.get(i.id), f = FA[fa(i.two_fa)], rest = i.accounts.length - show.filter(a => a._edges.some(e => e.id === i.id || e.acc === i.anchor?._k)).length;
+  const inodes = m.ids.map(i => { const y = iy.get(i.id), f = i.na2fa ? FA.na : FA[fa(i.two_fa)], rest = i.accounts.length - show.filter(a => a._edges.some(e => e.id === i.id || e.acc === i.anchor?._k)).length;
     return `<g class="gi ${hiIds.has(i.id) ? "spof" : ""}" data-id="${esc(i.id)}"><rect x="${IX}" y="${y - 26}" width="${IW}" height="52" rx="10"/><text x="${IX + 12}" y="${y - 7}" class="t">${esc(i.label)}</text>
       <text x="${IX + 12}" y="${y + 11}" class="s">${i.accounts.length} 个账号 · 2FA ${f[0]}${rest > 0 ? ` · +${rest} P3/P4` : ""}</text>${hiIds.has(i.id) ? `<text x="${IX + IW - 10}" y="${y - 7}" class="w" text-anchor="end">SPOF</text>` : ""}</g>`; }).join("");
   const anodes = show.map(a => { const y = ay.get(a._k);
@@ -68,16 +68,16 @@ export function render() {
   const accounts = M.accounts?.items || [], m = model = buildModel(accounts, M.identities?.items || []);
   const live = accounts.filter(x => !/closed/i.test(x.status || ""));
   const hi = m.spof.filter(s => s.level === "high");
-  const cards = m.ids.map(i => { const f = FA[fa(i.two_fa)], sp = m.spof.find(s => s.kind === "identity" && s.id === i.id);
+  const cards = m.ids.map(i => { const f = i.na2fa ? FA.na : FA[fa(i.two_fa)], sp = m.spof.find(s => s.kind === "identity" && s.id === i.id);
     return `<section class="idc ${sp ? `L-${LVL[sp.level][0]}` : "L-ai"}"><div class="ih"><span class="ik">${i.kind === "phone" ? "☏" : "@"}</span><b>${esc(i.label)}</b>${known(i.risk) ? `<span class="chip L-${riskC(i.risk)}">${esc(i.risk)}</span>` : ""}${sp ? `<span class="sd L-${LVL[sp.level][0]}">单点</span>` : ""}</div>
       <div class="ia mono">${known(i.address) ? esc(i.address) : `<span class="note">地址未录入</span>`}</div>${known(i.role) ? `<div class="ir">${esc(i.role)}</div>` : ""}
-      <dl class="kv sm"><dt>2FA</dt><dd><span class="sd L-${f[1]}">${f[0]}</span></dd><dt>恢复</dt><dd>${i.recovery.length ? i.recovery.map(r => `<span class="tag">${esc(r)}</span>`).join("") : `<span class="sd L-err">无记录</span>`}</dd>
+      <dl class="kv sm"><dt>2FA</dt><dd><span class="sd L-${f[1]}" title="${esc(i.two_fa ?? "")}">${f[0]}</span></dd><dt>恢复</dt><dd>${i.recovery.length ? i.recovery.map(r => `<span class="tag">${esc(r)}</span>`).join("") : (i.naRecovery ? `<span class="sd L-infra">待补充</span>` : `<span class="sd L-err">无记录</span>`)}</dd>
       <dt>关联</dt><dd><b>${i.accounts.length}</b> 个账号 · P0/P1 <b>${i.critical.length}</b></dd></dl></section>`; }).join("");
   const spofHtml = s => `<div class="al L-${LVL[s.level][0]}"><span class="lv">${LVL[s.level][1]}</span>${esc(s.title)}${s.items.length ? `<div class="m">${s.kind === "account" ? "链：" : ""}${s.items.map(esc).join(s.kind === "account" ? " → " : "、")}</div>` : ""}</div>`;
   const checks = m.ids.map(i => { const c = checklist(i, m.accs), ok = c.filter(x => x[1] === "ok").length;
     return `<div class="chk"><h4>${esc(i.label)} <span class="note">${ok}/${c.length}</span></h4>${c.map(([t, st, d]) => `<div class="ci ${st}"><span>${st === "ok" ? "✓" : st === "bad" ? "✗" : "?"}</span>${esc(t)}${d ? `<small>${esc(d)}</small>` : ""}</div>`).join("")}</div>`; }).join("");
   const cats = [...new Set(accounts.map(a => a.category).filter(known))], sts = [...new Set(accounts.map(a => a.status).filter(known))];
-  const src = m.explicit ? "identities.yaml" : `身份由 login_method 推断（未找到 identities.yaml${m.hasFields.length ? "" : "；accounts 无 email_id / login_via / recovery / url 字段"}）`;
+  const st = edgeStats(m), src = m.explicit ? `身份来自 identities.yaml · 关系 ${st.real} 条来自字段（email_id / login_via / recovery），${st.inferred} 条由 login_method 推断补全` : `身份由 login_method 推断（未找到 identities.yaml${m.hasFields.length ? "" : "；accounts 无 email_id / login_via / recovery / url 字段"}）`;
   return `${pending(countUnknown(accounts), "账号字段")}<div class="pend info">${esc(src)}</div>
     ${kpis([[m.ids.length, "身份节点"], [live.length, "在册账号"], [hi.length, "高危单点", { warn: hi.length > 0 }], [m.accs.filter(a => a._group === "_none").length, "未归属身份"]])}
     <div class="idcards">${cards}</div>

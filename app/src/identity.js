@@ -6,7 +6,7 @@ import { known } from "./core.js";
 const as = v => v == null ? [] : Array.isArray(v) ? v : String(v).split(/[,，、;；]\s*/);
 const RANK = { P0: 0, P1: 1, P2: 2, P3: 3, P4: 4 };
 export const rank = r => RANK[String(r ?? "").toUpperCase()] ?? 9;
-export const fa = v => !known(v) ? "unknown" : /^(no|none|false|off|无|否|未开|关闭)/i.test(String(v)) ? "off" : "on";
+export const fa = v => /^[—–-]+$/.test(String(v ?? "").trim()) ? "na" : !known(v) ? "unknown" : /^(no|none|false|off|无|否|未开|关闭)/i.test(String(v)) ? "off" : "on";
 
 // Fallback identity catalogue, used only when identities.yaml is absent. Keys match login_method text.
 const FALLBACK = [
@@ -16,63 +16,76 @@ const FALLBACK = [
   { id: "phone", kind: "phone", label: "手机号", provider: "运营商", anchor: /手机号运营商/, re: /手机|phone|sms/i },
 ];
 
+export const edgeStats = m => { const e = m.accs.flatMap(a => a._edges); return { real: e.filter(x => !x.inferred).length, inferred: e.filter(x => x.inferred).length }; };
 export function buildModel(accounts, identityItems = []) {
   const explicit = identityItems.length > 0;
   const accs = accounts.map((a, i) => ({ ...a, _k: `a${i}`, _edges: [] }));
   const bySvc = s => accs.find(a => String(a.service).toLowerCase() === String(s).toLowerCase())
     || accs.find(a => String(a.service).toLowerCase().startsWith(String(s).toLowerCase()));
   // ---- identities
+  const NA = v => /^[—–-]+$/.test(String(v ?? "").trim());
+  const fb = x => FALLBACK.find(f => f.kind === "phone" ? /phone/i.test(`${x.id} ${x.type}`) : new RegExp(f.id, "i").test(`${x.id} ${x.provider}`));
   let ids;
   if (explicit) ids = identityItems.map((x, i) => {
-    const id = String(x.id ?? x.key ?? x.address ?? x.email ?? x.phone ?? `id${i}`);
-    const kind = x.kind ?? x.type ?? (/@/.test(x.address ?? x.email ?? "") ? "email" : x.phone ? "phone" : "email");
-    const anchor = x.account ? bySvc(x.account) : null;
-    return { ...x, id, kind, label: x.label ?? x.name ?? x.provider ?? id, address: x.address ?? x.email ?? x.phone, anchor, inferred: false };
+    const id = String(x.id ?? x.key ?? `id${i}`), kind = x.kind ?? x.type ?? "email", f = fb({ ...x, id });
+    const short = String(x.provider ?? "").match(/[（(]([^）)]+)[）)]/)?.[1];
+    const label = x.label ?? (kind === "phone" ? `手机 ${String(x.address ?? "").replace(/^\+\d+\s*/, "")}` : f?.label ?? short ?? x.provider ?? id);
+    const anchor = x.account ? bySvc(x.account) : f ? accs.find(a => f.anchor.test(String(a.service))) : null; // anchor = the provider's own account record (risk only)
+    return { ...x, id, kind, label, anchor, _re: f?.re, inferred: false };
   });
   else ids = FALLBACK.map(f => {
     const anchor = accs.find(a => f.anchor.test(String(a.service)));
     const addr = f.kind === "phone" ? accs.map(a => a.phone_binding).find(known) : null; // e.g. "尾号5875" as recorded
     return { id: f.id, kind: f.kind, label: f.label, provider: f.provider, address: addr ?? null, anchor, inferred: true, _re: f.re };
   });
-  const idOf = s => { const t = String(s ?? "").trim(); if (!t) return null;
-    return ids.find(i => i.id === t || i.address === t || String(i.label).toLowerCase() === t.toLowerCase())
-      || (explicit ? null : ids.find(i => i._re.test(t))); };
-  // identity-level fields: explicit or from the anchor account (2FA, risk) — never guessed
+  const clean = s => String(s ?? "").replace(/[（(].*$/, "").trim();
+  const idOf = s => { const t = clean(s); if (!t) return null; return ids.find(i => i.id === t || String(i.label).toLowerCase() === t.toLowerCase()); };
   for (const i of ids) {
-    i.two_fa = i.two_fa ?? i["2fa"] ?? i.anchor?.two_fa ?? null;
+    i.na2fa = NA(i.two_fa);
+    i.two_fa = i.na2fa ? null : i.two_fa ?? i.anchor?.two_fa ?? null;
     i.risk = known(i.risk) ? i.risk : known(i.anchor?.risk) ? i.anchor.risk : null;
     i.role = i.role ?? i.purpose ?? i.anchor?.purpose ?? null;
   }
-  // ---- edges: {to: identity|account, type: login|oauth|recovery|notify, inferred}
+  // login_via vocabulary (accounts.yaml): provider OAuth → edge to that provider's account; *-account / email / phone → login on the identity
+  const VIA = { "google-oauth": ["oauth", "gmail"], "google-account": ["login", "gmail"], "microsoft-account": ["login", "outlook"], "qq-account": ["login", "qq"], "wechat": ["oauth", "微信"], "github-oauth": ["oauth", "GitHub"], "apple": ["oauth", "Apple ID"] };
+  const idByFb = key => ids.find(i => fb(i)?.id === key);
+  // ---- edges: {id|acc, type: login|oauth|recovery|notify, inferred}. Real fields win per field; inference only fills missing ones.
   const addE = (a, e) => { if (!e.id && !e.acc) return; if (a._edges.some(x => x.type === e.type && x.id === e.id && x.acc === e.acc)) return; a._edges.push(e); };
   for (const a of accs) {
     const isAnchor = ids.find(i => i.anchor === a);
-    // explicit fields
-    for (const e of as(a.email_id)) { const i = idOf(e); if (i) addE(a, { type: "login", id: i.id }); }
-    for (const v of as(a.login_via)) { const t = bySvc(v) || ids.find(i => i.provider && new RegExp(i.provider, "i").test(v))?.anchor; const i = idOf(v);
-      if (t && t !== a) addE(a, { type: "oauth", acc: t._k, id: ids.find(x => x.anchor === t)?.id }); else if (i) addE(a, { type: "oauth", id: i.id }); }
-    for (const v of as(a.recovery)) { if (!known(v)) continue; const i = idOf(v), t = bySvc(v); if (i) addE(a, { type: "recovery", id: i.id }); else if (t && t !== a) addE(a, { type: "recovery", acc: t._k }); }
-    if (a._edges.length) continue;
-    // fallback: parse login_method ("Google OAuth（Gmail） · 绑定 QQ邮箱", "Outlook 注册 · 手机登录" …)
+    const hasLogin = as(a.email_id).some(known), hasVia = as(a.login_via).some(known), hasRec = as(a.recovery).some(known);
+    for (const e of as(a.email_id)) { if (!known(e)) continue; const i = idOf(e); if (i) addE(a, { type: "login", id: i.id });
+      const via = String(e).match(/经(.+?)[）)]/)?.[1]; const t = via && bySvc(via); if (t && t !== a) addE(a, { type: "oauth", acc: t._k, id: ids.find(x => x.anchor === t)?.id }); }
+    for (const v of as(a.login_via)) { if (!known(v)) continue; const key = clean(v).toLowerCase(), m = VIA[key];
+      if (m) { const [type, tgt] = m, i = idByFb(tgt), t = i ? i.anchor : bySvc(tgt);
+        if (type === "oauth" && t && t !== a) addE(a, { type: "oauth", acc: t._k, id: i?.id ?? ids.find(x => x.anchor === t)?.id });
+        else if (type === "login" && i && !isAnchor) addE(a, { type: "login", id: i.id }); }
+      else { const t = bySvc(clean(v)); if (t && t !== a) addE(a, { type: "oauth", acc: t._k }); } } // email / phone-sms: login already covered by email_id
+    for (const v of as(a.recovery)) { if (!known(v)) continue; const i = idOf(v), t = !i && bySvc(clean(v)); if (i && i.anchor !== a) addE(a, { type: "recovery", id: i.id }); else if (t && t !== a) addE(a, { type: "recovery", acc: t._k }); }
+    a._oauthOnly = hasVia && as(a.login_via).filter(known).every(v => VIA[clean(v).toLowerCase()]?.[0] === "oauth");
+    if (hasLogin && hasVia && hasRec) continue;
+    // inference for missing fields only: parse login_method ("Google OAuth（Gmail） · 绑定 QQ邮箱", "Outlook 注册 · 手机登录" …)
     const lm = known(a.login_method) ? String(a.login_method) : "";
-    for (const [n, seg] of lm.split(/\s*·\s*/).entries()) {
+    for (const seg of lm.split(/\s*·\s*/)) {
       const s = seg.trim(); if (!s) continue;
       for (const part of s.split(/\s*(?:\+|\/|=)\s*/)) {
         const type = /绑定/.test(s) ? "recovery" : /oauth/i.test(part) ? "oauth" : /收单|订阅/.test(part) ? "notify" : "login";
+        if ((type === "recovery" && hasRec) || (type === "oauth" && hasVia) || (type === "login" && hasLogin) || type === "notify" && hasLogin) continue;
         const svc = !isAnchor && accs.find(x => x !== a && /^(微信|GitHub)$/.test(x.service) && part.includes(x.service));
-        if (svc) { addE(a, { type: "oauth", acc: svc._k, id: ids.find(i => i.anchor === svc)?.id, inferred: true }); continue; }
+        if (svc) { if (!hasVia) addE(a, { type: "oauth", acc: svc._k, id: ids.find(i => i.anchor === svc)?.id, inferred: true }); continue; }
         const i = ids.find(i => i._re?.test(part)); if (!i || i.anchor === a) continue;
         if (type === "oauth" && i.anchor) addE(a, { type: "oauth", acc: i.anchor._k, id: i.id, inferred: true });
         else addE(a, { type, id: i.id, inferred: true });
       }
     }
-    if (known(a.phone_binding) && !isAnchor?.kind?.startsWith("phone")) { const p = ids.find(i => i.kind === "phone"); if (p && p.anchor !== a) addE(a, { type: "recovery", id: p.id, inferred: true }); }
+    if (!hasRec && known(a.phone_binding) && isAnchor?.kind !== "phone") { const p = ids.find(i => i.kind === "phone"); if (p && p.anchor !== a) addE(a, { type: "recovery", id: p.id, inferred: true }); }
   }
-  // anchors' own recovery (e.g. Gmail account bound to QQ) becomes identity recovery
+  // identity recovery: identities.yaml recovery_email / recovery_phone / recovery; else the anchor account's recovery edges
   for (const i of ids) {
-    i.recovery = explicit ? as(i.recovery).filter(known) : [];
-    if (!i.recovery.length && i.anchor) i.recovery = i.anchor._edges.filter(e => e.type === "recovery" && e.id && e.id !== i.id).map(e => ids.find(x => x.id === e.id)?.label);
-    i.recoveryIds = i.anchor ? i.anchor._edges.filter(e => e.type === "recovery" && e.id).map(e => e.id) : [];
+    const ex = [i.recovery_email, i.recovery_phone, ...as(i.recovery)].filter(v => known(v) && !NA(v)).map(v => idOf(v)?.id ?? clean(v));
+    i.recoveryIds = explicit ? ex.filter(r => ids.some(x => x.id === r)) : i.anchor ? i.anchor._edges.filter(e => e.type === "recovery" && e.id).map(e => e.id) : [];
+    i.recovery = (explicit ? ex : i.recoveryIds).map(r => ids.find(x => x.id === r)?.label ?? r);
+    i.naRecovery = explicit && NA(i.recovery_phone) && !known(i.recovery_email);
   }
   // primary group for each account
   for (const a of accs) {
@@ -92,7 +105,7 @@ export function buildModel(accounts, identityItems = []) {
   // ---- single points of failure
   const spof = [];
   for (const i of ids) {
-    const no2 = fa(i.two_fa) !== "on", noRec = !i.recovery.length;
+    const no2 = !i.na2fa && fa(i.two_fa) !== "on", noRec = !i.recovery.length;
     if ((no2 || noRec) && i.critical.length >= 3)
       spof.push({ level: no2 && noRec ? "high" : "medium", kind: "identity", id: i.id, title: `${i.label}：${[no2 ? (fa(i.two_fa) === "off" ? "2FA 未开" : "2FA 未确认") : "", noRec ? "无恢复方式记录" : ""].filter(Boolean).join(" + ")}，承载 ${i.critical.length} 个 P0/P1 账号`, items: i.critical.map(a => a.service) });
   }
@@ -101,7 +114,7 @@ export function buildModel(accounts, identityItems = []) {
     const rec = a._edges.filter(e => e.type === "recovery"), logins = a._edges.filter(e => e.type === "login"), oauth = a._edges.filter(e => e.type === "oauth");
     const chain = []; let cur = a, guard = 0; // follow oauth links: GitHub → Gmail / Google → (recovery) QQ
     while (cur && guard++ < 5) { const o = cur._edges.find(e => e.type === "oauth" && e.acc); if (!o) break; cur = accs.find(x => x._k === o.acc); if (cur) chain.push(cur.service); }
-    if (oauth.length && !logins.length && rec.length <= 1 && rank(a.risk) <= 2)
+    if (oauth.length && (a._oauthOnly || !logins.length) && rec.length <= 1 && rank(a.risk) <= 2)
       spof.push({ level: rank(a.risk) <= 1 ? "high" : "medium", kind: "account", key: a._k, title: `${a.service}：仅通过 ${a._via.join(" / ")} 登录${rec.length ? `，恢复只依赖 ${a._rec[0]}` : "，无独立恢复方式记录"}`, items: chain });
     else if (rec.length === 1 && rec[0].acc && !logins.length && rank(a.risk) <= 2)
       spof.push({ level: "medium", kind: "account", key: a._k, title: `${a.service}：唯一恢复方式是另一个账号 ${a._rec[0]}`, items: [] });
@@ -116,7 +129,7 @@ export function checklist(i, accs) {
   const n2 = deps.filter(a => fa(a.two_fa) === "on").length, nChk = i.critical.filter(a => known(a.last_checked)).length;
   return [
     ["地址已录入", known(i.address) ? "ok" : "unknown", known(i.address) ? "" : "address 待补充"],
-    ["2FA 已开启", { on: "ok", off: "bad", unknown: "unknown" }[fa(i.two_fa)], fa(i.two_fa) === "unknown" ? "待确认" : ""],
+    ["2FA 已开启", i.na2fa ? "ok" : { on: "ok", off: "bad", unknown: "unknown" }[fa(i.two_fa)], i.na2fa ? "不适用" : fa(i.two_fa) === "unknown" ? "待确认" : ""],
     ["恢复方式已录入", i.recovery.length ? "ok" : "bad", i.recovery.join("、")],
     ["风险等级已定", known(i.risk) ? "ok" : "unknown", known(i.risk) ? i.risk : ""],
     ["P0/P1 依赖已核查", i.critical.length ? (nChk === i.critical.length ? "ok" : "unknown") : "ok", `${nChk}/${i.critical.length} 有 last_checked`],
