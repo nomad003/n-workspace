@@ -123,7 +123,8 @@
       "政府 / 市政": "life",
       "教育 / 学习": "life",
       "其他": "other",
-      "通讯 / AI 助手": "social"
+      "通讯 / AI 助手": "social",
+      "政府": "life"
     },
     "split": [
       {
