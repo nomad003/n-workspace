@@ -21,7 +21,8 @@ if (DATA_ROOT === "kb") warnings.push(`data/*.yaml read from KB fallback ${DATA_
 const OUT = "data";
 fs.mkdirSync(OUT, { recursive: true });
 const showPrivate = process.env.SHOW_PRIVATE !== "0";
-const MODULE_FILES = ["accounts", "subscriptions", "finance", "profile", "tasks", "content"];
+const MODULE_FILES = ["accounts", "subscriptions", "finance", "profile", "tasks", "content", "identities"];
+const OPTIONAL_FILES = new Set(["identities"]); // newer files: absence is not reported as missing
 const templateNames = new Set();
 const SKIP_DIRS = new Set(["templates", "11-Templates", "node_modules"]);
 
@@ -105,7 +106,7 @@ for (const name of MODULE_FILES) {
   const dirs = process.env.DATA_DIR ? [[DATA_DIR, DATA_ROOT]] : DATA_CANDIDATES.filter(([d]) => fs.existsSync(d));
   let file, DATA_ROOT_F;
   for (const [d, rt] of dirs) { file = ["yaml", "yml"].map(x => path.join(d, `${name}.${x}`)).find(f => fs.existsSync(f)); if (file) { DATA_ROOT_F = rt; break; } }
-  if (!file) { missing.push(`${name}.yaml`); modules[name] = { items: [], source: null }; continue; }
+  if (!file) { if (!OPTIONAL_FILES.has(name)) missing.push(`${name}.yaml`); modules[name] = { items: [], source: null }; continue; }
   if (DATA_ROOT_F === "kb" && hasLife) warnings.push(`${name}.yaml not in ${path.join(LIFE_ROOT, "data")}; using KB fallback ${file}`);
   const DATA_ROOT = DATA_ROOT_F;
   let doc;
