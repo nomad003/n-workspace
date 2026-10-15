@@ -3,36 +3,71 @@
 import fs from "node:fs"; import path from "node:path"; import * as yaml from "js-yaml";
 import { toItems, normalize, isPublic, match, overview } from "../app/src/core.js";
 
-const SRC = process.env.KB_DEST || (fs.existsSync("kb/n-knowledge-base") ? "kb/n-knowledge-base" : "kb");
-// KB keeps data/ at the repo root (kb/data); older layouts put it inside the vault.
-const DATA_DIR = process.env.KB_DATA_DIR || ["kb/data", path.join(SRC, "data")].find(d => fs.existsSync(d)) || path.join(SRC, "data");
+// Two content roots (gitignored, fetched by scripts/fetch-root.sh):
+//   KB_ROOT   = n-knowledge-base (notes keep their frontmatter privacy)
+//   LIFE_ROOT = n-life-data      (everything is private, regardless of frontmatter)
+const KB_ROOT = process.env.KB_ROOT || process.env.KB_DEST || (fs.existsSync("kb/n-knowledge-base") ? "kb/n-knowledge-base" : "kb");
+const KB_REPO_ROOT = fs.existsSync(path.join(KB_ROOT, "..", ".")) && path.basename(KB_ROOT) === "n-knowledge-base" ? path.dirname(KB_ROOT) : KB_ROOT;
+const LIFE_ROOT = process.env.LIFE_ROOT || "life";
+const SRC = KB_ROOT;
+const warnings = [];
+const hasLife = fs.existsSync(LIFE_ROOT);
+if (!hasLife) warnings.push(`life root not found: ${LIFE_ROOT} (set LIFE_REPO/LIFE_LOCAL; using KB only)`);
+// data/*.yaml: LIFE_ROOT/data first; fall back to KB data/ with a warning.
+const DATA_CANDIDATES = [[path.join(LIFE_ROOT, "data"), "life"], [path.join(KB_REPO_ROOT, "data"), "kb"], [path.join(KB_ROOT, "data"), "kb"]];
+const [DATA_DIR, DATA_ROOT] = process.env.DATA_DIR ? [process.env.DATA_DIR, process.env.DATA_ROOT || "life"]
+  : DATA_CANDIDATES.find(([d]) => fs.existsSync(d)) || [path.join(LIFE_ROOT, "data"), "life"];
+if (DATA_ROOT === "kb") warnings.push(`data/*.yaml read from KB fallback ${DATA_DIR} (expected ${path.join(LIFE_ROOT, "data")})`);
 const OUT = "data";
 const showPrivate = process.env.SHOW_PRIVATE !== "0";
 const MODULE_FILES = ["accounts", "subscriptions", "finance", "profile", "tasks", "content"];
-const warnings = [];
+const SKIP_DIRS = new Set(["templates", "11-Templates", "node_modules"]);
 
 function frontmatter(t) {
   const m = t.replace(/^\uFEFF/, "").match(/^---\r?\n([\s\S]*?)\r?\n---/); if (!m) return null;
   try { const o = yaml.load(m[1], { schema: yaml.JSON_SCHEMA }); return o && typeof o === "object" ? o : null; } catch { return undefined; }
 }
+// kb://path and life://path links (in note bodies and data values) -> record ids "<root>:<path>".
+const LINK_RE = /\b(kb|life):\/\/([^\s)\]"'`<>|]+)/g;
+export const linksIn = t => [...String(t).matchAll(LINK_RE)].map(m => ({ root: m[1], path: decodeURI(m[2]).replace(/[.,;:，。；）]+$/, "") }));
 const records = [];
-(function walk(d) {
-  if (!fs.existsSync(d)) { warnings.push(`KB folder not found: ${d}`); return; }
+function walk(root, d, rootName) {
   for (const e of fs.readdirSync(d, { withFileTypes: true })) {
     const p = path.join(d, e.name);
-    if (e.isDirectory()) { if (!e.name.startsWith(".") && p !== DATA_DIR) walk(p); continue; }
-    if (!e.name.endsWith(".md") || e.name === "README.md" && d === DATA_DIR) continue;
-    const f = frontmatter(fs.readFileSync(p, "utf8"));
-    if (f === undefined) { warnings.push(`unparseable frontmatter: ${path.relative(SRC, p)}`); continue; }
-    if (!f || f.type === "template" || f.status === "template") continue;
+    if (e.isDirectory()) { if (!e.name.startsWith(".") && !SKIP_DIRS.has(e.name) && path.resolve(p) !== path.resolve(DATA_DIR)) walk(root, p, rootName); continue; }
+    if (!e.name.endsWith(".md") || /^(README|AGENTS|CLAUDE)\.md$/.test(e.name) && d === root) continue;
+    const text = fs.readFileSync(p, "utf8"), rel = path.relative(root, p).split(path.sep).join("/");
+    let f = frontmatter(text);
+    if (f === undefined) { warnings.push(`unparseable frontmatter: ${rootName}://${rel}`); continue; }
+    if (!f) { if (rootName !== "life") continue; f = {}; } // life notes may lack frontmatter
+    if (f.type === "template" || f.status === "template") continue;
     for (const k of ["created", "updated"]) if (f[k] != null) f[k] = String(f[k]);
-    f.privacy = f.privacy === "public" ? "public" : "private";
+    if (rootName === "life") { f.privacy = "private"; f.area ??= rel.split("/")[0]; f.status ??= "active"; f.type ??= rel.split("/")[0]; f.updated ??= fs.statSync(p).mtime.toISOString().slice(0, 10); }
+    else f.privacy = f.privacy === "public" ? "public" : "private";
     f.tags = as(f.tags).map(String);
     f.title = f.title || path.basename(p, ".md");
-    f.origin = { source: "n-knowledge-base", ...(f.origin || {}), source_path: path.relative(SRC, p) };
+    f.root = rootName; f.id = `${rootName}:${rel}`;
+    f.origin = { source: rootName === "life" ? "n-life-data" : "n-knowledge-base", ...(f.origin || {}), source_path: rel };
+    f.links = linksIn(text);
     records.push(f);
   }
-})(SRC);
+}
+if (fs.existsSync(KB_ROOT)) walk(KB_ROOT, KB_ROOT, "kb"); else warnings.push(`KB root not found: ${KB_ROOT}`);
+if (hasLife) walk(LIFE_ROOT, LIFE_ROOT, "life");
+// resolve links: exact path, path + ".md", or unique basename match within the root.
+const byId = new Map(records.map(r => [r.id, r]));
+function resolve({ root, path: p }) {
+  const clean = p.replace(/^\/+/, "").replace(/^n-knowledge-base\//, "").replace(/#.*$/, "");
+  for (const c of [clean, clean + ".md"]) if (byId.has(`${root}:${c}`)) return `${root}:${c}`;
+  const base = clean.split("/").pop().replace(/\.md$/, "");
+  const hits = records.filter(r => r.root === root && r.origin.source_path.replace(/\.md$/, "").split("/").pop() === base);
+  return hits.length === 1 ? hits[0].id : null;
+}
+let broken = 0;
+for (const r of records) r.links = r.links.map(l => { const id = resolve(l); if (!id) broken++; return { href: `${l.root}://${l.path}`, id }; });
+const backlinks = {};
+for (const r of records) for (const l of r.links) if (l.id) (backlinks[l.id] ||= []).push(r.id);
+for (const r of records) r.backlinks = backlinks[r.id] || [];
 function as(v) { return v == null ? [] : Array.isArray(v) ? v : [v]; }
 
 // finance.snapshot summary: sums only numeric (filled-in) amounts; "净资产合计" row wins when filled.
@@ -48,35 +83,43 @@ function financeSummary(items) {
 }
 const modules = {}; const missing = [];
 for (const name of MODULE_FILES) {
-  const file = ["yaml", "yml"].map(x => path.join(DATA_DIR, `${name}.${x}`)).find(f => fs.existsSync(f));
+  // per-file lookup: LIFE_ROOT/data first, then KB data/ (fallback, warned).
+  const dirs = process.env.DATA_DIR ? [[DATA_DIR, DATA_ROOT]] : DATA_CANDIDATES.filter(([d]) => fs.existsSync(d));
+  let file, DATA_ROOT_F;
+  for (const [d, rt] of dirs) { file = ["yaml", "yml"].map(x => path.join(d, `${name}.${x}`)).find(f => fs.existsSync(f)); if (file) { DATA_ROOT_F = rt; break; } }
   if (!file) { missing.push(`${name}.yaml`); modules[name] = { items: [], source: null }; continue; }
+  if (DATA_ROOT_F === "kb" && hasLife) warnings.push(`${name}.yaml not in ${path.join(LIFE_ROOT, "data")}; using KB fallback ${file}`);
+  const DATA_ROOT = DATA_ROOT_F;
   let doc;
   try { doc = yaml.load(fs.readFileSync(file, "utf8")); } catch (e) { warnings.push(`${name}: YAML error ${e.message.split("\n")[0]}`); doc = null; }
   if (name === "profile") {
     const data = doc && typeof doc === "object" && !Array.isArray(doc) ? normalize(doc, "profile") : {};
     if (data.documents) data.documents = as(data.documents).map(x => normalize(x, "doc"));
     for (const k of ["privacy", "updated", "sources"]) delete data[k];
-    modules[name] = { data: showPrivate || doc?.privacy === "public" ? data : {}, items: [], source: path.relative(".", file) };
+    modules[name] = { data: showPrivate || (DATA_ROOT !== "life" && doc?.privacy === "public") ? data : {}, items: [], source: `${DATA_ROOT}://${path.relative(DATA_ROOT === "life" ? LIFE_ROOT : KB_REPO_ROOT, file)}`, root: DATA_ROOT };
   } else {
-    const filePrivacy = doc && !Array.isArray(doc) ? doc.privacy : undefined; // file-level privacy applies to items without their own
-    let all = toItems(doc, name).map(x => ({ ...x, privacy: x.privacy ?? filePrivacy ?? "private" }));
+    const filePrivacy = DATA_ROOT === "life" ? "private" : doc && !Array.isArray(doc) ? doc.privacy : undefined; // file-level privacy applies to items without their own
+    let all = toItems(doc, name).map(x => ({ ...x, privacy: DATA_ROOT === "life" ? "private" : x.privacy ?? filePrivacy ?? "private" }));
     const extra = {};
     if (name === "finance" && doc && !Array.isArray(doc)) {
       if (doc.snapshot && typeof doc.snapshot === "object") extra.snapshot = normalize(doc.snapshot, "snapshot");
       extra.summary = financeSummary(all);
     }
-    modules[name] = { ...extra, items: showPrivate ? all : all.filter(isPublic), hidden: showPrivate ? 0 : all.filter(x => !isPublic(x)).length, source: path.relative(".", file), updated: doc?.updated ? String(doc.updated instanceof Date ? doc.updated.toISOString().slice(0, 10) : doc.updated) : null };
+    modules[name] = { ...extra, items: showPrivate ? all : all.filter(isPublic), hidden: showPrivate ? 0 : all.filter(x => !isPublic(x)).length, source: `${DATA_ROOT}://${path.relative(DATA_ROOT === "life" ? LIFE_ROOT : KB_REPO_ROOT, file)}`, root: DATA_ROOT, updated: doc?.updated ? String(doc.updated instanceof Date ? doc.updated.toISOString().slice(0, 10) : doc.updated) : null };
   }
 }
 const shown = showPrivate ? records : records.filter(isPublic);
 const views = Object.fromEntries(fs.readdirSync("views").filter(f => f.endsWith(".json"))
   .map(f => JSON.parse(fs.readFileSync(path.join("views", f), "utf8"))).map(v => [v.id, v]));
-const bundle = { generated: new Date().toISOString(), show_private: showPrivate, kb_ref: process.env.KB_REF || null,
+const bundle = { generated: new Date().toISOString(), show_private: showPrivate, kb_ref: process.env.KB_REF || null, life_ref: hasLife ? (process.env.LIFE_REF || "main") : null,
+  roots: { kb: fs.existsSync(KB_ROOT), life: hasLife }, data_root: DATA_ROOT, broken_links: broken,
   data_dir: DATA_DIR, missing, warnings, records: shown,
   private_hidden: records.length - shown.length, modules };
 bundle.overview = overview(bundle, views.overview);
 fs.mkdirSync(OUT, { recursive: true });
 fs.writeFileSync(path.join(OUT, "bundle.json"), JSON.stringify(bundle));
+console.log(`roots: kb=${fs.existsSync(KB_ROOT)} life=${hasLife}; data from ${DATA_ROOT} (${DATA_DIR}); links: ${records.reduce((a, r) => a + r.links.length, 0)} (${broken} unresolved)`);
+console.log(`notes: ${records.length} (kb ${records.filter(r => r.root === "kb").length}, life ${records.filter(r => r.root === "life").length})`);
 console.log(`notes: ${records.length} (${shown.length} included, private ${showPrivate ? "SHOWN" : "hidden"})`);
 for (const [id, v] of Object.entries(views)) if (v.notes) console.log(`  ${id}: ${shown.filter(r => match(r, v.notes)).length} notes`);
 console.log(`data: ${MODULE_FILES.map(n => `${n}=${modules[n].source ? (modules[n].items.length || Object.keys(modules[n].data || {}).length) : "missing"}`).join(" ")}`);

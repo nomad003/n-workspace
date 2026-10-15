@@ -1,5 +1,5 @@
 // n-workspace dashboard. Renders views/*.json against data/bundle.json (built locally, gitignored).
-import { as, match, overview, daysUntil, nextRenewal, taskDue, known, isAgentTask } from "./core.js";
+import { as, match, overview, daysUntil, nextRenewal, taskDue, known, isAgentTask, resolveLink } from "./core.js";
 import { donut, stackedBars, hbars, progress, timeline, flow } from "./charts.js";
 
 const IDS = ["overview", "tasks", "profile", "accounts", "finance", "subscriptions", "work", "content", "learning", "notes", "life"];
@@ -33,11 +33,18 @@ const cd = (date, approx) => { const n = daysUntil(date); if (n == null) return 
 const fmt = v => v == null || v === "" ? "" : typeof v === "boolean" ? badge(v ? "是" : "否")
   : Array.isArray(v) ? v.map(x => `<span class="tag">${x && typeof x === "object" ? esc(Object.entries(x).map(([k, y]) => `${k}: ${y}`).join(" · ")) : esc(x)}</span>`).join("")
   : typeof v === "object" ? `<dl class="kv">${Object.entries(v).map(([k, x]) => `<dt>${esc(k)}</dt><dd>${fmt(x)}</dd>`).join("")}</dl>`
-  : !known(v) ? `<span class="unk">${esc(v)}</span>` : esc(v);
+  : !known(v) ? `<span class="unk">${esc(v)}</span>` : linkify(v);
 const isPinned = id => JSON.parse(localStorage.getItem("nw-pins") || "[]").includes(id);
+const noteHref = r => `#notes?id=${encodeURIComponent(r.id || "")}`;
+// kb://path and life://path -> in-app note links (broken links get a dashed badge).
+function linkify(v) {
+  return esc(v).replace(/\b(kb|life):\/\/([^\s)\]"'`<>|，。；]+)/g, (m, root, p) => { const r = resolveLink(records, `${root}://${p.replace(/&amp;/g, "&")}`);
+    return r ? `<a class="xl L-${root === "life" ? "tui" : "ext"}" href="${noteHref(r)}"><b>${root}</b>${esc(r.title)}</a>` : `<span class="xl broken" title="未解析">${m}</span>`; });
+}
 const BADGE_COLS = new Set(["status", "two_fa", "stage"]);
 function cell(r, c) {
   const v = r[c];
+  if (c === "title" && v && typeof v === "object" && v.id) return `<a href="${noteHref(v)}">${esc(v.title)}</a> ${v.root === "life" ? `<span class="chip L-tui">life</span>` : ""}`;
   if (c === "risk" && known(v)) return `<span class="chip L-${riskC(v)}">${esc(v)}</span>`;
   if (BADGE_COLS.has(c) && v != null && typeof v !== "object") return badge(v);
   if (c === "renew_date" && v != null) { const n = nextRenewal(r); return `${fmt(v)} ${n ? cd(n.date, n.approx) : ""}`; }
@@ -139,7 +146,7 @@ function riskTierProgress(accts) {
 }
 function notesTable(v) {
   const rs = v.notes ? records.filter(r => match(r, v.notes)) : []; if (!rs.length) return "";
-  return `<h3 class="subh">相关笔记 · ${rs.length}</h3>` + table(rs.sort((a, b) => String(b.updated).localeCompare(String(a.updated))).slice(0, 60).map(r => ({ ...r, path: r.origin?.source_path })), ["title", "status", "updated", "path"]);
+  return `<h3 class="subh">相关笔记 · ${rs.length}</h3>` + table(rs.sort((a, b) => String(b.updated).localeCompare(String(a.updated))).slice(0, 60).map(r => ({ ...r, title: r, path: `${r.root}://${r.origin?.source_path}` })), ["title", "status", "updated", "path"]);
 }
 const missing = v => v.data && bundle?.missing?.includes(`${v.data}.yaml`) ? `<div class="banner">KB 中未找到 <code>${esc(bundle.data_dir)}/${v.data}.yaml</code>。</div>` : "";
 
@@ -256,14 +263,24 @@ PAGES.tasks = v => {
     <h3 class="subh">tasks.yaml · ${ts.length}</h3>${table(ts.map(t => ({ ...t, module: V[moduleOfTask(t)]?.name })), ["id", "title", "owner", "status", "module", "notes"])}</div>`;
 };
 PAGES.notes = (v, q = "") => {
-  const areas = Object.entries(records.reduce((a, r) => (a[r.area || "?"] = (a[r.area || "?"] || 0) + 1, a), {})).sort((a, b) => b[1] - a[1]);
-  const [area, text] = [q.match(/area=([^&]*)/)?.[1], decodeURIComponent(q.match(/q=([^&]*)/)?.[1] || "")];
-  const rs = records.filter(r => (!area || r.area === decodeURIComponent(area)) && (!text || (r.title + " " + r.tags.join(" ") + " " + r.origin?.source_path).toLowerCase().includes(text.toLowerCase())))
+  const P = new URLSearchParams(q), area = P.get("area"), text = P.get("q") || "", root = P.get("root"), id = P.get("id");
+  const sel = id ? records.find(r => r.id === id) : null;
+  const pool = records.filter(r => !root || r.root === root);
+  const areas = Object.entries(pool.reduce((a, r) => (a[r.area || "?"] = (a[r.area || "?"] || 0) + 1, a), {})).sort((a, b) => b[1] - a[1]);
+  const rs = pool.filter(r => (!area || r.area === area) && (!text || (r.title + " " + r.tags.join(" ") + " " + r.origin?.source_path).toLowerCase().includes(text.toLowerCase())))
     .sort((a, b) => String(b.updated).localeCompare(String(a.updated)));
-  return hero(v, "知识库", "全部笔记浏览：按领域筛选，或用 ⌘K 搜索标题。", kpis([[records.length, "笔记"], [areas.length, "领域"], [records.filter(r => r.status === "active").length, "active"], [records.filter(r => r.status === "draft").length, "draft"]]))
-    + `<div class="body"><div class="filters"><a class="fchip ${!area ? "on" : ""}" href="#notes">全部 <b>${records.length}</b></a>${areas.map(([a, n]) => `<a class="fchip ${decodeURIComponent(area || "") === a ? "on" : ""}" href="#notes?area=${encodeURIComponent(a)}">${esc(a)} <b>${n}</b></a>`).join("")}</div>
+  const qs = o => "#notes?" + new URLSearchParams(Object.entries({ root, area, ...o }).filter(([, x]) => x)).toString();
+  const nroot = k => records.filter(r => r.root === k).length;
+  const detail = sel ? `<section class="card note-detail L-${sel.root === "life" ? "tui" : "ext"}" style="margin-bottom:16px"><h3><span class="chip L-${sel.root === "life" ? "tui" : "ext"}">${sel.root}</span>${esc(sel.title)}<span class="r"><a href="${qs({})}">关闭 ×</a></span></h3>
+    <dl class="kv"><dt>路径</dt><dd class="mono">${esc(sel.root)}://${esc(sel.origin?.source_path)}</dd>${["type", "area", "status", "maturity", "privacy", "updated", "tags"].filter(k => sel[k] != null && (!Array.isArray(sel[k]) || sel[k].length)).map(k => `<dt>${k}</dt><dd>${k === "status" ? badge(sel[k]) : fmt(sel[k])}</dd>`).join("")}
+    <dt>出链 (${(sel.links || []).length})</dt><dd>${(sel.links || []).map(l => { const r = l.id && records.find(x => x.id === l.id); return r ? `<a class="xl L-${r.root === "life" ? "tui" : "ext"}" href="${noteHref(r)}"><b>${r.root}</b>${esc(r.title)}</a>` : `<span class="xl broken">${esc(l.href)}</span>`; }).join(" ") || "—"}</dd>
+    <dt>反链 (${(sel.backlinks || []).length})</dt><dd>${(sel.backlinks || []).map(bid => { const r = records.find(x => x.id === bid); return r ? `<a class="xl L-${r.root === "life" ? "tui" : "ext"}" href="${noteHref(r)}"><b>${r.root}</b>${esc(r.title)}</a>` : ""; }).join(" ") || "—"}</dd></dl></section>` : "";
+  return hero(v, "知识库", "两个根：n-knowledge-base（kb://，按 frontmatter privacy）与 n-life-data（life://，全部私密）。", kpis([[records.length, "笔记"], [nroot("kb"), "kb://"], [nroot("life"), "life:// · 私密"], [records.reduce((a, r) => a + (r.links?.length || 0), 0), `链接 · 未解析 ${bundle.broken_links ?? 0}`]]))
+    + `<div class="body">${!bundle.roots?.life ? `<div class="banner">未加载 n-life-data（life/）。设置 <code>LIFE_REPO</code> / <code>LIFE_LOCAL</code> 后重新 <code>npm start</code>；当前结构化数据来自 ${esc(bundle.data_root === "kb" ? "KB data/（回退）" : bundle.data_dir)}。</div>` : ""}${detail}
+    <div class="filters"><a class="fchip ${!root ? "on" : ""}" href="#notes">全部根 <b>${records.length}</b></a><a class="fchip ${root === "kb" ? "on" : ""}" href="#notes?root=kb">kb:// <b>${nroot("kb")}</b></a><a class="fchip ${root === "life" ? "on" : ""}" href="#notes?root=life">life:// <b>${nroot("life")}</b></a></div>
+    <div class="filters"><a class="fchip ${!area ? "on" : ""}" href="${qs({ area: "" })}">全部领域 <b>${pool.length}</b></a>${areas.map(([a, n]) => `<a class="fchip ${area === a ? "on" : ""}" href="${qs({ area: a })}">${esc(a)} <b>${n}</b></a>`).join("")}</div>
     ${text ? `<div class="banner">搜索：<b>${esc(text)}</b> · ${rs.length} 条 <a href="#notes">清除</a></div>` : ""}
-    ${table(rs.slice(0, 200).map(r => ({ ...r, path: r.origin?.source_path })), ["title", "area", "type", "status", "maturity", "updated", "path"])}${rs.length > 200 ? `<p class="note">仅显示前 200 条</p>` : ""}</div>`;
+    ${table(rs.slice(0, 200).map(r => ({ ...r, title: r, path: `${r.root}://${r.origin?.source_path}` })), ["title", "area", "type", "status", "updated", "path"])}${rs.length > 200 ? `<p class="note">仅显示前 200 条</p>` : ""}</div>`;
 };
 function kpis(rows) { return `<div class="stats">${rows.map(([n, k, o]) => stat(n, k, o || {})).join("")}</div>`; }
 
@@ -322,7 +339,7 @@ function sidebar() {
    ${NAV.map(g => `<div class="grp ${col.includes(g.id) ? "closed" : ""}"><button class="gh" data-grp="${g.id}"><span>${g.label}</span><span class="gc">${g.items.reduce((n, id) => n + alertsFor(id).filter(() => id !== "overview").length, 0) || ""}</span><span class="chev">${ICONS.chev}</span></button><div class="gi">${g.items.map(navItem).join("")}</div></div>`).join("")}
    </div>
    <div class="agents"><div class="gh static">${ICONS.bot}<span>Agents</span><span class="gc">${OV.agentTasks.length}</span></div>${agentStatus()}</div>
-   <div class="side-foot">${bundle ? `构建 ${esc(new Date(bundle.generated).toLocaleString("zh-CN", { hour12: false }))} · ${bundle.show_private ? "含私密 · 仅本机" : `隐藏私密 ${bundle.private_hidden}`}` : ""}</div>`;
+   <div class="side-foot">${bundle ? `<span class="mono">kb@${esc(bundle.kb_ref || "main")} · ${bundle.roots?.life ? `life@${esc(bundle.life_ref)}` : "life: 未加载"}</span><br>构建 ${esc(new Date(bundle.generated).toLocaleString("zh-CN", { hour12: false }))} · ${bundle.show_private ? "含私密 · 仅本机" : `隐藏私密 ${bundle.private_hidden}`}` : ""}</div>`;
   wireTheme();
 }
 function wireTheme() {
@@ -351,7 +368,7 @@ function rail(v) {
   if (up.length) h += box("倒计时", `<div class="mini">${up.slice(0, 6).map(u => `<div class="mr">${cd(u.date, u.approx)}<span>${esc(u.name)}</span></div>`).join("")}</div>`, up.length);
   if (al.length) h += box("提醒", al.map(a => `<div class="al L-${LV[a.level][0]}"><span class="lv">${LV[a.level][1]}</span>${esc(a.msg.length > 70 ? a.msg.slice(0, 70) + "…" : a.msg)}</div>`).join(""), al.length);
   if (comp) h += box("数据完整度", progress([comp]) + `<p class="note">${comp.done}/${comp.total} 个字段已填，其余为 待补充/待确认。</p>`);
-  if (rel.length) h += box("相关笔记", `<div class="mini">${rel.map(r => `<a class="mr" href="#notes?q=${encodeURIComponent(r.title)}">${ICONS.notes}<span>${esc(r.title)}</span><small>${esc(r.updated)}</small></a>`).join("")}</div>`);
+  if (rel.length) h += box("相关笔记", `<div class="mini">${rel.map(r => `<a class="mr" href="${noteHref(r)}">${ICONS.notes}<span>${esc(r.title)}</span><small>${esc(r.updated)}</small></a>`).join("")}</div>`);
   if (bundle?.modules?.[v.data]?.source) h += box("来源", `<p class="note mono">${esc(bundle.modules[v.data].source)}<br>更新 ${esc(bundle.modules[v.data].updated || "—")}</p>`);
   return h ? `<aside class="rail">${h}</aside>` : "";
 }
@@ -364,7 +381,7 @@ function searchIndex() {
   for (const t of tasks()) idx.push({ kind: "任务", title: t.title, sub: `${t.owner} · ${t.status}`, href: `#${moduleOfTask(t)}`, icon: "tasks" });
   for (const f of M.finance?.items || []) idx.push({ kind: "理财", title: f.institution || f.item, sub: [f.kind, f.type].filter(Boolean).join(" · "), href: "#finance", icon: "finance" });
   for (const c of M.content?.items || []) idx.push({ kind: "内容", title: `${c.platform} ${c.handle ?? ""}`, sub: c.stage, href: "#content", icon: "content" });
-  for (const r of records) idx.push({ kind: "笔记", title: r.title, sub: r.origin?.source_path, href: `#notes?q=${encodeURIComponent(r.title)}`, icon: "notes" });
+  for (const r of records) idx.push({ kind: "笔记", title: r.title, sub: `${r.root}://${r.origin?.source_path}`, href: noteHref(r), icon: "notes" });
   return idx;
 }
 let IDX, kSel = 0, kRes = [];

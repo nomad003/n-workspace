@@ -6,22 +6,34 @@ Personal life/work dashboard: 9 modules (总览, 个人信息, 账号中心, 订
 
 ## Quick start (macOS / Linux)
 
-Prerequisites: **Node.js ≥ 18**, `git`, a POSIX `sh`, plus either `KB_TOKEN` (a GitHub token with read access to the KB) or the `gh` CLI logged in (`gh auth login`).
+Prerequisites: **Node.js ≥ 18**, `git`, a POSIX `sh`, plus either `KB_TOKEN` (GitHub token with read access to both private repos) or the `gh` CLI logged in (`gh auth login`).
 
 ```sh
-npm start          # install deps if needed → fetch KB → build data/bundle.json → serve http://127.0.0.1:5173/app/
+npm start   # install deps → fetch kb/ + life/ → build data/bundle.json → serve http://127.0.0.1:5173/app/
 ```
+
+Two content roots, fetched as plain folders (not submodules) into gitignored `kb/` and `life/`:
+
+| root | repo (default) | env | privacy |
+|---|---|---|---|
+| KB_ROOT → `kb/` | `nomad003/n-knowledge-base` | `KB_REPO`, `KB_REF` (main), `KB_LOCAL` | per-note frontmatter `privacy` (missing = private) |
+| LIFE_ROOT → `life/` | `nomad003/n-life-data` | `LIFE_REPO`, `LIFE_REF` (main), `LIFE_LOCAL`, `LIFE_TOKEN` | **everything private** |
+
+* `*_LOCAL=/path/to/clone` copies a local checkout instead of fetching. `KB_ROOT` / `LIFE_ROOT` override the folders the build reads.
+* The life root is optional: if the repo/branch is missing, `npm start` warns and continues with the KB only.
+* Structured data (`data/*.yaml`) is read per file from `LIFE_ROOT/data/`, falling back to the KB's `data/` with a warning.
+* `kb://path` and `life://path` links in notes and data values become in-app links (`#notes?id=…`), with backlinks in the 知识库 detail panel.
+  Paths are relative to the repo root; `.md` is optional; a unique file name also resolves. Encode spaces as `%20`.
+* `life/templates/`, `11-Templates/` and template notes are skipped. Life notes without frontmatter are included (area/type = top folder).
 
 | env | default | meaning |
 |---|---|---|
-| `KB_TOKEN` | `gh auth token` | GitHub token; used only in memory for the clone, never written to disk |
-| `KB_REF` | `main` | KB branch to fetch (e.g. a `feat/data-*` branch) |
-| `KB_LOCAL` | – | copy from a local KB clone instead of fetching |
-| `SKIP_FETCH=1` | – | reuse the existing `kb/` |
-| `SHOW_PRIVATE` | on | personal local tool: private records are included. `SHOW_PRIVATE=0` hides everything not marked `privacy: public` |
-| `PORT` | 5173 | server port (always bound to 127.0.0.1) |
+| `KB_TOKEN` / `LIFE_TOKEN` | `gh auth token` | used only in memory for the clone, never written to disk |
+| `SKIP_FETCH=1` | – | reuse existing `kb/` and `life/` |
+| `SHOW_PRIVATE` | on | personal local tool. `SHOW_PRIVATE=0` drops all life content and every KB note/data item not marked `privacy: public` |
+| `PORT` | 5173 | server port (always bound to 127.0.0.1; only `app/`, `views/`, `schema/` and `data/bundle.json` are served) |
 
-`npm run demo` builds from `examples/` (synthetic, fake data) to preview all widgets.
+`npm run demo` builds from `examples/` (synthetic, fake data).
 
 ## Data model
 
@@ -36,7 +48,7 @@ npm start          # install deps if needed → fetch KB → build data/bundle.j
 
 ## Future deploy: Cloudflare Pages + Access (not set up)
 
-1. Pages project from this repo; build command `sh scripts/fetch-kb.sh && node scripts/build-index.mjs && mkdir -p dist && cp -R app views index.html dist/ && mkdir -p dist/data && cp data/bundle.json dist/data/`, output `dist`.
+1. Pages project from this repo; build command `sh scripts/fetch-root.sh kb && sh scripts/fetch-root.sh life && node scripts/build-index.mjs && mkdir -p dist && cp -R app views index.html dist/ && mkdir -p dist/data && cp data/bundle.json dist/data/`, output `dist`.
 2. Add `KB_TOKEN` (fine-grained, read-only on the KB) as an encrypted build env var. Do **not** add `gh`.
 3. **Before the first deploy**, put the whole Pages domain (including `*.pages.dev` previews) behind **Cloudflare Access** (Zero Trust → Applications → self-hosted, allow only your email/IdP). The bundle contains private data whenever `SHOW_PRIVATE` is not `0`.
 4. Consider `SHOW_PRIVATE=0` for any deploy not protected by Access.

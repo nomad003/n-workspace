@@ -1,1 +1,1 @@
-{"id":"tasks","name":"任务","order":9,"data":"tasks","layout":"tasks","columns":["id","title","owner","status","source","notes"]}
+{"id": "tasks", "name": "任务", "order": 9, "data": "tasks", "layout": "tasks", "columns": ["id", "title", "owner", "status", "source", "notes"], "notes": {"root": ["life"], "path": ["agent-ops/"]}}

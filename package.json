@@ -4,10 +4,11 @@
  "type": "module",
  "scripts": {
   "start": "sh scripts/start.sh",
-  "fetch-kb": "sh scripts/fetch-kb.sh",
+  "fetch-kb": "sh scripts/fetch-root.sh kb",
   "build": "node scripts/build-index.mjs",
   "serve": "node scripts/serve.mjs",
-  "demo": "KB_DEST=examples SHOW_PRIVATE=1 node scripts/build-index.mjs && node scripts/serve.mjs"
+  "demo": "KB_DEST=examples SHOW_PRIVATE=1 node scripts/build-index.mjs && node scripts/serve.mjs",
+  "fetch-life": "sh scripts/fetch-root.sh life"
  },
  "dependencies": {
   "js-yaml": "^5.4.3"

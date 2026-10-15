@@ -3,6 +3,7 @@
 .env
 .env.*
 /kb/
+/life/
 .kb-cache/
 node_modules/
 *.local.md

@@ -50,8 +50,10 @@ export function match(r, f = {}, now = Date.now()) {
   for (const [k, vals] of Object.entries(f)) {
     if (k === "any") { if (!vals.some(s => match(r, s, now))) return false; continue; }
     const p = r.origin?.source_path || "";
-    if (k === "path") { if (!vals.some(x => p.startsWith(x))) return false; continue; }
-    if (k === "not_path") { if (vals.some(x => p.startsWith(x))) return false; continue; }
+    // KB paths like "13-Life/..." also match their n-life-data location ("life/...") after the split.
+    const alt = x => r.root === "life" ? [x, x.replace(/^13-Life\//, "life/")] : [x];
+    if (k === "path") { if (!vals.some(x => alt(x).some(y => p.startsWith(y)))) return false; continue; }
+    if (k === "not_path") { if (vals.some(x => alt(x).some(y => p.startsWith(y)))) return false; continue; }
     if (k.endsWith("!~")) { const f = String(r[k.slice(0, -2)] ?? ""); if (vals.some(x => f.includes(x))) return false; continue; }
     if (k.endsWith("~")) { const f = String(r[k.slice(0, -1)] ?? ""); if (!vals.some(x => f.includes(x))) return false; continue; } // substring
     if (k === "updated_within_days") { const t = Date.parse(r.updated); if (isNaN(t) || (now - t) / 864e5 > vals) return false; continue; }
@@ -130,4 +132,14 @@ export function overview(bundle, cfg = {}, now = Date.now()) {
   const recent = (bundle.records || []).filter(r => r.status === "active" || r.status === "draft")
     .sort((a, b) => String(b.updated).localeCompare(String(a.updated))).slice(0, 8);
   return { upcoming, alerts, agentTasks, recent };
+}
+
+// kb:// and life:// link resolution against bundle records (exact, +.md, or unique basename).
+export function resolveLink(records, href) {
+  const m = String(href).match(/^(kb|life):\/\/(.+)$/); if (!m) return null;
+  const root = m[1], clean = decodeURI(m[2]).replace(/^\/+/, "").replace(/^n-knowledge-base\//, "").replace(/#.*$/, "");
+  const hit = records.find(r => r.root === root && (r.origin?.source_path === clean || r.origin?.source_path === clean + ".md"));
+  if (hit) return hit;
+  const base = clean.split("/").pop().replace(/\.md$/, ""), hs = records.filter(r => r.root === root && r.origin?.source_path.replace(/\.md$/, "").split("/").pop() === base);
+  return hs.length === 1 ? hs[0] : null;
 }
