@@ -3,13 +3,13 @@ import { V, M, notesWhere, subs, subCat, catColor, liveSub, CYCLE, toCNY, monthl
 import { esc, header, tabs, table, more, card, fmt, kpis, pending, countUnknown, noteList, cd, riskC } from "../ui.js";
 import { render as renderAccounts, mount as mountAccounts } from "./accounts.js";
 import { hbars } from "../charts.js";
-export default function (sub = "profile") {
+export default function (sub = "profile", P = new URLSearchParams(), rest = []) {
   const v = V.assets, a = M.accounts?.items || [], s = subs(), f = M.finance?.items || [];
   const t = tabs("assets", [["profile", "个人信息"], ["accounts", "账号", a.length], ["subscriptions", "订阅", s.length], ["finance", "理财", f.length]], sub);
   const head = (chips) => header("个人资产", "tui", chips) + t;
   const notes = id => { const rs = notesWhere(v.notes[id]); return rs.length ? more(rs.length, noteList(rs, 999), "相关笔记") : ""; };
   if (sub === "accounts") {
-    return { html: head([`${a.length} 个账号`, M.identities?.items?.length ? "identities.yaml" : "身份推断"]) + `<div class="body">${renderAccounts()}${notes("accounts")}</div>`, mount: mountAccounts };
+    return { html: head([`${a.length} 个账号`, M.identities?.items?.length ? "identities.yaml" : "身份推断"]) + `<div class="body">${renderAccounts(rest, P)}${notes("accounts")}</div>`, mount: mountAccounts };
   }
   if (sub === "subscriptions") {
     const dups = dupSet(), live = s.filter(liveSub);

@@ -1,6 +1,6 @@
 // n-workspace v7 shell: flat 6-item sidebar, Cmd-K, hash router (#page/sub?params). Pages live in pages/*.js.
 import { overview } from "./core.js";
-import { bundle, V, M, records, tasks, openTasks, subs, known } from "./data.js";
+import { bundle, V, M, records, tasks, openTasks, subs, known, accHref, catPages } from "./data.js";
 import { esc, noteHref } from "./ui.js";
 import pOverview from "./pages/overview.js";
 import pAffairs from "./pages/affairs.js";
@@ -8,6 +8,7 @@ import pAssets from "./pages/assets.js";
 import pWork from "./pages/workcontent.js";
 import pKb from "./pages/kb.js";
 import pSources from "./pages/sources.js";
+import pAccount from "./pages/account.js";
 
 const P = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const ICONS = {
@@ -22,6 +23,7 @@ const ICONS = {
 const COLOR = { overview: "coding", affairs: "agent", assets: "tui", workcontent: "modes", kb: "ext", sources: "infra" };
 const PAGES = { overview: pOverview, affairs: pAffairs, assets: pAssets, workcontent: pWork, kb: pKb, sources: pSources };
 const ORDER = Object.keys(PAGES);
+PAGES.account = pAccount; const NAV_OF = { account: "assets" };
 const ICON_SUN = `<svg class="th-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`;
 const ICON_MOON = `<svg class="th-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`;
 const OV = bundle ? overview(bundle, V.overview) : { alerts: [], upcoming: [] };
@@ -48,7 +50,8 @@ const TABS = { affairs: [["tasks", "任务"], ["life", "生活事务"], ["daily"
 function searchIndex() {
   const idx = ORDER.map(id => ({ kind: "页面", title: V[id]?.name || id, href: `#${id}`, icon: id }));
   for (const [id, ts] of Object.entries(TABS)) for (const [t, l] of ts) idx.push({ kind: "页面", title: `${V[id]?.name} · ${l}`, href: `#${id}/${t}`, icon: id, low: 1 });
-  for (const a of M.accounts?.items || []) idx.push({ kind: "账号", title: a.service, sub: [a.category, a.risk, a.status].filter(known).join(" · "), href: "#assets/accounts", icon: "assets" });
+  for (const a of M.accounts?.items || []) idx.push({ kind: "账号", title: a.service, sub: [a.category, a.risk, a.status].filter(known).join(" · "), href: accHref(a), icon: "assets" });
+  for (const p of catPages()) idx.push({ kind: "页面", title: `账号 · ${p.label}`, href: `#assets/accounts/cat/${p.slug}`, icon: "assets", low: 1 });
   for (const s of subs()) idx.push({ kind: "订阅", title: s.service, sub: [s.plan, s.status].filter(known).join(" · "), href: "#assets/subscriptions", icon: "assets" });
   for (const t of tasks()) idx.push({ kind: "任务", title: t.title, sub: `${t.owner} · ${t.status}`, href: "#affairs/tasks", icon: "affairs" });
   for (const f of M.finance?.items || []) idx.push({ kind: "理财", title: f.institution || f.item, sub: [f.kind, f.type].filter(known).join(" · "), href: "#assets/finance", icon: "assets" });
@@ -89,11 +92,11 @@ window.nwOpenK = openK;
 /* ---------- router ---------- */
 let seq = 0;
 async function render() {
-  const [path, qs = ""] = location.hash.slice(1).split("?"), [id0, sub] = path.split("/"), id = PAGES[id0] ? id0 : "overview", el = document.getElementById("view"), my = ++seq;
-  document.querySelectorAll("#side a.ni").forEach(a => a.classList.toggle("on", a.dataset.id === id));
+  const [path, qs = ""] = location.hash.slice(1).split("?"), [id0, sub, ...rest] = path.split("/").map(decodeURIComponent), id = PAGES[id0] ? id0 : "overview", el = document.getElementById("view"), my = ++seq;
+  document.querySelectorAll("#side a.ni").forEach(a => a.classList.toggle("on", a.dataset.id === (NAV_OF[id] || id)));
   document.body.classList.remove("nav-open");
   if (!bundle) { el.innerHTML = `<div class="body"><div class="pend">未找到 data/bundle.json，请先运行 <code>npm start</code>。</div></div>`; return; }
-  try { const out = await PAGES[id](sub || undefined, new URLSearchParams(qs)); if (my === seq) { el._acct?.abort(); el.innerHTML = out.html; out.mount?.(el); } }
+  try { const out = await PAGES[id](sub || undefined, new URLSearchParams(qs), rest); if (my === seq) { el._acct?.abort(); el.innerHTML = out.html; out.mount?.(el); } }
   catch (err) { console.error(err); if (my === seq) el.innerHTML = `<div class="body"><div class="pend">页面渲染失败：${esc(err.message)}</div></div>`; }
 }
 sidebar();
