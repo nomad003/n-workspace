@@ -1,16 +1,21 @@
-// Agents: one row per agent (status, open tasks, channel), X snapshot, agent-ops notes.
-import { V, M, notesWhere, AGENTS, agentState, stageOf, known } from "../data.js";
-import { esc, header, noteList, more } from "../ui.js";
-const NAME = a => a === "Blibli" ? "Bilibili" : a;
+// Agents (v9): tasks with owner agent:<name> (tasks.yaml), channels (content.yaml owner_agent), agent-ops notes.
+import { M, tasks, notesIn, agentName, known } from "../data.js";
+import { isOpenTask } from "../core.js";
+import { esc, header, noteList, box, mainSide } from "../ui.js";
+import { taskRow } from "./_tasks.js";
 export default function () {
-  const ags = AGENTS.map(agentState), active = ags.filter(a => a.tasks.length || a.channels.length), idle = ags.filter(a => !active.includes(a));
-  const notes = notesWhere(V.agents.agent_notes).filter(r => !/index\.md$/.test(r.origin.source_path));
-  const ch = M.content?.items || [];
-  return { html: header("Agents", "", [`${AGENTS.length} 个 agent`, `${active.length} 个有任务或渠道`], `${ags.filter(a => a.label === "运行中").length} 个运行中，${ags.reduce((n, a) => n + a.tasks.length, 0)} 个任务。`) + `<div class="body">
-    <section class="blk"><h2>状态</h2><div class="rows">${active.map(a => `<div class="agrow"><div class="an"><i class="dot ${a.label === "运行中" ? "on" : ""}"></i><b>${esc(NAME(a.name))}</b><span class="s">${esc(a.label)}</span></div>
-      <div class="at">${a.tasks.map(t => `<div>${esc(t.title)}<span class="s">${esc(t.status)}${known(t.due) ? ` · ${esc(t.due)}` : ""}</span></div>`).join("")}${a.channels.map(c => `<div>${esc(c.platform)}<span class="s">${esc(c.stage ?? "")}</span></div>`).join("")}</div></div>`).join("")}</div>
-      ${idle.length ? `<p class="note">空闲：${idle.map(a => esc(NAME(a.name))).join("、")}</p>` : ""}</section>
-    ${ch.length ? `<section class="blk"><h2>渠道</h2><div class="rows">${ch.map(c => { const s = (c.snapshots || []).at?.(-1);
-        return `<div class="row r3"><span class="t">${esc(c.platform)}<span class="s">${esc([c.owner_agent, c.stage].filter(known).join(" · "))}</span></span><span class="tag">${s ? `${esc(s.date)} · 帖 ${s.posts ?? "—"} · 粉 ${s.followers ?? "—"} · 关注 ${s.following ?? "—"}` : "无快照"}</span><span class="tag">${(c.snapshots || []).length} 次</span></div>`; }).join("")}</div></section>` : ""}
-    <section class="blk"><h2>运营笔记<span class="more">agent-ops</span></h2>${noteList(notes, 10)}</section></div>` };
+  const ts = tasks().filter(t => /^agent:/.test(t.owner)), ch = M.content?.items || [];
+  const names = [...new Set([...ts.map(t => t.owner.slice(6)), ...ch.map(c => String(c.owner_agent ?? "").replace(/^agent:/, "").toLowerCase()).filter(Boolean)])];
+  const ag = names.map(n => { const mine = ts.filter(t => t.owner === `agent:${n}`), open = mine.filter(isOpenTask), chans = ch.filter(c => String(c.owner_agent ?? "").replace(/^agent:/, "").toLowerCase() === n);
+    return { n, mine, open, chans, run: open.some(t => t.status === "in-progress"), wait: open.some(t => t.status === "waiting") }; }).sort((a, b) => b.open.length - a.open.length);
+  const notes = notesIn("agent-ops/").filter(r => !/index\.md$/.test(r.origin.source_path));
+  const openN = ts.filter(isOpenTask).length;
+  const cards = ag.map(a => box({ title: `<i class="dot ${a.run ? "on" : ""}"></i> ${esc(agentName(a.n))}`, meta: `<span class="pill ${a.run ? "accent" : a.wait ? "warn" : ""}">${a.run ? "运行中" : a.wait ? "等待确认" : a.open.length ? "排队" : "空闲"}</span>`, flush: true,
+    body: a.mine.length ? `<div class="rows">${a.mine.map(t => taskRow(t)).join("")}</div>` : `<p class="empty" style="padding:16px">没有任务</p>`,
+    footer: [`${a.open.length} 待办 / ${a.mine.length} 总计`, ...a.chans.map(c => { const s = (c.snapshots || []).at?.(-1); return `${esc(c.platform)} ${esc(c.handle ?? "")} · ${esc(c.stage ?? "")}${s ? ` · 关注 ${esc(s.following ?? "—")} / 粉丝 ${esc(s.followers ?? "—")}` : ""}${known(c.next) ? ` · 下一步：${esc(Array.isArray(c.next) ? c.next[0] : c.next)}` : ""}`; })].join("<br>") })).join("");
+  const side = box({ title: "概况", body: `<dl class="mini-kv">${ag.map(a => `<dt>${esc(agentName(a.n))}</dt><dd>${a.open.length}</dd>`).join("")}</dl>` })
+    + box({ title: "agent-ops 笔记", meta: "life://agent-ops/", flush: true, body: noteList(notes, 99) });
+  return { html: header("Agents", "", [`${ag.length} 个 agent`, "owner: agent:*"], `${ag.filter(a => a.run).length} 个运行中，${ag.filter(a => a.wait).length} 个在等你确认。`,
+    { kpis: [[ag.length, "Agents"], [openN, "未完成任务", { tone: "focus" }], [ag.filter(a => a.run).length, "运行中"], [ag.filter(a => a.wait).length, "等你确认", { tone: ag.some(a => a.wait) ? "warn" : "" }]] })
+    + `<div class="body">${mainSide(cards, side)}</div>` };
 }

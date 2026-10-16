@@ -1,6 +1,6 @@
 // Build data/bundle.json (gitignored) from the KB: notes frontmatter + n-knowledge-base/data/*.yaml.
 // Local builds include private records by default (personal tool). Opt out with SHOW_PRIVATE=0.
-import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto"; import * as yaml from "js-yaml"; import { marked } from "marked"; import { parsePlan } from "./plan.mjs";
+import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto"; import * as yaml from "js-yaml"; import { marked } from "marked"; import { loadV9, mask } from "./v9.mjs";
 import { toItems, normalize, isPublic, match, overview, known } from "../app/src/core.js";
 
 // Two content roots (gitignored, fetched by scripts/fetch-root.sh):
@@ -48,7 +48,7 @@ function walk(root, d, rootName) {
     const p = path.join(d, e.name);
     if (e.isDirectory()) { if (SKIP_DIRS.has(e.name)) for (const t of listMd(p)) templateNames.add(t); if (!e.name.startsWith(".") && !SKIP_DIRS.has(e.name) && path.resolve(p) !== path.resolve(DATA_DIR)) walk(root, p, rootName); continue; }
     if (/\.tar\.enc$|\.enc$/.test(e.name) || !e.name.endsWith(".md") || /^(README|AGENTS|CLAUDE)\.md$/.test(e.name) && d === root) continue;
-    const text = fs.readFileSync(p, "utf8"), rel = path.relative(root, p).split(path.sep).join("/");
+    const text = mask(fs.readFileSync(p, "utf8")), rel = path.relative(root, p).split(path.sep).join("/");
     let f = frontmatter(text);
     if (f === undefined) { warnings.push(`unparseable frontmatter: ${rootName}://${rel}`); continue; }
     if (!f) { if (rootName !== "life") continue; f = {}; } // life notes may lack frontmatter
@@ -58,7 +58,7 @@ function walk(root, d, rootName) {
     else f.privacy = f.privacy === "public" ? "public" : "private";
     f.tags = as(f.tags).map(String);
     f.title = f.title || path.basename(p, ".md");
-    f.root = rootName; f.id = `${rootName}:${rel}`;
+    f.slug = f.id != null ? String(f.id) : null; f.root = rootName; f.id = `${rootName}:${rel}`;
     f.origin = { source: rootName === "life" ? "n-life-data" : "n-knowledge-base", ...(f.origin || {}), source_path: rel };
     f.links = linksIn(text, rootName);
     Object.defineProperty(f, "_text", { value: text.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n?/, ""), enumerable: false });
@@ -69,10 +69,12 @@ if (fs.existsSync(KB_ROOT)) walk(KB_ROOT, KB_ROOT, "kb"); else warnings.push(`KB
 if (hasLife) walk(LIFE_ROOT, LIFE_ROOT, "life");
 // resolve links: exact path, path + ".md", or unique basename match within the root.
 const byId = new Map(records.map(r => [r.id, r]));
+const bySlug = new Map(records.filter(r => r.slug).map(r => [`${r.root}|${r.slug.toLowerCase()}`, r.id])); // v9 frontmatter ids: kb://<id>, life://<id>
 // Obsidian-style resolution: exact vault path, path relative to the linking note, then basename (shortest path wins).
 function resolve({ root, path: p }, from) {
   // kb:// links carry the vault folder ("n-knowledge-base/<path>"); records are relative to the vault.
   const clean = p.replace(/^\/+/, "").replace(/^n-knowledge-base\//, "").replace(/#.*$/, "").replace(/\.md$/, "");
+  const sl = bySlug.get(`${root}|${clean.toLowerCase()}`); if (sl) return sl;
   const dir = from && from.root === root ? path.posix.dirname(from.origin.source_path) : "";
   for (const c of [clean, dir && dir !== "." ? path.posix.join(dir, clean) : null].filter(Boolean))
     for (const x of [c, c + ".md"]) if (byId.has(`${root}:${x}`)) return `${root}:${x}`;
@@ -127,6 +129,18 @@ for (const name of MODULE_FILES) {
     modules[name] = { ...extra, items: showPrivate ? all : all.filter(isPublic), hidden: showPrivate ? 0 : all.filter(x => !isPublic(x)).length, source: `${DATA_ROOT}://${path.relative(DATA_ROOT === "life" ? LIFE_ROOT : KB_REPO_ROOT, file)}`, root: DATA_ROOT, updated: doc?.updated ? String(doc.updated instanceof Date ? doc.updated.toISOString().slice(0, 10) : doc.updated) : null };
   }
 }
+// ---- schema_version 9 (n-life-data data model v9): replaces the v8 items with v9 records + compatibility aliases
+let V9 = null;
+if (hasLife && !process.env.DATA_DIR) {
+  const accDoc = (() => { try { return yaml.load(fs.readFileSync(path.join(LIFE_ROOT, "data", "accounts.yaml"), "utf8")); } catch { return null; } })();
+  if (accDoc?.schema_version === 9) {
+    V9 = loadV9(LIFE_ROOT, w => warnings.push(w));
+    const src = n => `life://data/${n}.yaml`;
+    for (const [n, items] of [["accounts", V9.accounts], ["identities", V9.identities], ["subscriptions", V9.subscriptions], ["tasks", V9.tasks]])
+      modules[n] = { ...modules[n], items: showPrivate ? items : [], hidden: showPrivate ? 0 : items.length, source: src(n), root: "life", updated: V9.updated[n] ?? modules[n]?.updated ?? null, schema_version: 9 };
+    for (const w of V9.missingDirs) warnings.push(`sections.yaml: life://${w} does not exist yet (tab shows empty)`);
+  }
+}
 const shown = showPrivate ? records : records.filter(isPublic);
 const views = Object.fromEntries(fs.readdirSync("views").filter(f => f.endsWith(".json"))
   .map(f => JSON.parse(fs.readFileSync(path.join("views", f), "utf8"))).map(v => [v.id, v]));
@@ -159,45 +173,47 @@ function renderNote(r) {
 const plain = t => t.replace(/```[\s\S]*?```/g, " ").replace(/!?\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (m, a, b) => b || a).replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
   .replace(/[#>*_`~|-]+/g, " ").replace(/\s+/g, " ").trim();
 fs.rmSync(path.join(OUT, "notes"), { recursive: true, force: true }); fs.mkdirSync(path.join(OUT, "notes"), { recursive: true });
-const kbIndex = [];
+const kbIndex = [], lifeIndex = [];
 for (const r of shown) {
   const f = noteFile(r.id);
   fs.writeFileSync(path.join(OUT, "notes", f + ".json"), JSON.stringify({ id: r.id, html: renderNote(r) }));
   r.file = f;
-  kbIndex.push({ id: r.id, f, title: r.title, root: r.root, path: r.origin.source_path, area: r.area ?? null, type: r.type ?? null, status: r.status ?? null,
+  (r.root === "life" ? lifeIndex : kbIndex).push({ id: r.id, slug: r.slug, f, title: r.title, root: r.root, path: r.origin.source_path, area: r.area ?? null, type: r.type ?? null, status: r.status ?? null,
     maturity: r.maturity ?? null, tags: r.tags, updated: r.updated ?? null, links: r.links.filter(l => l.id).map(l => l.id), backlinks: r.backlinks, text: plain(r._text).slice(0, 30000) });
 }
-fs.writeFileSync(path.join(OUT, "kb-index.json"), JSON.stringify(kbIndex));
+fs.writeFileSync(path.join(OUT, "kb-index.json"), JSON.stringify(kbIndex)); // KB only (知识)
+fs.writeFileSync(path.join(OUT, "life-index.json"), JSON.stringify(lifeIndex)); // life notes (生活 / 记录 / 计划)
 
 /* ---------- source registry (数据源) ---------- */
 const readMeta = d => { try { return JSON.parse(fs.readFileSync(path.join(d, ".nw-source.json"), "utf8")); } catch { return null; } };
 function missingFields(m) {
-  const per = {}; const walkF = (x, k) => { if (Array.isArray(x)) x.forEach(y => walkF(y, k)); else if (x && typeof x === "object") for (const [kk, y] of Object.entries(x)) walkF(y, kk); else if (k && !["notes", "privacy", "kind", "name", "source", "id"].includes(k)) { per[k] ||= [0, 0]; per[k][1]++; if (!known(x)) per[k][0]++; } };
+  const per = {}; const walkF = (x, k) => { if (k === "legacy" || k === "login_method") return; if (Array.isArray(x)) x.forEach(y => walkF(y, k)); else if (x && typeof x === "object") for (const [kk, y] of Object.entries(x)) walkF(y, kk); else if (k && !["notes", "privacy", "kind", "name", "source", "id"].includes(k) && !(m.schema_version === 9 && x == null)) { per[k] ||= [0, 0]; per[k][1]++; if (!known(x)) per[k][0]++; } };
   walkF(m.items?.length ? m.items : m.data, null);
   return Object.entries(per).filter(([, [u]]) => u > 0).map(([field, [unknown, total]]) => ({ field, unknown, total })).sort((a, b) => b.unknown - a.unknown);
 }
 const dataFiles = MODULE_FILES.map(n => ({ name: `${n}.yaml`, root: modules[n].root || null, source: modules[n].source, items: modules[n].items?.length || Object.keys(modules[n].data || {}).length, updated: modules[n].updated || null, missing_fields: modules[n].source ? missingFields(modules[n]) : [] }));
 const sources = [
   { id: "life", name: "n-life-data", role: "primary", kind: "git", present: hasLife, meta: readMeta(LIFE_ROOT), notes: records.filter(r => r.root === "life").length, privacy: "全部私密",
-    data_files: dataFiles.filter(d => d.root === "life"), expects: ["life/", "daily/", "work-reports/", "agent-ops/", "learning/", "moc/", "data/*.yaml"] },
+    data_files: dataFiles.filter(d => d.root === "life"), expects: V9 ? V9.sections.flatMap(x => x.tabs.flatMap(t => t.source)).filter(u => /\/$/.test(u)).map(u => u.slice(7)).filter((x, i, a) => a.indexOf(x) === i) : ["data/*.yaml"], schema_version: V9 ? 9 : 8 },
   { id: "kb", name: "n-knowledge-base", role: "secondary", kind: "git", present: fs.existsSync(KB_ROOT), meta: readMeta(KB_REPO_ROOT) || readMeta(KB_ROOT), notes: records.filter(r => r.root === "kb").length, privacy: "按 frontmatter privacy",
     data_files: dataFiles.filter(d => d.root === "kb"), expects: ["n-knowledge-base/**.md"] },
   { id: "x", name: "X (@handle)", role: "reserved", kind: "api", present: false, meta: null, notes: 0, privacy: "—", data_files: [], expects: ["posts / followers 快照（未接入）"] },
   { id: "bilibili", name: "Bilibili", role: "reserved", kind: "api", present: false, meta: null, notes: 0, privacy: "—", data_files: [], expects: ["视频 / 粉丝快照（未接入）"] },
 ];
 
-const lite = shown.map(r => ({ id: r.id, f: r.file, title: r.title, root: r.root, area: r.area ?? null, type: r.type ?? null, status: r.status ?? null, maturity: r.maturity ?? null,
+const lite = shown.map(r => ({ id: r.id, slug: r.slug, f: r.file, title: r.title, root: r.root, area: r.area ?? null, type: r.type ?? null, status: r.status ?? null, maturity: r.maturity ?? null,
   tags: r.tags, updated: r.updated ?? null, origin: { source_path: r.origin.source_path }, privacy: r.privacy }));
 const bundle = { generated: new Date().toISOString(), show_private: showPrivate, kb_ref: sources[1].meta?.ref || process.env.KB_REF || null, life_ref: hasLife ? (sources[0].meta?.ref || process.env.LIFE_REF || "main") : null,
   roots: { kb: fs.existsSync(KB_ROOT), life: hasLife }, broken_links: broken, broken_list: brokenList.slice(0, 200),
   missing, warnings, records: lite, private_hidden: records.length - shown.length, modules, sources };
 bundle.overview = overview(bundle, views.today);
-if (hasLife) bundle.plan = parsePlan(LIFE_ROOT);
+if (V9) bundle.v9 = { schema_version: 9, groups: V9.groups, plans: V9.plans, reviews: V9.reviews, sections: V9.sections, missing_dirs: V9.missingDirs, files: V9.files, updated: V9.updated };
 fs.writeFileSync(path.join(OUT, "bundle.json"), JSON.stringify(bundle));
 const size = f => (fs.statSync(path.join(OUT, f)).size / 1024).toFixed(0) + " KB";
 console.log(`roots: kb=${fs.existsSync(KB_ROOT)} (${sources[1].meta?.commit?.slice(0, 7) ?? "?"}) life=${hasLife} (${sources[0].meta?.commit?.slice(0, 7) ?? "?"}); links ${records.reduce((a, r) => a + r.links.length, 0)} (${broken} unresolved)`);
 console.log(`notes: ${records.length} (kb ${records.filter(r => r.root === "kb").length}, life ${records.filter(r => r.root === "life").length}); ${shown.length} included, private ${showPrivate ? "SHOWN" : "hidden"}`);
-console.log(`files: bundle.json ${size("bundle.json")}, kb-index.json ${size("kb-index.json")}, notes/ ${kbIndex.length} files`);
+console.log(`files: bundle.json ${size("bundle.json")}, kb-index.json ${size("kb-index.json")} (${kbIndex.length}), life-index.json ${size("life-index.json")} (${lifeIndex.length}), notes/ ${kbIndex.length + lifeIndex.length} files`);
+console.log(V9 ? `v9: ${V9.accounts.length} accounts · ${V9.groups.length} groups · ${V9.subscriptions.length} subs (${V9.subscriptions.filter(x => x.account_id).length} linked) · ${V9.tasks.length} tasks · ${V9.plans.length} plans · ${V9.reviews.length} reviews · ${V9.sections.length} sections` : "v8 data (schema_version != 9)");
 console.log(`data: ${dataFiles.map(d => `${d.name}=${d.root ?? "missing"}:${d.items}`).join(" ")}`);
 console.log(`overview: ${bundle.overview.upcoming.length} upcoming, ${bundle.overview.alerts.length} alerts`);
 for (const w of warnings) console.warn("warn:", w);

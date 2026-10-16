@@ -1,13 +1,14 @@
 // Loaded data + derived helpers shared by pages.
 import { match, nextRenewal, taskDue, known, isAgentTask, daysUntil, twoFaState, weak2fa } from "./core.js";
 export const bundle = await fetch("../data/bundle.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null);
-const IDS = ["today", "plan", "knowledge", "accounts", "agents", "settings"];
+const IDS = ["today", "plan", "life", "journal", "knowledge", "accounts", "agents", "settings"];
 export const views = (await Promise.all(IDS.map(id => fetch(`../views/${id}.json`).then(r => r.json())))).sort((a, b) => a.order - b.order);
 export const V = Object.fromEntries(views.map(v => [v.id, v]));
 export const M = bundle?.modules || {};
 export const records = bundle?.records || [];
 export const byId = new Map(records.map(r => [r.id, r]));
 export const notesWhere = f => f ? records.filter(r => match(r, f)).sort((a, b) => String(b.updated).localeCompare(String(a.updated))) : [];
+let lidx; export const lifeIndex = async () => lidx ||= await fetch("../data/life-index.json", { cache: "no-store" }).then(r => r.ok ? r.json() : []).catch(() => []);
 let idx; export const kbIndex = async () => idx ||= await fetch("../data/kb-index.json", { cache: "no-store" }).then(r => r.ok ? r.json() : []).catch(() => []);
 export const noteBody = r => fetch(`../data/notes/${r.f}.json`, { cache: "no-store" }).then(x => x.ok ? x.json() : null).catch(() => null);
 
@@ -38,14 +39,15 @@ export function agentState(a) {
 export { match, nextRenewal, taskDue, known, isAgentTask, daysUntil };
 
 // ---- accounts: stable ids, category pages (views/assets.json account_categories), relations
-export const accId = a => String(a.service ?? "").trim().toLowerCase().replace(/[\s/·]+/g, "-").replace(/[()（）.]+/g, "").replace(/-+/g, "-").replace(/^-|-$/g, "");
+export const accId = a => a?.id && !String(a.id).includes(":") ? String(a.id) : String(a.service ?? "").trim().toLowerCase().replace(/[\s/·]+/g, "-").replace(/[()（）.]+/g, "").replace(/-+/g, "-").replace(/^-|-$/g, "");
 export const accHref = a => `#account/${encodeURIComponent(accId(a))}`;
 export const accounts = () => M.accounts?.items || [];
 export const accById = id => accounts().find(a => accId(a) === id);
 const AC = () => V.accounts?.account_categories || { pages: [], by_category: {} };
-export const catPages = () => AC().pages;
+export const catPages = () => bundle?.v9?.groups?.length ? bundle.v9.groups.map(g => ({ slug: g.id, label: g.label })) : AC().pages;
 const anchorRe = /^(Gmail \/ Google|Microsoft 账号|QQ ?邮箱|手机号运营商)/;
 export function catOf(a) {
+  if (a.group) return { slug: a.group, rule: "v9" };
   const c = AC(), ov = c.service_overrides?.[a.service]; if (ov) return { slug: ov, rule: "override" };
   if (c.identity_anchors) { const ids = M.identities?.items || []; // anchor = provider's own account: its email_id is that identity and it logs in with the provider account itself
     const own = ids.some(i => [].concat(a.email_id ?? []).includes(i.id) && /-account$|^phone-sms/.test(String(a.login_via ?? "")) && anchorRe.test(a.service)) || anchorRe.test(a.service);
@@ -55,7 +57,7 @@ export function catOf(a) {
 }
 const tok = a => String(a.service ?? "").split(/\s*[/（(]\s*/)[0].trim();
 const hit = (txt, a) => { const t = tok(a); if (t.length < 2 || (/^[\x00-\x7f]+$/.test(t) && t.length < 3)) return false; return String(txt ?? "").toLowerCase().includes(t.toLowerCase()); };
-export const relatedSubs = a => subs().filter(s => hit(s.service, a) || hit(a.service, { service: s.service }) || hit(s.notes, a));
+export const relatedSubs = a => subs().some(s => s.account_id) ? subs().filter(s => s.account_id === accId(a)) : subs().filter(s => hit(s.service, a) || hit(a.service, { service: s.service }) || hit(s.notes, a));
 export const relatedTasks = a => tasks().filter(t => hit(t.title, a) || hit(t.notes, a));
 export async function relatedNotes(a) {
   const ix = await kbIndex(), t = tok(a).toLowerCase();
@@ -65,3 +67,16 @@ export async function relatedNotes(a) {
 
 export const noteByPath = (root, p) => byId.get(`${root}:${p}`);
 export const plan = () => bundle?.plan || null;
+// ---- v9 (n-life-data schema_version 9)
+export const v9 = bundle?.v9 || null;
+export const groups = () => v9?.groups || [];
+export const plansV9 = () => v9?.plans || [];
+export const reviews = () => v9?.reviews || [];
+export const section = id => (v9?.sections || []).find(s => s.id === id) || null;
+export const lifeFiles = () => v9?.files || [];
+export const subsOf = id => subs().filter(s => s.account_id === id);
+export const paidBy = id => subs().filter(s => s.paid_via === id);
+export const agentName = o => ({ bilibili: "Bilibili", kb: "KB", pi: "Pi", x: "X", register: "Register", bot: "Bot", github: "Github" })[String(o).replace(/^agent:/, "")] ?? String(o).replace(/^agent:/, "");
+export const dirOf = u => String(u).replace(/^life:\/\//, "").replace(/[#?].*$/, "");
+export const notesIn = dir => records.filter(r => r.root === "life" && (dir.endsWith("/") ? r.origin.source_path.startsWith(dir) : r.origin.source_path === dir || r.origin.source_path.startsWith(dir + "/")));
+export const filesIn = dir => lifeFiles().filter(f => f.path.startsWith(dir.endsWith("/") ? dir : dir + "/"));
