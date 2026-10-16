@@ -1,7 +1,7 @@
 {
  "id": "accounts",
  "name": "账号与订阅",
- "order": 3,
+ "order": 4,
  "tabs": [
   "overview",
   "subscriptions"

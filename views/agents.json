@@ -1,7 +1,7 @@
 {
  "id": "agents",
  "name": "Agents",
- "order": 4,
+ "order": 6,
  "agent_notes": {
   "root": [
    "life"

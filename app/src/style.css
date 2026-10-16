@@ -463,3 +463,18 @@ a.row:hover{background:var(--surface-2)}
 .d.ring{border:2px solid var(--g-off);width:7px!important;height:7px!important}.d.spof{border:1.5px dashed var(--g-off);width:8px!important;height:8px!important}.d.hub{border:2.5px solid var(--text);width:7px!important;height:7px!important}
 .gx-leg .l{width:20px;border-top:1.5px solid var(--text-3)}.l.oauth{border-color:var(--accent)!important}.l.rec{border-top-style:dashed!important}
 .gx-zoom{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:4px}.gx-zoom button{width:28px;height:28px;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--text);cursor:pointer}
+/* ---- v9: tasks / plan tree / layered accounts / folder sections ---- */
+.row.r4{grid-template-columns:1fr auto auto 64px}.row.r4 .tag:last-child{text-align:right}.row .tag.ok{color:var(--text-2)}.row .tag a{color:var(--accent)}
+.row.file{color:var(--text-2)}.row.file .t{font-weight:400}
+.pill.late{background:color-mix(in srgb,var(--err) 14%,transparent);color:var(--err)}
+.prow .pr{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.when.late{color:var(--err);font-weight:600}
+.ggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:4px 28px}.gcard h2 a{color:var(--text)}.blk h2 a{color:inherit}
+.blk h2 .w,.more .w{color:var(--err);font-weight:600}
+.pnode{margin:0 0 6px calc(var(--d) * 22px);padding-left:calc(min(var(--d),1) * 14px);border-left:calc(min(var(--d),1) * 2px) solid var(--border)}
+.pnode .ph2{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:14px 0 8px}.pnode .ph2 b{font-size:15px}.pnode .ph2 .s{color:var(--text-3);font-size:12.5px}
+.pnode .lv{font-size:11px;padding:1px 7px;border-radius:5px;background:var(--accent-soft);color:var(--accent);font-weight:600}
+.pnode .ph2 .more{margin-left:auto;font-size:12px}
+.q.mini{display:inline-flex;margin:0;width:150px;gap:8px}.q.mini .p{font-size:12px;color:var(--text-2)}
+.review.sm{margin-top:12px;grid-template-columns:1fr;padding:12px 14px}.review.sm p{margin:0;color:var(--text-3);font-size:12.5px}
+.crumbs .mono{font-size:12px;color:var(--text-3)}

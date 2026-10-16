@@ -1,6 +1,8 @@
 # n-workspace
 
-Personal life/work dashboard: 5 sections (v8 redesign): **今天** (5 blocks: 接下来 30 天 · 本季度计划 · 需要处理 · 最近在做 · Agents) · **计划** (12 个月行动清单 by horizon, 复盘 cadence, 生活领域, 学习路线 — parsed from `life/12个月行动清单.md` and `life/复盘节奏.md` by `scripts/plan.mjs`) · **知识** (projects first, directory tree, logs archive, full-text search, note pages with wikilinks/backlinks) · **账号与订阅** (attention → identities → categories; drill-down `#accounts/identities`, `#accounts/cat/<slug>`, `#account/<id>`; subscriptions) · **Agents**. 账号与订阅 → 图 (`#accounts/graph`, `app/src/pages/graph.js`): dependency-free force layout + SVG of identities, accounts, login / OAuth / recovery edges, SPOFs, filters and blast radius. Plus **设置** (data sources, one 数据补全 queue, theme).
+Personal life/work dashboard: Sections (v9, n-life-data data model v9): **今天** (derived from `data/tasks.yaml` + `plans.yaml` + `subscriptions.yaml`: overdue · due today · scheduled today · this week · this month · quarter progress · renewals · next review · agents) · **计划** (本周/本月 board, goal tree decade → year → half/quarter → tasks, review cadences + instances + `reviews/`, learning) · **生活** and **记录** (tabs come from `data/sections.yaml` and mirror the life folders: profile/ family/ finance/ health/ records/ affairs/ digital/ explore/ · journal/daily, journal/weekly, work/reports) · **账号** (身份 → 分类 = `account-groups.yaml` group → subcategory → account → 订阅 linked by `account_id`; plus 安全 and 关系图) · **知识** (n-knowledge-base only; `kb-index.json`) · **Agents** (tasks with `owner: agent:*`). Plus **设置**.
+
+Data: `scripts/v9.mjs` loads schema_version 9 files (and masks any e-mail / phone it passes through); v8 data still builds (compat path). `kb://<id>` / `life://<id>` resolve by frontmatter `id` first, then path. Build a branch of either root with `KB_REF=… LIFE_REF=… npm start` (default `main`). Indexes: `data/kb-index.json` (KB) and `data/life-index.json` (life).
 
 Design: calm neutrals, one indigo accent, light/dark; type-led lists instead of KPI strips, no charts on home, placeholders never shown inline (they are collected in 设置 → 数据补全). 2FA "needs attention" is defined once in `core.js` (`twoFaState`, `weak2fa`) and used everywhere. Code: `app/src/main.js` (shell, router, ⌘K) + `app/src/pages/*.js` + `ui.js` / `data.js` / `identity.js`.
 
@@ -31,7 +33,7 @@ Two content roots, fetched as plain folders (not submodules) into gitignored `kb
 | `KB_TOKEN` / `LIFE_TOKEN` | `gh auth token` | used only in memory for the clone, never written to disk |
 | `SKIP_FETCH=1` | – | reuse existing `kb/` and `life/` |
 | `SHOW_PRIVATE` | on | personal local tool. `SHOW_PRIVATE=0` drops all life content and every KB note/data item not marked `privacy: public` |
-| `PORT` | 5173 | server port (always bound to 127.0.0.1; only `app/`, `views/`, `schema/`, `data/bundle.json`, `data/kb-index.json` and `data/notes/` are served) |
+| `PORT` | 5173 | server port (always bound to 127.0.0.1; only `app/`, `views/`, `schema/`, `data/bundle.json`, `data/kb-index.json`, `data/life-index.json` and `data/notes/` are served) |
 
 `npm run demo` builds from `examples/` (synthetic, fake data).
 

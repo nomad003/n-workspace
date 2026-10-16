@@ -150,3 +150,37 @@ export function resolveLink(records, href) {
   const base = clean.split("/").pop().replace(/\.md$/, ""), hs = records.filter(r => r.root === root && r.origin?.source_path.replace(/\.md$/, "").split("/").pop() === base);
   return hs.length === 1 ? hs[0] : null;
 }
+
+// ---- v9 tasks / plans: a due value means "by the END of that period" (2026-12 → 12-31, 2026-Q4 → 12-31, 2027-H1 → 06-30)
+const pad = n => String(n).padStart(2, "0"), lastDay = (y, m) => new Date(y, m, 0).getDate();
+export function dueEnd(due) {
+  const s = String(due ?? ""); let m;
+  if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/))) return s;
+  if ((m = s.match(/^(\d{4})-(\d{2})$/))) return `${s}-${pad(lastDay(+m[1], +m[2]))}`;
+  if ((m = s.match(/^(\d{4})-Q([1-4])$/))) return `${m[1]}-${pad(m[2] * 3)}-${pad(lastDay(+m[1], m[2] * 3))}`;
+  if ((m = s.match(/^(\d{4})-H([12])$/))) return m[2] === "1" ? `${m[1]}-06-30` : `${m[1]}-12-31`;
+  if ((m = s.match(/^(\d{4})$/))) return `${s}-12-31`;
+  return null;
+}
+export const isOpenTask = t => !["done", "canceled"].includes(t?.status);
+export const ymdOf = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+export const quarterOf = d => `${d.getFullYear()}-Q${Math.floor(d.getMonth() / 3) + 1}`;
+/** 今天 blocks derived from tasks / plans / subscriptions / profile documents (see tools/derive_today.py in n-life-data). */
+export function deriveToday({ tasks = [], plans = [], reviews = [], subs = [], docs = [] }, now = new Date()) {
+  const today = ymdOf(now), dow = (now.getDay() + 6) % 7, wk0 = new Date(now); wk0.setDate(now.getDate() - dow); const wk1 = new Date(wk0); wk1.setDate(wk0.getDate() + 6);
+  const W0 = ymdOf(wk0), W1 = ymdOf(wk1), month = today.slice(0, 7), open = tasks.filter(isOpenTask);
+  const exact = t => /^\d{4}-\d{2}-\d{2}$/.test(String(t.due ?? ""));
+  const overdue = open.filter(t => dueEnd(t.due) && dueEnd(t.due) < today);
+  const dueToday = open.filter(t => dueEnd(t.due) === today && exact(t));
+  const scheduled = open.filter(t => t.scheduled === today);
+  const week = open.filter(t => (exact(t) && t.due > today && t.due <= W1) || (t.scheduled && t.scheduled > today && t.scheduled <= W1));
+  const thisMonth = open.filter(t => t.due === month);
+  const renewals = subs.filter(s => /^\d{4}-\d{2}-\d{2}$/.test(String(s.renew_date)) && ["active", "verify"].includes(s.state ?? s.status)).map(s => ({ s, d: daysUntil(s.renew_date, now) })).filter(x => x.d >= 0 && x.d <= 14);
+  const expiring = docs.map(d => ({ d, n: daysUntil(d?.expires, now) })).filter(x => x.n != null && x.n <= 60);
+  const qp = plans.find(p => p.level === "quarter" && p.period === quarterOf(now));
+  const qt = qp ? tasks.filter(t => t.plan === qp.id && t.status !== "canceled") : [];
+  const nextReview = reviews.flatMap(r => (r.instances || []).filter(i => i.status === "open").map(i => ({ ...i, review: r }))).sort((a, b) => String(dueEnd(a.due)).localeCompare(String(dueEnd(b.due))))[0] || null;
+  const agents = {}; for (const t of open) if (/^agent:/.test(t.owner)) (agents[t.owner.slice(6)] ||= []).push(t);
+  const inbox = open.filter(t => !(t.due || t.due_event || t.recurrence || t.scheduled));
+  return { today, week: [W0, W1], overdue, dueToday, scheduled, week_: week, thisMonth, renewals, expiring, quarter: qp ? { plan: qp, tasks: qt, done: qt.filter(t => t.status === "done").length } : null, nextReview, agents, inbox };
+}
