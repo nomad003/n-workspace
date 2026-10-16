@@ -57,7 +57,15 @@ export const stat = (n, k, { unit = "", warn = false, href = "" } = {}) => `<${h
 export const kpis = rows => `<div class="stats">${rows.map(r => stat(...r)).join("")}</div>`;
 // One-line page header: title + inline meta chips.
 // Page header (v8): small context line, one title, optional one-sentence lede. No chips, no per-page ⌘K button.
-export const header = (title, _color, meta = [], lede = "") => `<header class="ph"><div class="ctx">${meta.filter(Boolean).join(" · ")}</div><h1>${title}</h1>${lede ? `<p class="lede">${lede}</p>` : ""}</header>`;
+// Page template: header (meta · title · one-line summary · primary actions) → KPI row. Tabs + .body follow.
+export const kpiRow = rows => `<div class="kpis">${rows.filter(Boolean).map(([n, k, o = {}]) => `<${o.href ? `a href="${o.href}"` : "div"} class="kpi ${o.tone ?? ""}"><div class="kpi-k">${k}</div><div class="kpi-n">${n}${o.unit ? `<small>${o.unit}</small>` : ""}</div>${o.bar != null ? `<div class="bar"><i style="width:${Math.max(0, Math.min(100, o.bar))}%"></i></div>` : ""}${o.sub ? `<div class="kpi-s">${o.sub}</div>` : ""}</${o.href ? "a" : "div"}>`).join("")}</div>`;
+export const header = (title, _color, meta = [], lede = "", o = {}) => `<header class="ph"><div class="ph-row"><div class="ph-main"><div class="ctx">${meta.filter(Boolean).join(`<span class="sep">·</span>`)}</div><h1>${title}</h1>${lede ? `<p class="lede">${lede}</p>` : ""}</div>${o.actions?.length ? `<div class="ph-act">${o.actions.map(([l, h, primary]) => (h === "cmdk" ? `<button class="btn" data-cmdk>${esc(l)}</button>` : `<a class="btn ${primary ? "primary" : ""}" href="${h}">${esc(l)}</a>`)).join("")}</div>` : ""}</div>${o.kpis?.length ? kpiRow(o.kpis) : ""}</header>`;
+// Card anatomy: header (title · meta · link) / body / footer.
+export const box = ({ title, meta = "", link = null, body = "", footer = "", cls = "", flush = false }) => `<section class="box ${cls}"><header class="box-h"><h3>${title}</h3>${meta ? `<span class="box-m">${meta}</span>` : ""}${link ? `<a class="link" href="${link[1]}">${esc(link[0])} →</a>` : ""}</header><div class="box-b ${flush ? "flush" : ""}">${body}</div>${footer ? `<footer class="box-f">${footer}</footer>` : ""}</section>`;
+// Fixed grid patterns.
+export const mainSide = (main, side) => `<div class="g12"><div class="c8 stack">${main}</div><aside class="c4 stack">${side}</aside></div>`;
+export const treeDetail = (nav, detail) => `<div class="g12"><nav class="c3 tnav">${nav}</nav><div class="c9 stack">${detail}</div></div>`;
+export const alertList = xs => xs.map(a => `<a class="alert ${a.w ? "w" : ""}" href="${a.href}"><span class="n">${a.n}</span><b>${esc(a.t)}</b><small>${esc(a.s ?? "")}</small></a>`).join("");
 export const tabs = (base, list, active) => `<nav class="tabs">${list.map(([id, label, n]) => `<a href="#${base}/${id}" class="${id === active ? "on" : ""}">${esc(label)}${n != null && n !== "" ? `<b>${n}</b>` : ""}</a>`).join("")}</nav>`;
 export const steps = rows => `<div class="steps">${rows.map(r => `<div class="step L-${r.c}"><div class="n">${r.n}</div><div class="k">${esc(r.k)}</div></div>`).join("")}</div>`;
 export const urow = (date, approx, title, meta, extra = "") => `<div class="urow L-${urg(daysUntil(date))}">${cd(date, approx)}<div><b>${title}</b><span class="m">${meta}</span></div><span class="m x">${extra}</span></div>`;

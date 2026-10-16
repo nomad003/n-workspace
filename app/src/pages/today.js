@@ -1,7 +1,7 @@
 // 今天 (v9): every block is derived from data/tasks.yaml + plans.yaml + subscriptions.yaml (+ profile documents) via core.deriveToday.
 import { deriveToday, weak2fa, dueEnd } from "../core.js";
 import { V, M, records, tasks, subs, plansV9, reviews, agentName, v9 } from "../data.js";
-import { esc, noteHref, header } from "../ui.js";
+import { esc, noteHref, header, box, mainSide, alertList } from "../ui.js";
 import { dueLabel, taskRow } from "./_tasks.js";
 const WD = ["日", "一", "二", "三", "四", "五", "六"];
 const md = d => { const m = String(d).match(/^\d{4}-(\d{2})-(\d{2})/); return m ? `${+m[1]}/${+m[2]}` : esc(d); };
@@ -27,16 +27,24 @@ export default function () {
     T.thisMonth.length ? `本月还有 <b>${T.thisMonth.length}</b> 件` : "", q ? `本季度计划 <b>${q.done} / ${q.tasks.length}</b>` : "", att.length ? `<b>${att.length}</b> 项需要处理` : ""].filter(Boolean).join("，") + "。";
   const rowHtml = r => r.t ? `<a class="row" href="#plan/board"><span class="when ${r.c ?? ""}">${esc(r.when)}</span><span class="t">${esc(r.t.title)}${r.t.owner !== "user" ? `<span class="s">${esc(agentName(r.t.owner))}</span>` : ""}</span><span class="tag">${esc(r.k)}</span></a>`
     : `<a class="row" href="${r.sub.href}"><span class="when ${r.c ?? ""}">${esc(r.when)}</span><span class="t">${esc(r.sub.title)}<span class="s">${esc(r.sub.s)}</span></span><span class="tag">${esc(r.k)}</span></a>`;
-  return { html: header("今天", "", [`${now.getMonth() + 1}月${now.getDate()}日 周${WD[now.getDay()]}`, `第 ${wk} 周`, `本周 ${md(T.week[0])}–${md(T.week[1])}`], lede) + `<div class="body">
-  <section class="blk"><h2>接下来<a class="more" href="#plan/board">本周 / 本月 →</a></h2>${rows.length ? `<div class="rows">${rows.slice(0, 8).map(rowHtml).join("")}</div>` : `<p class="empty">今天、本周和本月都没有到期事项。</p>`}
-    <p class="note">${["逾期 " + T.overdue.length, "今天到期 " + T.dueToday.length, "今天安排 " + T.scheduled.length, "本周 " + T.week_.length, "本月 " + T.thisMonth.length, "续费 14 天内 " + T.renewals.length].join(" · ")}</p></section>
-  <div class="two">
-  <section class="blk"><h2>本季度计划${q ? `<span class="more">${esc(q.plan.period)}</span>` : ""}<a class="more" href="#plan/tree">目标树 →</a></h2>${q ? `<div class="q"><div class="bar"><i style="width:${Math.round(q.done / Math.max(1, q.tasks.length) * 100)}%"></i></div><span class="p">${q.done} / ${q.tasks.length}</span></div>
-    <div class="rows">${qOpen.slice(0, 5).map(t => taskRow(t, { detail: false })).join("")}</div>` : `<p class="empty">plans.yaml 中没有本季度（${esc(T.today.slice(0, 4))}）的 quarter 计划。</p>`}</section>
-  <section class="blk"><h2>需要处理</h2>${att.length ? `<div class="attn">${att.map(a => `<a class="ac ${a.w ? "w" : ""}" href="${a.href}"><span class="n">${a.n}</span><p>${esc(a.t)}<small>${esc(a.s)}</small></p></a>`).join("")}</div>` : `<p class="empty">没有待处理项。</p>`}
-    ${T.nextReview ? `<a class="review sm" href="#plan/reviews"><b>下次复盘 · ${esc(T.nextReview.period)}</b><p>${esc({ quarterly: "季度轻复盘", annual: "年度大复盘" }[T.nextReview.review.kind] ?? T.nextReview.review.id)} · 截止 ${esc(dueLabel({ due: T.nextReview.due }))} · ${T.nextReview.review.duration_min} 分钟</p></a>` : ""}</section></div>
-  <div class="two">
-  <section class="blk"><h2>最近记录<a class="more" href="#journal">记录 →</a></h2><div class="rows">${recent.map(r => `<a class="row r2" href="${noteHref(r)}"><span class="t">${esc(r.title)}<span class="s">${esc(r.origin.source_path.split("/")[0])}</span></span><span class="tag">${md(r.updated)}</span></a>`).join("")}</div></section>
-  <section class="blk"><h2>Agents<a class="more" href="#agents">→</a></h2>${ags.length ? `<div class="ag">${ags.map(([a, ts]) => `<a href="#agents"><i class="dot ${ts.some(t => t.status === "in-progress") ? "on" : ""}"></i><b>${esc(agentName(a))}</b> ${ts.length} 待办</a>`).join("")}</div>` : `<p class="empty">没有 agent 任务。</p>`}</section></div>
-  </div>` };
+  const nToday = T.dueToday.length + T.scheduled.length, qPct = q ? Math.round(q.done / Math.max(1, q.tasks.length) * 100) : 0;
+  const kpis = [[T.overdue.length, "逾期", { tone: T.overdue.length ? "warn" : "", href: "#plan/board", sub: T.overdue.length ? "先处理这些" : "没有逾期" }],
+    [nToday, "今天", { href: "#plan/board", sub: `到期 ${T.dueToday.length} · 安排 ${T.scheduled.length}` }],
+    [T.week_.length + T.thisMonth.length, "本周 + 本月", { href: "#plan/board", sub: `本周 ${T.week_.length} · 本月 ${T.thisMonth.length}` }],
+    q && [`${q.done}<small>/ ${q.tasks.length}</small>`, `${esc(q.plan.period)} 计划`, { tone: "focus", href: "#plan/tree", bar: qPct }],
+    [w2.length, "2FA 待确认", { tone: w2.length ? "warn" : "", href: "#accounts/security", sub: "P0 / P1 重要账号" }]];
+  const focus = box({ title: "今天与接下来", meta: `${rows.length} 项`, link: ["本周 / 本月", "#plan/board"], cls: "focus", flush: true,
+    body: rows.length ? `<div class="rows">${rows.slice(0, 10).map(rowHtml).join("")}</div>` : `<p class="empty" style="padding:16px">今天、本周和本月都没有到期事项。</p>`,
+    footer: ["逾期 " + T.overdue.length, "今天到期 " + T.dueToday.length, "今天安排 " + T.scheduled.length, "本周 " + T.week_.length, "本月 " + T.thisMonth.length, "14 天内续费 " + T.renewals.length].join(" · ") });
+  const plan = box({ title: "本季度计划", meta: q ? esc(q.plan.title) : "", link: ["目标树", "#plan/tree"], flush: true,
+    body: q ? `<div class="qhead"><span class="big">${q.done}<small> / ${q.tasks.length}</small></span><span class="lbl">项已完成 · ${qPct}%</span></div><div class="qbar prog"><i style="width:${qPct}%"></i></div>
+      <div class="rows">${qOpen.slice(0, 6).map(t => taskRow(t, { detail: false })).join("")}</div>` : `<p class="empty" style="padding:16px">plans.yaml 中没有本季度（${esc(T.today.slice(0, 4))}）的 quarter 计划。</p>`,
+    footer: q && qOpen.length > 6 ? `还有 ${qOpen.length - 6} 项未完成` : "" });
+  const side = [
+    box({ title: "需要处理", meta: att.length ? `${att.length} 项` : "", flush: true, body: att.length ? alertList(att) : `<p class="empty" style="padding:16px">没有待处理项。</p>` }),
+    T.nextReview ? box({ title: "下次复盘", link: ["复盘", "#plan/reviews"], body: `<dl class="mini-kv"><dt>周期</dt><dd>${esc(T.nextReview.period)}</dd><dt>类型</dt><dd>${esc({ quarterly: "季度轻复盘", annual: "年度大复盘" }[T.nextReview.review.kind] ?? T.nextReview.review.id)}</dd><dt>截止</dt><dd>${esc(dueLabel({ due: T.nextReview.due }))}</dd><dt>时长</dt><dd>${T.nextReview.review.duration_min} 分钟</dd></dl>` }) : "",
+    box({ title: "Agents", link: ["全部", "#agents"], flush: true, body: ags.length ? `<div class="rows">${ags.map(([a, ts]) => `<a class="row r2" href="#agents"><span class="t">${esc(agentName(a))}</span><span class="tag">${ts.some(t => t.status === "in-progress") ? "进行中 · " : ""}${ts.length} 待办</span></a>`).join("")}</div>` : `<p class="empty" style="padding:16px">没有 agent 任务。</p>` }),
+    box({ title: "最近记录", link: ["记录", "#journal"], flush: true, body: `<div class="rows">${recent.map(r => `<a class="row r2" href="${noteHref(r)}"><span class="t">${esc(r.title)}</span><span class="tag">${md(r.updated)}</span></a>`).join("")}</div>` })].join("");
+  return { html: header("今天", "", [`${now.getMonth() + 1}月${now.getDate()}日 周${WD[now.getDay()]}`, `第 ${wk} 周`, `本周 ${md(T.week[0])}–${md(T.week[1])}`], lede, { kpis, actions: [["⌘K 搜索", "cmdk"], ["打开计划", "#plan/board", true]] })
+    + `<div class="body">${mainSide(focus + plan, side)}</div>` };
 }

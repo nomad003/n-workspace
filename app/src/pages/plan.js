@@ -1,7 +1,7 @@
 // 计划 (v9): 本周/本月 board · 目标树 (decade → year → half/quarter → tasks) · 复盘 (cadences + instances + reviews/) · 学习路线.
 import { tasks, plansV9, reviews, notesIn, noteByPath, records, v9 } from "../data.js";
 import { dueEnd, daysUntil, isOpenTask, quarterOf, ymdOf } from "../core.js";
-import { esc, header, tabs, noteHref, noteList } from "../ui.js";
+import { esc, header, tabs, noteHref, noteList, box, mainSide } from "../ui.js";
 import { taskRow } from "./_tasks.js";
 const LVL = { decade: "十年", year: "年度", half: "半年", quarter: "季度", month: "月", week: "周" };
 const KIND = { quarterly: "季度轻复盘", annual: "年度大复盘", monthly: "月度复盘", weekly: "周复盘" };
@@ -13,7 +13,11 @@ export default function (sub = "board") {
   const qp = P.find(p => p.level === "quarter" && p.period === q), qt = qp ? ts.filter(t => t.plan === qp.id) : [];
   const nr = reviews().flatMap(r => r.instances.filter(i => i.status === "open").map(i => ({ ...i, r }))).sort((a, b) => String(dueEnd(a.due)).localeCompare(String(dueEnd(b.due))))[0];
   const lede = `${open.length} 个未完成任务${qp ? `，${esc(qp.title)} <b>${qt.filter(t => t.status === "done").length} / ${qt.length}</b>` : ""}${nr ? `。下一次复盘：<b>${esc(nr.period)} · ${esc(KIND[nr.r.kind] ?? nr.r.id)}</b>（${esc(nr.due)}）` : ""}。`;
-  const head = header("计划", "", [`tasks.yaml ${ts.length}`, `plans.yaml ${P.length} 个计划 · ${reviews().length} 个复盘节奏`], lede)
+  const qd = qt.filter(t => t.status === "done").length, lateN = open.filter(t => dueEnd(t.due) && dueEnd(t.due) < today).length;
+  const head = header("计划", "", [`tasks.yaml ${ts.length}`, `plans.yaml ${P.length} 个计划 · ${reviews().length} 个复盘节奏`], lede, { actions: [["目标树", "#plan/tree"], ["复盘", "#plan/reviews", true]],
+    kpis: [[open.length, "未完成任务", { sub: `我 ${open.filter(t => t.owner === "user").length} · agent ${open.filter(t => t.owner !== "user").length}` }], [lateN, "逾期", { tone: lateN ? "warn" : "" }],
+      qp && [`${qd}<small>/ ${qt.length}</small>`, `${esc(qp.period)} 计划`, { tone: "focus", bar: qt.length ? qd / qt.length * 100 : 0, href: "#plan/tree" }],
+      [open.filter(t => !t.due && !t.due_event && !t.recurrence && !t.scheduled).length, "无日期", { sub: "需要排期" }], nr && [esc(nr.period), "下一次复盘", { sub: esc(nr.due), href: "#plan/reviews" }]] })
     + tabs("plan", [["board", "本周 / 本月"], ["tree", "目标树"], ["reviews", "复盘"], ["learning", "学习路线"]], sub);
   if (sub === "tree") {
     const kids = id => P.filter(p => p.parent === id), roots = P.filter(p => !p.parent || !P.some(x => x.id === p.parent));
@@ -41,6 +45,12 @@ export default function (sub = "board") {
   const G = [["逾期", t => end(t) && end(t) < today], ["今天", t => end(t) === today || t.scheduled === today], ["本周", t => (end(t) && end(t) <= W1) || (t.scheduled && t.scheduled <= W1)], ["本月", t => end(t) && end(t) <= M1],
     ["本季度", t => end(t) && end(t) <= Q1], ["之后", t => !!end(t)], ["重复", t => !!t.recurrence], ["事件节点", t => !!t.due_event], ["无日期", () => true]];
   const left = new Set(open), out = G.map(([k, f]) => { const xs = [...left].filter(f); xs.forEach(x => left.delete(x)); return [k, xs.sort((a, b) => String(end(a)).localeCompare(String(end(b))) || String(a.priority).localeCompare(String(b.priority)))]; }).filter(([, xs]) => xs.length);
-  return { html: head + `<div class="body">${out.map(([k, xs]) => `<div class="hz"><div class="h">${esc(k)}<small>${xs.length} 项</small></div><div class="rows">${xs.map(t => taskRow(t)).join("")}</div></div>`).join("")}
-    <p class="note">完成的任务：${ts.filter(t => t.status === "done").map(t => esc(t.title)).join("、") || "无"}</p></div>` };
+  const board = box({ title: "按时间窗口", meta: `${open.length} 项未完成`, cls: "focus", flush: true,
+    body: out.map(([k, xs]) => `<div class="hz"><div class="h">${esc(k)}<small>${xs.length} 项</small></div><div class="rows">${xs.map(t => taskRow(t)).join("")}</div></div>`).join("") });
+  const levels = P.filter(p => ["year", "half", "quarter"].includes(p.level)).map(p => { const xs = ts.filter(t => t.plan === p.id), d = xs.filter(t => t.status === "done").length;
+    return `<div class="row r2"><span class="t">${esc(p.title)}<span class="s">${esc(LVL[p.level] ?? p.level)} · ${esc(p.period)}</span></span><span class="tag">${xs.length ? `${d} / ${xs.length}` : ""}</span></div>`; }).join("");
+  const done = ts.filter(t => t.status === "done");
+  const side = box({ title: "计划层级", link: ["目标树", "#plan/tree"], flush: true, body: `<div class="rows">${levels}</div>` })
+    + box({ title: "已完成", meta: `${done.length} 项`, flush: true, body: done.length ? `<div class="rows">${done.map(t => `<div class="row r2"><span class="t">${esc(t.title)}</span><span class="tag">${esc(String(t.done_at ?? "").slice(0, 10))}</span></div>`).join("")}</div>` : `<p class="empty" style="padding:16px">无</p>` });
+  return { html: head + `<div class="body">${mainSide(board, side)}</div>` };
 }

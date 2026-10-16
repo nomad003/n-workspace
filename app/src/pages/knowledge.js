@@ -1,7 +1,7 @@
 // 知识 (v9): n-knowledge-base ONLY — 项目 (10-Projects) · 主题 (MOC + topic folders) · 目录 · 搜索 (kb-index.json) · note page (any root).
 // Life notes live under 生活 / 记录 / 计划; the note page still renders them (with a link back to their section).
 import { V, records as ALL, byId, v9, kbIndex, noteBody, notesWhere, match } from "../data.js";
-import { esc, header, tabs, card, noteList, noteLink, noteHref, badge, more } from "../ui.js";
+import { esc, header, tabs, card, noteList, noteLink, noteHref, badge, more, box, mainSide } from "../ui.js";
 const MC = { stub: "infra", learning: "agent", evolving: "coding", evergreen: "ai" };
 const records = ALL.filter(r => r.root === "kb");
 const T = sub => tabs("knowledge", [["home", "项目"], ["topics", "主题"], ["tree", "目录"], ["search", "搜索"]], sub);
@@ -11,7 +11,9 @@ const group = (rs, depth) => { const g = {}; for (const r of rs) { const k = r.o
   return Object.entries(g).filter(([k]) => !/\.md$/.test(k)).map(([k, xs]) => ({ k, name: k.split("/").pop(), xs, last: xs.map(x => x.updated).filter(Boolean).sort().at(-1) })).sort((a, b) => String(b.last).localeCompare(String(a.last))); };
 export default async function (sub = "home", P = new URLSearchParams()) {
   const v = V.knowledge, kbN = records.filter(r => r.root === "kb").length;
-  const head = (extra = [], lede = "") => header("知识", "", [`n-knowledge-base · ${kbN} 篇`, ...extra], lede);
+  const mocN = records.filter(r => r.type === "moc").length, lastU = records.map(r => r.updated).filter(Boolean).sort().at(-1) ?? "";
+  const head = (extra = [], lede = "长期知识库：项目、主题与 MOC。生活类笔记在 生活 / 记录。") => header("知识", "", [`n-knowledge-base · ${kbN} 篇`, ...extra], lede, { actions: [["全文搜索", "#knowledge/search", true]],
+    kpis: sub === "home" ? [[kbN, "笔记", { tone: "focus" }], [group(notesWhere(v.projects).filter(r => r.root === "kb"), 2).length, "项目"], [group(notesWhere(v.topics).filter(r => r.root === "kb"), 1).length, "主题"], [mocN, "MOC"], [lastU.slice(5).replace("-", "/") || "—", "最近更新", { sub: esc(lastU) }]] : [] });
   if (sub === "note") return notePage(P.get("id"));
   if (sub === "search") return searchPage(P.get("q") || "", head);
   if (sub === "tree") return treePage(P, head);
@@ -24,10 +26,10 @@ export default async function (sub = "home", P = new URLSearchParams()) {
   const projects = group(notesWhere(v.projects).filter(r => r.root === "kb"), 2), topics = group(notesWhere(v.topics).filter(r => r.root === "kb"), 1);
   const recent = [...records].filter(r => !/(^|\/)(index|README)\.md$/i.test(r.origin.source_path) && r.type !== "moc").sort((a, b) => String(b.updated).localeCompare(String(a.updated)));
   const prow = g => `<a class="row r3" href="#knowledge/tree?root=kb&dir=${encodeURIComponent("kb/" + g.k)}"><span class="t">${esc(g.name)}</span><span class="tag">${g.xs.length} 篇</span><span class="tag">${md(g.last)}</span></a>`;
-  return { html: head() + T("home") + `<div class="body">${searchBox()}
-    <div class="two"><section class="blk"><h2>项目</h2><div class="rows">${projects.map(prow).join("")}</div></section>
-    <section class="blk"><h2>主题</h2><div class="rows">${topics.map(prow).join("")}</div></section></div>
-    <section class="blk"><h2>最近更新</h2>${noteList(recent, 10)}</section></div>` };
+  return { html: head() + T("home") + `<div class="body">${searchBox()}${mainSide(
+    box({ title: "项目", meta: `${projects.length} 个 · 10-Projects`, flush: true, cls: "focus", body: `<div class="rows">${projects.map(prow).join("")}</div>` })
+    + box({ title: "主题", meta: `${topics.length} 个`, link: ["主题页", "#knowledge/topics"], flush: true, body: `<div class="rows">${topics.map(prow).join("")}</div>` }),
+    box({ title: "最近更新", link: ["目录", "#knowledge/tree"], flush: true, body: noteList(recent, 12) }))}</div>` };
 }
 function treePage(P, head) {
   const root = "kb", dir = P.get("dir") || "", area = P.get("area") || "", type = P.get("type") || "", status = P.get("status") || "";

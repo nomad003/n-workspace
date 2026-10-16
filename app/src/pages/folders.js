@@ -1,6 +1,6 @@
 // 生活 / 记录 (v9): tabs come from data/sections.yaml; each tab mirrors its life:// folder(s): subfolders, notes, attachments, counts, last update.
 import { section, notesIn, filesIn, dirOf, M, v9 } from "../data.js";
-import { esc, header, tabs, noteHref } from "../ui.js";
+import { esc, header, tabs, noteHref, box, mainSide } from "../ui.js";
 const md = d => String(d ?? "").slice(0, 10);
 const kb = n => n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
 const isIdx = r => /(^|\/)(index|README)\.md$/i.test(r.origin.source_path);
@@ -11,7 +11,9 @@ export function folderPage(secId, title, sub, P) {
   const T = S.tabs.map(t => { const dirs = t.source.filter(u => /^life:\/\/[^#?]+\/$/.test(u)).map(dirOf), notes = dirs.flatMap(notesIn), files = dirs.flatMap(filesIn);
     return { ...t, dirs, notes, files, missing: dirs.filter(d => (v9.missing_dirs || []).includes(d)), last: last(notes) }; });
   const cur = T.find(t => t.id === sub) || T[0];
-  const head = header(title, "", [`${T.reduce((n, t) => n + t.notes.length, 0)} 篇`, `${T.length} 个目录`, "data/sections.yaml"], "")
+  const total = T.reduce((n, t) => n + t.notes.length, 0), allLast = T.map(t => t.last).filter(Boolean).sort().at(-1);
+  const head = header(title, "", [`${T.length} 个目录`, "data/sections.yaml"], secId === "journal" ? "日记、周记与工作记录，按时间倒序。" : "生活各领域的笔记与附件，镜像 life:// 目录。", {
+    kpis: [[total, "全部笔记"], [cur.notes.length, `当前 · ${esc(cur.label)}`, { tone: "focus" }], [cur.files.length, "附件"], [md(allLast).slice(5).replace("-", "/") || "—", "最近更新", { sub: esc(md(allLast)) }]] })
     + tabs(secId, T.map(t => [t.id, t.label, t.notes.length || ""]), cur.id);
   // group by the first path segment below the tab folder (journal/daily/2026/05 → "2026/05"; work/reports/2026-06 → "2026-06")
   const groups = {}; for (const r of cur.notes) { const d = cur.dirs.find(x => r.origin.source_path.startsWith(x)) ?? "", rel = r.origin.source_path.slice(d.length).split("/").slice(0, -1);
@@ -23,11 +25,12 @@ export function folderPage(secId, title, sub, P) {
   const frow = f => `<div class="row r3 file"><span class="t">${esc(f.path.split("/").pop())}<span class="s">${esc(f.path.split(".").pop().toUpperCase())}</span></span><span class="tag">附件</span><span class="tag">${kb(f.size)}</span></div>`;
   const extra = secId === "life" && cur.id === "finance" && M.finance?.summary ? `<p class="note">data/finance.yaml：${M.finance.items?.length ?? 0} 条记录，已填金额 ${M.finance.summary.filled}/${M.finance.summary.total}（明细在原文，不在此处展示金额）。</p>`
     : secId === "life" && cur.id === "profile" ? `<p class="note">data/profile.yaml：证件 ${(M.profile?.data?.documents || []).length} 项（只显示到期提醒，号码不展示）。</p>` : "";
-  return { html: head + `<div class="body">
-    <p class="crumbs">${cur.dirs.map(d => `<span class="mono sm">life://${esc(d)}</span>`).join(" · ")}${cur.last ? ` · 最近更新 ${esc(md(cur.last))}` : ""}</p>${extra}
-    ${cur.missing.length && !cur.notes.length ? `<p class="empty">${cur.missing.map(d => `life://${esc(d)}`).join("、")} 目录还不存在。</p>` : ""}
-    ${keys.map(k => { const xs = (groups[k] || []).sort((a, b) => isIdx(b) - isIdx(a) || String(b.updated).localeCompare(String(a.updated))), fs = filesOf(k);
-      return xs.length || fs.length ? `<section class="blk"><h2>${esc(k || cur.label)}<span class="more">${xs.length} 篇${fs.length ? ` · ${fs.length} 个附件` : ""}${last(xs) ? ` · ${esc(md(last(xs)))}` : ""}</span></h2><div class="rows">${xs.map(nrow).join("")}${fs.map(frow).join("")}</div></section>` : ""; }).join("")}</div>` };
+  const blocks = keys.map(k => { const xs = (groups[k] || []).sort((a, b) => isIdx(b) - isIdx(a) || String(b.updated).localeCompare(String(a.updated))), fs = filesOf(k);
+    return xs.length || fs.length ? box({ title: esc(k || cur.label), meta: `${xs.length} 篇${fs.length ? ` · ${fs.length} 个附件` : ""}${last(xs) ? ` · ${esc(md(last(xs)))}` : ""}`, flush: true, body: `<div class="rows">${xs.map(nrow).join("")}${fs.map(frow).join("")}</div>` }) : ""; }).join("");
+  const main = (cur.missing.length && !cur.notes.length ? box({ title: esc(cur.label), body: `<p class="empty">${cur.missing.map(d => `life://${esc(d)}`).join("、")} 目录还不存在。</p>` }) : "") + blocks;
+  const side = box({ title: "目录", body: `<dl class="mini-kv"><dt>来源</dt><dd>${cur.dirs.map(d => `<span class="mono sm">life://${esc(d)}</span>`).join("<br>")}</dd><dt>笔记</dt><dd>${cur.notes.length}</dd><dt>附件</dt><dd>${cur.files.length}</dd><dt>最近更新</dt><dd>${esc(md(cur.last)) || "—"}</dd></dl>`, footer: extra.replace(/<\/?p[^>]*>/g, "") })
+    + box({ title: `全部${title}目录`, flush: true, body: `<div class="rows">${T.map(t => `<a class="row r2" href="#${secId}/${t.id}"${t.id === cur.id ? ' style="background:var(--accent-soft)"' : ""}><span class="t">${esc(t.label)}</span><span class="tag">${t.notes.length}</span></a>`).join("")}</div>` });
+  return { html: head + `<div class="body">${mainSide(main || box({ title: esc(cur.label), body: `<p class="empty">空</p>` }), side)}</div>` };
 }
 export const life = (sub, P) => folderPage("life", "生活", sub, P);
 export const journal = (sub, P) => folderPage("journal", "记录", sub, P);
