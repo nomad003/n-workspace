@@ -1,18 +1,21 @@
 // 账号与订阅: lean landing (attention → identities → categories), subscriptions tab, and drill-downs
 //   #accounts/identities[?id=…]  identity-centred view (cards, graph, SPOFs, filters)  — from the v7 account work
+//   #accounts/graph[?focus=<identity>&risky=1]  account graph (pages/graph.js)
 //   #accounts/cat/<slug>         category page
 //   #account/<id>                account detail (pages/account.js)
 import { M, V, subs, liveSub, CYCLE, toCNY, monthlyCNY, dupSet, dupKey, nextRenewal, daysUntil, known, accHref, catOf, catPages } from "../data.js";
 import { weak2fa, twoFaState, priorityOf } from "../core.js";
 import { buildModel, security, missingOf, mask, prank } from "../identity.js";
 import { esc, header, tabs, table, more, noteList, pending, countUnknown } from "../ui.js";
+import { render as renderGraph, mount as mountGraph } from "./graph.js";
 import { render as renderAccounts, mount as mountAccounts } from "./accounts.js";
 const FA = { on: "已开启", off: "未开启", unknown: "待确认", na: "不适用" };
 const md = d => String(d).slice(5).replace("-", "/");
 export default function (sub = "overview", P = new URLSearchParams(), rest = []) {
   const accs = M.accounts?.items || [], s = subs(), w2 = weak2fa(accs);
-  const T = tabs("accounts", [["overview", "概览"], ["subscriptions", "订阅"], ["identities", "全部账号"]], ["cat", "identities"].includes(sub) ? "identities" : sub);
+  const T = tabs("accounts", [["overview", "概览"], ["subscriptions", "订阅"], ["identities", "全部账号"], ["graph", "图"]], ["cat", "identities"].includes(sub) ? "identities" : sub);
   const head = (lede) => header("账号与订阅", "", [`${accs.length} 个账号`, `${(M.identities?.items || []).length} 个身份`, `${s.length} 个订阅`], lede);
+  if (sub === "graph") return { html: head("身份是枢纽，连线是登录 / OAuth / 恢复关系；点身份看它失守会波及哪些账号。") + T + `<div class="body">${renderGraph(P)}</div>`, mount: mountGraph };
   if (sub === "identities" || sub === "cat") return { html: head("") + T + `<div class="body">${renderAccounts(sub === "cat" ? ["cat", rest[0]] : [], P)}</div>`, mount: mountAccounts };
   if (sub === "subscriptions") {
     const dups = dupSet(), live = s.filter(liveSub);

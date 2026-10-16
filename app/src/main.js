@@ -38,7 +38,7 @@ document.addEventListener("click", e => {
 document.getElementById("menu")?.addEventListener("click", () => document.body.classList.toggle("nav-open"));
 
 /* ---------- ⌘K ---------- */
-const TABS = { plan: [["actions", "行动清单"], ["reviews", "复盘"], ["domains", "生活领域"], ["learning", "学习路线"]], knowledge: [["home", "项目"], ["tree", "目录"], ["logs", "日志"], ["search", "全文搜索"]], accounts: [["overview", "概览"], ["subscriptions", "订阅"], ["identities", "全部账号 · 身份"]] };
+const TABS = { plan: [["actions", "行动清单"], ["reviews", "复盘"], ["domains", "生活领域"], ["learning", "学习路线"]], knowledge: [["home", "项目"], ["tree", "目录"], ["logs", "日志"], ["search", "全文搜索"]], accounts: [["overview", "概览"], ["subscriptions", "订阅"], ["identities", "全部账号 · 身份"], ["graph", "账号关系图"]] };
 function searchIndex() {
   const idx = [...NAV, ["settings", "设置"]].map(([id, l]) => ({ kind: "页面", title: l, href: `#${id}` }));
   for (const [id, ts] of Object.entries(TABS)) for (const [t, l] of ts) idx.push({ kind: "页面", title: `${NAV.find(n => n[0] === id)[1]} · ${l}`, href: `#${id}/${t}`, low: 1 });
