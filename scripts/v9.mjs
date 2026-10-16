@@ -41,3 +41,27 @@ export function loadV9(LIFE_ROOT, warn) {
   return { schema_version: 9, accounts, identities, subscriptions, tasks, plans, reviews, groups, sections, missingDirs, files,
     updated: Object.fromEntries(Object.entries(D).map(([k, v]) => [k, v?.updated ? String(v.updated) : null])) };
 }
+
+// Topics (data/topics.yaml + data/topic-logs/<id>.jsonl). Both optional: missing → [] (no warning), bad lines → warning, skipped.
+// Derives per topic: entries (date-ascending), current stage/lifecycle/health (log wins over the yaml snapshot), stage history,
+// open issues (issue entries not referenced by a later `resolves`), last entry date and per-metric series.
+export function loadTopics(LIFE_ROOT, warn) {
+  const dir = path.join(LIFE_ROOT, "data"), doc = load(dir, "topics");
+  if (!doc) return [];
+  if (doc._error) { warn(`topics.yaml: YAML error ${doc._error}`); return []; }
+  if (doc.schema_version !== 9) warn(`topics.yaml: schema_version ${doc.schema_version ?? "missing"} (expected 9)`);
+  return (doc.topics || []).map(t => {
+    const f = path.join(dir, "topic-logs", `${t.id}.jsonl`), entries = [];
+    if (fs.existsSync(f)) fs.readFileSync(f, "utf8").split("\n").forEach((line, i) => { if (!line.trim()) return;
+      try { entries.push(deep(JSON.parse(line))); } catch { warn(`topic-logs/${t.id}.jsonl:${i + 1}: not valid JSON (skipped)`); } });
+    entries.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    const st = { ...(t.status || {}) }, history = [], open = new Map(), series = {};
+    for (const e of entries) {
+      if (e.kind === "status") { for (const k of ["stage", "lifecycle", "health"]) if (k in e) st[k] = e[k]; history.push({ date: e.date, stage: e.stage, lifecycle: e.lifecycle, health: e.health, title: e.title }); }
+      if (e.kind === "issue") open.set(`${e.date}#${e.title}`, e);
+      if (e.resolves) open.delete(e.resolves);
+      for (const [k, v] of Object.entries(e.values || {})) if (v != null) (series[k] ||= []).push([e.date, v]);
+    }
+    return { ...t, status: st, entries, history, open_issues: [...open.values()], series, last: entries.at(-1)?.date ?? null };
+  });
+}

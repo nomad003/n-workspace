@@ -1,10 +1,11 @@
 // n-workspace v9 shell: 今天 · 计划 · 生活 · 记录 · 账号 · 知识 · Agents + 设置, ⌘K, hash router (#page/sub/…?params).
 import { weak2fa } from "./core.js";
-import { bundle, V, M, records, tasks, subs, known, accHref, catPages, groups, section, agentName } from "./data.js";
+import { bundle, V, M, records, tasks, subs, known, accHref, catPages, groups, section, agentName, topics } from "./data.js";
 import { isOpenTask } from "./core.js";
 import { esc, noteHref } from "./ui.js";
 import pToday from "./pages/today.js";
 import pPlan from "./pages/plan.js";
+import pTopics, { stale as topicStale } from "./pages/topics.js";
 import pKnowledge from "./pages/knowledge.js";
 import pMoney from "./pages/money.js";
 import pAgents from "./pages/agents.js";
@@ -12,21 +13,22 @@ import pSettings from "./pages/settings.js";
 import pAccount from "./pages/account.js";
 import { life as pLife, journal as pJournal } from "./pages/folders.js";
 
-const NAV = [["today", "今天"], ["plan", "计划"], ["life", "生活"], ["journal", "记录"], ["accounts", "账号"], ["knowledge", "知识"], ["agents", "Agents"]];
-const PAGES = { today: pToday, plan: pPlan, life: pLife, journal: pJournal, knowledge: pKnowledge, accounts: pMoney, agents: pAgents, settings: pSettings, account: pAccount };
+const NAV = [["today", "今天"], ["plan", "计划"], ["topics", "主题"], ["life", "生活"], ["journal", "记录"], ["accounts", "账号"], ["knowledge", "知识"], ["agents", "Agents"]];
+const PAGES = { today: pToday, plan: pPlan, topics: pTopics, life: pLife, journal: pJournal, knowledge: pKnowledge, accounts: pMoney, agents: pAgents, settings: pSettings, account: pAccount };
 const ALIAS = { overview: "today", kb: "knowledge", assets: "accounts", affairs: "plan", workcontent: "agents", sources: "settings", logs: "journal" }; // old links keep working
 const NAV_OF = { account: "accounts" };
 const ICON_SUN = `<svg class="th-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`;
 const ICON_MOON = `<svg class="th-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`;
 const IC = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
-const NAV_IC = { today: IC('<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/>'), plan: IC('<path d="M4 6h10M4 12h16M4 18h7"/><circle cx="18" cy="6" r="2"/>'), life: IC('<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>'),
+const NAV_IC = { today: IC('<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/>'), plan: IC('<path d="M4 6h10M4 12h16M4 18h7"/><circle cx="18" cy="6" r="2"/>'), topics: IC('<path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-4 3 3 5-6"/>'), life: IC('<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>'),
   journal: IC('<path d="M6 3h10l3 3v15H6z"/><path d="M9 9h7M9 13h7M9 17h4"/>'), accounts: IC('<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>'), knowledge: IC('<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/>'),
   agents: IC('<rect x="5" y="7" width="14" height="12" rx="3"/><path d="M12 3v4M9 12h.01M15 12h.01"/>'), settings: IC('<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1c.6.5 1.3.9 2 1.2L10 21h4l.5-2.6c.7-.3 1.4-.7 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/>') };
 const setTheme = t => { document.documentElement.dataset.theme = t; localStorage.setItem("nw-theme", t); };
 
 function sidebar() {
   const open = tasks().filter(t => isOpenTask(t) && t.owner === "user").length, w2 = weak2fa(M.accounts?.items || []).length, n = id => (section(id)?.tabs || []).length;
-  const cnt = { plan: open || "", life: records.filter(r => r.root === "life" && r.origin.source_path.includes("/") && !/^(journal|work|plan|learning|agent-ops|moc)\//.test(r.origin.source_path)).length || "", journal: records.filter(r => r.root === "life" && /^(journal|work)\//.test(r.origin.source_path)).length || "", knowledge: records.filter(r => r.root === "kb").length, accounts: w2 ? `<span class="w">${w2}</span>` : "" };
+  const tw = topics().filter(t => topicStale(t) || t.open_issues?.length).length;
+  const cnt = { topics: tw ? `<span class="w">${tw}</span>` : (topics().length || ""), plan: open || "", life: records.filter(r => r.root === "life" && r.origin.source_path.includes("/") && !/^(journal|work|plan|learning|agent-ops|moc)\//.test(r.origin.source_path)).length || "", journal: records.filter(r => r.root === "life" && /^(journal|work)\//.test(r.origin.source_path)).length || "", knowledge: records.filter(r => r.root === "kb").length, accounts: w2 ? `<span class="w">${w2}</span>` : "" };
   const src = (bundle?.sources || []).filter(s => s.meta);
   document.getElementById("side").innerHTML = `
    <div class="me"><span class="av">n</span><b>n-workspace</b></div>
@@ -44,7 +46,7 @@ document.addEventListener("click", e => {
 document.getElementById("menu")?.addEventListener("click", () => document.body.classList.toggle("nav-open"));
 
 /* ---------- ⌘K ---------- */
-const TABS = { plan: [["board", "本周 / 本月"], ["tree", "目标树"], ["reviews", "复盘"], ["learning", "学习路线"]], knowledge: [["home", "项目"], ["topics", "主题"], ["tree", "目录"], ["search", "全文搜索"]],
+const TABS = { topics: [["all", "全部"], ["project", "项目"], ["habit", "习惯"], ["skill", "技能"], ["area", "领域"]], plan: [["board", "本周 / 本月"], ["tree", "目标树"], ["reviews", "复盘"], ["learning", "学习路线"]], knowledge: [["home", "项目"], ["topics", "主题"], ["tree", "目录"], ["search", "全文搜索"]],
   accounts: [["identities", "身份"], ["groups", "分类"], ["subscriptions", "订阅"], ["security", "安全"], ["graph", "关系图"]],
   ...Object.fromEntries(["life", "journal"].map(id => [id, (section(id)?.tabs || []).map(t => [t.id, t.label])])) };
 function searchIndex() {
@@ -53,6 +55,7 @@ function searchIndex() {
   for (const g of groups()) { idx.push({ kind: "页面", title: `账号 · ${g.label}`, href: `#accounts/groups/${g.id}`, low: 1 }); for (const c of g.subcategories || []) idx.push({ kind: "页面", title: `账号 · ${g.label} · ${c.label}`, href: `#accounts/groups/${g.id}/${c.id}`, low: 1 }); }
   for (const a of M.accounts?.items || []) idx.push({ kind: "账号", title: a.service, sub: [a.category, a.priority ?? a.risk].filter(known).join(" · "), href: accHref(a) });
   for (const s of subs()) idx.push({ kind: "订阅", title: s.service, sub: [s.plan, s.status].filter(known).join(" · "), href: "#accounts/subscriptions" });
+  for (const t of topics()) idx.push({ kind: "主题", title: t.title, sub: [t.status?.stage, t.status?.lifecycle].filter(Boolean).join(" · "), href: `#topics/${encodeURIComponent(t.id)}` });
   for (const t of tasks()) idx.push({ kind: "任务", title: t.title, sub: `${t.owner === "user" ? "我" : agentName(t.owner)} · ${t.status}${t.due ? ` · ${t.due}` : t.due_event ? ` · ${t.due_event}` : ""}`, href: t.owner === "user" ? "#plan/board" : "#agents" });
   for (const r of records) idx.push({ kind: "笔记", title: r.title, sub: `${r.root}://${r.origin?.source_path}`, href: noteHref(r) });
   return idx;

@@ -3,41 +3,21 @@
  "name": "知识",
  "order": 5,
  "learning": {
-  "any": [
-   {
-    "type": [
-     "note",
-     "course"
-    ],
-    "area": [
-     "cs",
-     "ai-ml",
-     "game-backend",
-     "reading",
-     "tools",
-     "investment",
-     "health"
-    ],
-    "root": [
-     "kb"
-    ]
-   },
-   {
-    "root": [
-     "life"
-    ],
-    "path": [
-     "learning/"
-    ]
-   }
-  ]
- },
- "projects": {
+  "type": [
+   "note",
+   "course"
+  ],
+  "area": [
+   "cs",
+   "ai-ml",
+   "game-backend",
+   "reading",
+   "tools",
+   "math",
+   "mindset"
+  ],
   "root": [
    "kb"
-  ],
-  "path": [
-   "10-Projects/"
   ]
  },
  "topics": {
@@ -45,7 +25,6 @@
    "kb"
   ],
   "not_path": [
-   "10-Projects/",
    "00-MOC/",
    "11-Templates/"
   ]
@@ -56,7 +35,7 @@
     "life"
    ],
    "path": [
-    "daily/"
+    "journal/daily/"
    ]
   },
   "reports": {
@@ -64,8 +43,16 @@
     "life"
    ],
    "path": [
-    "work-reports/"
+    "work/reports/"
    ]
   }
+ },
+ "domains": {
+  "root": [
+   "kb"
+  ],
+  "type": [
+   "moc"
+  ]
  }
 }

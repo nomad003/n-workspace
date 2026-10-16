@@ -1,5 +1,5 @@
-// Agents (v9): tasks with owner agent:<name> (tasks.yaml), channels (content.yaml owner_agent), agent-ops notes.
-import { M, tasks, notesIn, agentName, known } from "../data.js";
+// Agents (v9): tasks with owner agent:<name> (tasks.yaml), channels (content.yaml owner_agent; numbers from the topic log via channelStats), agent-ops notes.
+import { M, tasks, notesIn, agentName, known, channelStats } from "../data.js";
 import { isOpenTask } from "../core.js";
 import { esc, header, noteList, box, mainSide } from "../ui.js";
 import { taskRow } from "./_tasks.js";
@@ -12,7 +12,7 @@ export default function () {
   const openN = ts.filter(isOpenTask).length;
   const cards = ag.map(a => box({ title: `<i class="dot ${a.run ? "on" : ""}"></i> ${esc(agentName(a.n))}`, meta: `<span class="pill ${a.run ? "accent" : a.wait ? "warn" : ""}">${a.run ? "运行中" : a.wait ? "等待确认" : a.open.length ? "排队" : "空闲"}</span>`, flush: true,
     body: a.mine.length ? `<div class="rows">${a.mine.map(t => taskRow(t)).join("")}</div>` : `<p class="empty" style="padding:16px">没有任务</p>`,
-    footer: [`${a.open.length} 待办 / ${a.mine.length} 总计`, ...a.chans.map(c => { const s = (c.snapshots || []).at?.(-1); return `${esc(c.platform)} ${esc(c.handle ?? "")} · ${esc(c.stage ?? "")}${s ? ` · 关注 ${esc(s.following ?? "—")} / 粉丝 ${esc(s.followers ?? "—")}` : ""}${known(c.next) ? ` · 下一步：${esc(Array.isArray(c.next) ? c.next[0] : c.next)}` : ""}`; })].join("<br>") })).join("");
+    footer: [`${a.open.length} 待办 / ${a.mine.length} 总计`, ...a.chans.map(c => { const s = channelStats(c); return `${esc(c.platform)} ${esc(c.handle ?? "")} · ${esc(c.stage ?? "")}${s ? ` · 关注 ${esc(s.following ?? "—")} / 粉丝 ${esc(s.followers ?? "—")}${s.date ? ` <span class="s" title="${esc(s.source)}">${esc(String(s.date).slice(5))}${s.topic ? ` · <a href="#topics/${esc(s.topic)}">主题</a>` : ""}</span>` : ""}` : ""}${known(c.next) ? ` · 下一步：${esc(Array.isArray(c.next) ? c.next[0] : c.next)}` : ""}`; })].join("<br>") })).join("");
   const side = box({ title: "概况", body: `<dl class="mini-kv">${ag.map(a => `<dt>${esc(agentName(a.n))}</dt><dd>${a.open.length}</dd>`).join("")}</dl>` })
     + box({ title: "agent-ops 笔记", meta: "life://agent-ops/", flush: true, body: noteList(notes, 99) });
   return { html: header("Agents", "", [`${ag.length} 个 agent`, "owner: agent:*"], `${ag.filter(a => a.run).length} 个运行中，${ag.filter(a => a.wait).length} 个在等你确认。`,

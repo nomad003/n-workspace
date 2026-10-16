@@ -1,6 +1,7 @@
 // 今天 (v9): every block is derived from data/tasks.yaml + plans.yaml + subscriptions.yaml (+ profile documents) via core.deriveToday.
 import { deriveToday, weak2fa, dueEnd } from "../core.js";
-import { V, M, records, tasks, subs, plansV9, reviews, agentName, v9 } from "../data.js";
+import { V, M, records, tasks, subs, plansV9, reviews, agentName, v9, topics } from "../data.js";
+import { stale as topicStale } from "./topics.js";
 import { esc, noteHref, header, box, mainSide, alertList } from "../ui.js";
 import { dueLabel, taskRow } from "./_tasks.js";
 const WD = ["日", "一", "二", "三", "四", "五", "六"];
@@ -18,6 +19,9 @@ export default function () {
   const w2 = weak2fa(M.accounts?.items || []), verify = subs().filter(s => ["verify", "paused", "refund-requested"].includes(s.state));
   const att = [w2.length && { n: w2.length, w: true, t: "重要账号 2FA 未确认", s: w2.slice(0, 4).map(a => a.service).join("、") + (w2.length > 4 ? " …" : ""), href: "#accounts/security" },
     verify.length && { n: verify.length, t: "订阅待核实 / 暂停 / 退款", s: verify.map(s => s.service.replace(/\s*[（(].*$/, "")).join(" · "), href: "#accounts/subscriptions" },
+    ...(() => { const tp = topics(), st = tp.filter(topicStale), oi = tp.flatMap(t => t.open_issues.map(i => ({ t, i })));
+      return [st.length && { n: st.length, w: true, t: "主题停滞（超过 2 个周期未记录）", s: st.map(t => t.title.replace(/[（(].*$/, "")).join(" · "), href: "#topics" },
+        oi.length && { n: oi.length, t: "主题中未解决的问题", s: oi.map(x => x.i.title).join(" · "), href: `#topics/${encodeURIComponent(oi[0].t.id)}` }]; })(),
     T.inbox.length && { n: T.inbox.length, t: "任务没有日期", s: "给它们排一个 due 或 scheduled（do-date）", href: "#plan/board" }].filter(Boolean);
   const q = T.quarter, qOpen = q ? q.tasks.filter(t => t.status !== "done").sort((a, b) => String(a.priority).localeCompare(String(b.priority))) : [];
   const recent = records.filter(r => r.root === "life" && !/(^|\/)(index|README)\.md$/i.test(r.origin.source_path) && r.type !== "moc").sort((a, b) => String(b.updated).localeCompare(String(a.updated))).slice(0, 5);
@@ -43,6 +47,7 @@ export default function () {
   const side = [
     box({ title: "需要处理", meta: att.length ? `${att.length} 项` : "", flush: true, body: att.length ? alertList(att) : `<p class="empty" style="padding:16px">没有待处理项。</p>` }),
     T.nextReview ? box({ title: "下次复盘", link: ["复盘", "#plan/reviews"], body: `<dl class="mini-kv"><dt>周期</dt><dd>${esc(T.nextReview.period)}</dd><dt>类型</dt><dd>${esc({ quarterly: "季度轻复盘", annual: "年度大复盘" }[T.nextReview.review.kind] ?? T.nextReview.review.id)}</dd><dt>截止</dt><dd>${esc(dueLabel({ due: T.nextReview.due }))}</dd><dt>时长</dt><dd>${T.nextReview.review.duration_min} 分钟</dd></dl>` }) : "",
+    topics().length ? box({ title: "主题", link: ["全部", "#topics"], flush: true, body: `<div class="rows">${topics().filter(t => t.status?.lifecycle === "active").sort((a, b) => String(b.last).localeCompare(String(a.last))).map(t => `<a class="row r2" href="#topics/${encodeURIComponent(t.id)}"><span class="t">${esc(t.title.replace(/[（(].*$/, ""))}${t.status?.stage ? `<span class="s">${esc(t.status.stage)}</span>` : ""}</span><span class="tag ${topicStale(t) ? "warn" : ""}">${md(t.last)}</span></a>`).join("")}</div>` }) : "",
     box({ title: "Agents", link: ["全部", "#agents"], flush: true, body: ags.length ? `<div class="rows">${ags.map(([a, ts]) => `<a class="row r2" href="#agents"><span class="t">${esc(agentName(a))}</span><span class="tag">${ts.some(t => t.status === "in-progress") ? "进行中 · " : ""}${ts.length} 待办</span></a>`).join("")}</div>` : `<p class="empty" style="padding:16px">没有 agent 任务。</p>` }),
     box({ title: "最近记录", link: ["记录", "#journal"], flush: true, body: `<div class="rows">${recent.map(r => `<a class="row r2" href="${noteHref(r)}"><span class="t">${esc(r.title)}</span><span class="tag">${md(r.updated)}</span></a>`).join("")}</div>` })].join("");
   return { html: header("今天", "", [`${now.getMonth() + 1}月${now.getDate()}日 周${WD[now.getDay()]}`, `第 ${wk} 周`, `本周 ${md(T.week[0])}–${md(T.week[1])}`], lede, { kpis, actions: [["⌘K 搜索", "cmdk"], ["打开计划", "#plan/board", true]] })

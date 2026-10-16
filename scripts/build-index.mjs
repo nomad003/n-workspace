@@ -1,6 +1,6 @@
 // Build data/bundle.json (gitignored) from the KB: notes frontmatter + n-knowledge-base/data/*.yaml.
 // Local builds include private records by default (personal tool). Opt out with SHOW_PRIVATE=0.
-import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto"; import * as yaml from "js-yaml"; import { marked } from "marked"; import { loadV9, mask } from "./v9.mjs";
+import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto"; import * as yaml from "js-yaml"; import { marked } from "marked"; import { loadV9, loadTopics, mask } from "./v9.mjs";
 import { toItems, normalize, isPublic, match, overview, known } from "../app/src/core.js";
 
 // Two content roots (gitignored, fetched by scripts/fetch-root.sh):
@@ -89,6 +89,14 @@ for (const r of records) r.links = r.links.map(l => { const id = resolve(l, r); 
 const backlinks = {};
 for (const r of records) for (const l of r.links) if (l.id) (backlinks[l.id] ||= []).push(r.id);
 for (const r of records) r.backlinks = backlinks[r.id] || [];
+// boundary (separation 2026-10): KB holds general knowledge only and must never link into life.
+// Flags explicit life:// links, links that resolve to a life note, and unresolved KB wikilinks whose name matches a life note (moved out of KB).
+const lifeBase = new Set(records.filter(r => r.root === "life").map(r => r.origin.source_path.replace(/\.md$/, "").split("/").pop()));
+const boundary = [];
+for (const r of records.filter(r => r.root === "kb")) for (const l of r.links) {
+  const hit = l.id?.startsWith("life:") || l.href.startsWith("life://") || (!l.id && l.kind === "wiki" && lifeBase.has(l.href.slice(2, -2).split("/").pop().replace(/\.md$/, "")));
+  if (hit) boundary.push(`${r.id} -> ${l.href}`); }
+if (boundary.length) warnings.push(`boundary: ${boundary.length} KB link(s) point into life (KB must not link into life): ${boundary.slice(0, 5).join("; ")}${boundary.length > 5 ? " …" : ""}`);
 function as(v) { return v == null ? [] : Array.isArray(v) ? v : [v]; }
 
 // finance.snapshot summary: sums only numeric (filled-in) amounts; "净资产合计" row wins when filled.
@@ -149,13 +157,34 @@ const views = Object.fromEntries(fs.readdirSync("views").filter(f => f.endsWith(
 const noteFile = id => crypto.createHash("sha1").update(id).digest("hex").slice(0, 16);
 const escH = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const href = id => `#kb/note?id=${encodeURIComponent(id)}`;
+// attachments: every non-markdown file under each root (no .enc, no data/); resolved per note (relative to the note, root-relative, then unique basename).
+// Resolved files go to data/attachments.json — the ONLY non-note files serve.mjs will hand out (/files/<root>/<path>, 127.0.0.1).
+const ROOT_DIR = { kb: KB_ROOT, life: LIFE_ROOT };
+const FILES = { kb: [], life: [] };
+for (const [rt, dir] of Object.entries(ROOT_DIR)) { if (!fs.existsSync(dir)) continue;
+  const w = (d, rel) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (e.name.startsWith(".")) continue; const rp = rel ? `${rel}/${e.name}` : e.name;
+    if (e.isDirectory()) { if (!(rt === "life" && /^(data|tools|schemas)$/.test(rp))) w(path.join(d, e.name), rp); } else if (!/\.(md|enc)$/i.test(e.name)) FILES[rt].push(rp); } };
+  w(dir, ""); }
+const FSET = { kb: new Set(FILES.kb), life: new Set(FILES.life) }, FBASE = { kb: {}, life: {} };
+for (const rt of ["kb", "life"]) for (const f of FILES[rt]) (FBASE[rt][f.split("/").pop()] ||= []).push(f);
+const served = new Set(), attBroken = [];
+function resolveAtt(r, target) {
+  const t = safeDecode(String(target).trim().replace(/^<|>$/g, "").split(/[?#]/)[0]); if (!t || /^(https?:|mailto:|data:|#)/.test(t)) return null;
+  const set = FSET[r.root], dir = path.posix.dirname(r.origin.source_path);
+  for (const c of [path.posix.normalize(path.posix.join(dir, t)), t.replace(/^\/+/, "")]) if (set.has(c)) { served.add(`${r.root}/${c}`); return `../files/${r.root}/${c.split("/").map(encodeURIComponent).join("/")}`; }
+  const b = FBASE[r.root][t.split("/").pop()]; if (b?.length === 1) { served.add(`${r.root}/${b[0]}`); return `../files/${r.root}/${b[0].split("/").map(encodeURIComponent).join("/")}`; }
+  attBroken.push(`${r.id} -> ${t}`); return null;
+}
+const IMG_RE = /\.(png|jpe?g|gif|webp|svg)$/i;
+const attHtml = (r, t, label) => { const u = resolveAtt(r, t), name = escH(label || String(t).split("/").pop());
+  return !u ? `<span class="att broken" title="附件未找到">附件 · ${name}</span>` : IMG_RE.test(t) ? `<img class="att-img" loading="lazy" src="${u}" alt="${name}">` : `<a class="att" href="${u}" target="_blank" rel="noopener">附件 · ${name}</a>`; };
 function renderNote(r) {
   const code = []; // protect code from link rewriting
   let md = r._text.replace(/```[\s\S]*?```|`[^`\n]*`/g, m => `\u0000${code.push(m) - 1}\u0000`);
-  md = md.replace(/!\[\[([^\]]+)\]\]/g, (m, t) => `<span class="att">附件 · ${escH(t.split("|")[0].split("/").pop())}</span>`);
+  md = md.replace(/!\[\[([^\]]+)\]\]/g, (m, t) => attHtml(r, t.split("|")[0]));
   md = md.replace(/\[\[([^\]|#\n]+?)\\?(#[^\]|\n]*)?(?:\\?\|([^\]\n]*))?\]\]/g, (m, t, h, alias) => {
     const target = t.replace(/\\+$/, "").trim(), label = escH((alias || target.split("/").pop()).replace(/\\$/, ""));
-    if (ATTACH_RE.test(target)) return `<span class="att">附件 · ${escH(target.split("/").pop())}</span>`;
+    if (ATTACH_RE.test(target)) return attHtml(r, target, alias);
     const id = resolve({ root: r.root, path: target }, r);
     return id ? `<a class="wl" href="${href(id)}">${label}</a>` : templateNames.has(target.split("/").pop()) ? `<span class="wl tpl">${label}</span>` : `<span class="wl broken" title="未解析">${label}</span>`;
   });
@@ -166,8 +195,11 @@ function renderNote(r) {
   md = md.replace(/\u0000(\d+)\u0000/g, (m, i) => code[+i]);
   let html = marked.parse(md, { gfm: true, breaks: false });
   html = html.replace(/<(script|iframe|object|embed|style)[\s\S]*?<\/\1>/gi, "").replace(/\son\w+="[^"]*"/gi, "").replace(/href="javascript:[^"]*"/gi, 'href="#"')
-    .replace(/<img[^>]*?(?:alt="([^"]*)")?[^>]*>/gi, (m, alt) => `<span class="att">图片${alt ? " · " + alt : ""}</span>`)
-    .replace(/<a href="(?!#|https?:|mailto:)([^"]*)"/g, '<a class="att" data-local="$1"');
+    .replace(/<img\b[^>]*>/gi, m => { if (/class="att-img"/.test(m)) return m; const src = (m.match(/src="([^"]*)"/) || [])[1] || "", alt = (m.match(/alt="([^"]*)"/) || [])[1] || "";
+      if (/^https?:/.test(src)) return `<span class="att">图片${alt ? " · " + alt : ""}</span>`; // no remote fetches
+      const u = resolveAtt(r, src.replace(/&amp;/g, "&")); return u ? `<img class="att-img" loading="lazy" src="${u}" alt="${alt}">` : `<span class="att broken" title="附件未找到">图片${alt ? " · " + alt : ""}</span>`; })
+    .replace(/<a href="(?!#|https?:|mailto:|\.\.\/files\/)([^"]*)"/g, (m, h) => { const t = h.replace(/&amp;/g, "&"); if (/\.md$/i.test(safeDecode(t.split("#")[0])) || !/\.[A-Za-z0-9]{1,6}$/.test(safeDecode(t.split(/[?#]/)[0]))) return '<a class="att" data-local="' + h + '"';
+      const u = resolveAtt(r, t); return u ? `<a class="att" target="_blank" rel="noopener" href="${u}"` : `<a class="att broken" title="附件未找到" data-local="${h}"`; });
   return html;
 }
 const plain = t => t.replace(/```[\s\S]*?```/g, " ").replace(/!?\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (m, a, b) => b || a).replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
@@ -183,6 +215,9 @@ for (const r of shown) {
 }
 fs.writeFileSync(path.join(OUT, "kb-index.json"), JSON.stringify(kbIndex)); // KB only (知识)
 fs.writeFileSync(path.join(OUT, "life-index.json"), JSON.stringify(lifeIndex)); // life notes (生活 / 记录 / 计划)
+for (const f of FILES.life) if (!/^templates\//.test(f)) served.add(`life/${f}`); // folder pages link every life attachment (生活 / 记录 file rows)
+fs.writeFileSync(path.join(OUT, "attachments.json"), JSON.stringify([...served].sort())); // serve.mjs allowlist
+if (attBroken.length) warnings.push(`attachments: ${attBroken.length} reference(s) not found: ${[...new Set(attBroken)].slice(0, 6).join("; ")}${attBroken.length > 6 ? " …" : ""}`);
 
 /* ---------- source registry (数据源) ---------- */
 const readMeta = d => { try { return JSON.parse(fs.readFileSync(path.join(d, ".nw-source.json"), "utf8")); } catch { return null; } };
@@ -205,9 +240,17 @@ const lite = shown.map(r => ({ id: r.id, slug: r.slug, f: r.file, title: r.title
   tags: r.tags, updated: r.updated ?? null, origin: { source_path: r.origin.source_path }, privacy: r.privacy }));
 const bundle = { generated: new Date().toISOString(), show_private: showPrivate, kb_ref: sources[1].meta?.ref || process.env.KB_REF || null, life_ref: hasLife ? (sources[0].meta?.ref || process.env.LIFE_REF || "main") : null,
   roots: { kb: fs.existsSync(KB_ROOT), life: hasLife }, broken_links: broken, broken_list: brokenList.slice(0, 200),
-  missing, warnings, records: lite, private_hidden: records.length - shown.length, modules, sources };
+  missing, warnings, boundary, attachments: { served: served.size, broken: [...new Set(attBroken)].slice(0, 100), files: { kb: FILES.kb.length, life: FILES.life.length } }, records: lite, private_hidden: records.length - shown.length, modules, sources };
 bundle.overview = overview(bundle, views.today);
-if (V9) bundle.v9 = { schema_version: 9, groups: V9.groups, plans: V9.plans, reviews: V9.reviews, sections: V9.sections, missing_dirs: V9.missingDirs, files: V9.files, updated: V9.updated };
+const TOPICS = V9 ? loadTopics(LIFE_ROOT, w => warnings.push(w)) : [];
+// topic refs: every kb:// / life:// ref must resolve; KB notes may only appear as resources (a narrative is always life://).
+for (const t of TOPICS) {
+  const refs = [t.narrative, ...(t.resources || []).map(x => x.ref), ...Object.values(t.links || {}).flat(), ...t.entries.flatMap(e => [e.ref, e.source])].filter(u => /^(kb|life):\/\//.test(String(u ?? "")));
+  const bad = [...new Set(refs.filter(u => { const [, rt, p] = String(u).match(/^(kb|life):\/\/(.+)$/); return !resolve({ root: rt, path: safeDecode(p) }); }))];
+  if (bad.length) warnings.push(`topics: ${t.id}: ${bad.length} unresolved ref(s): ${bad.slice(0, 4).join("; ")}`);
+  if (/^kb:\/\//.test(t.narrative ?? "")) warnings.push(`topics: ${t.id}: narrative is a KB note (topics link to KB as resources only)`);
+}
+if (V9) bundle.v9 = { schema_version: 9, topics: TOPICS, groups: V9.groups, plans: V9.plans, reviews: V9.reviews, sections: V9.sections, missing_dirs: V9.missingDirs, files: V9.files, updated: V9.updated };
 fs.writeFileSync(path.join(OUT, "bundle.json"), JSON.stringify(bundle));
 const size = f => (fs.statSync(path.join(OUT, f)).size / 1024).toFixed(0) + " KB";
 console.log(`roots: kb=${fs.existsSync(KB_ROOT)} (${sources[1].meta?.commit?.slice(0, 7) ?? "?"}) life=${hasLife} (${sources[0].meta?.commit?.slice(0, 7) ?? "?"}); links ${records.reduce((a, r) => a + r.links.length, 0)} (${broken} unresolved)`);
@@ -215,5 +258,6 @@ console.log(`notes: ${records.length} (kb ${records.filter(r => r.root === "kb")
 console.log(`files: bundle.json ${size("bundle.json")}, kb-index.json ${size("kb-index.json")} (${kbIndex.length}), life-index.json ${size("life-index.json")} (${lifeIndex.length}), notes/ ${kbIndex.length + lifeIndex.length} files`);
 console.log(V9 ? `v9: ${V9.accounts.length} accounts · ${V9.groups.length} groups · ${V9.subscriptions.length} subs (${V9.subscriptions.filter(x => x.account_id).length} linked) · ${V9.tasks.length} tasks · ${V9.plans.length} plans · ${V9.reviews.length} reviews · ${V9.sections.length} sections` : "v8 data (schema_version != 9)");
 console.log(`data: ${dataFiles.map(d => `${d.name}=${d.root ?? "missing"}:${d.items}`).join(" ")}`);
+console.log(`attachments: ${served.size} resolved (${FILES.life.length} life / ${FILES.kb.length} kb files), ${attBroken.length} missing; boundary kb→life: ${boundary.length}`);
 console.log(`overview: ${bundle.overview.upcoming.length} upcoming, ${bundle.overview.alerts.length} alerts`);
 for (const w of warnings) console.warn("warn:", w);
