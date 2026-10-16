@@ -243,3 +243,7 @@ tr:last-child td{border-bottom:0}
 .fchip b{font-weight:500;color:var(--text-3)}.fchip.on{background:var(--accent-soft);border-color:transparent;color:var(--accent-fg)}
 @media (max-width:760px){.sstrip{padding:var(--s-3) var(--s-3) 0}.ev{grid-template-columns:44px 1fr}.ev-k{display:none}}
 .c4 .hz{display:block!important}.c4 .hz>.h{display:flex}
+/* attachments (life:// and kb:// files served from /files/, allowlisted by data/attachments.json) */
+.md img.att-img{display:block;max-width:100%;height:auto;margin:var(--s-2) 0;border:1px solid var(--border);border-radius:6px;background:var(--surface-2)}
+.md a.att{text-decoration:none}
+.md .att.broken{opacity:.65;text-decoration:line-through dotted}

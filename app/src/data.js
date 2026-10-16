@@ -83,3 +83,13 @@ export const filesIn = dir => lifeFiles().filter(f => f.path.startsWith(dir.ends
 // 主题 (topics): data/topics.yaml + topic-logs, loaded by build-index (missing → []).
 export const topics = () => v9?.topics || [];
 export const topicById = id => topics().find(t => t.id === id);
+// Channel numbers (X followers etc.): the topic log is the single home (content.yaml `snapshots_ref: data/topic-logs/<id>.jsonl`);
+// latest value per metric from that topic's series. Falls back to the old content.yaml `snapshots` list when there is no ref/log/metric.
+export function channelStats(c) {
+  const ref = String(c?.snapshots_ref ?? "").match(/topic-logs\/([\w-]+)\.jsonl/), t = ref && topicById(ref[1]);
+  if (t && Object.keys(t.series || {}).length) { const pick = k => t.series[k]?.at(-1);
+    const vals = Object.fromEntries(["followers", "following", "posts"].map(k => [k, pick(k)?.[1] ?? null])), date = ["followers", "following", "posts"].map(k => pick(k)?.[0]).filter(Boolean).sort().at(-1);
+    return { ...vals, date, source: `topic-logs/${t.id}.jsonl`, topic: t.id }; }
+  const s = Array.isArray(c?.snapshots) ? c.snapshots.at(-1) : null;
+  return s ? { followers: s.followers ?? null, following: s.following ?? null, posts: s.posts ?? null, date: s.date ?? null, source: "content.yaml（旧快照）" } : null;
+}

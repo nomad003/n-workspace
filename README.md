@@ -73,3 +73,12 @@ donut, stacked bars, horizontal bars, progress, timeline and an agent→module f
 
 `#topics` shows long-running topics from n-life-data `data/topics.yaml` + `data/topic-logs/<id>.jsonl` (profile, current status, append-only information log, metrics).
 Both files are optional; without them the page shows an empty state. To preview with local draft data: `LIFE_ROOT=<copy of life with data/topics.yaml> npm run build && npm run serve`.
+
+## Separation (2026-10): KB = general knowledge, life = everything personal
+
+- **Branches**: `KB_REF` / `LIFE_REF` default to `main`; to preview unmerged data: `KB_REF=feat/separation LIFE_REF=feat/separation npm start`.
+- **知识** reads n-knowledge-base only. Its home tab is **领域** (one row per `00-MOC/*` MOC with the KB notes it links to), replacing the old 项目 (10-Projects) tab.
+- **生活 / 记录** read n-life-data only (`data/sections.yaml`). A tab source that names a single note (`life://moc/Health-MOC`) is pinned as the tab's 索引; `记录 → 工作项目` mirrors `life://work/projects/`.
+- **主题** reads `data/topics.yaml` + `data/topic-logs/*.jsonl` from n-life-data. Channel numbers (X followers …) come from the topic log (`content.yaml snapshots_ref`), falling back to old `snapshots`.
+- **Build warnings**: `boundary:` when a KB note links into life (explicit `life://`, resolves to a life note, or a dangling wikilink whose name is now a life note); `topics:` for unresolved topic refs or a KB narrative; `attachments:` for missing files.
+- **Attachments**: images and files referenced by notes (and every file under life section folders) are listed in `data/attachments.json` and served at `/files/<kb|life>/<path>` on 127.0.0.1 only. Nothing else under kb/ or life/ is served (no `.md`, `.enc`, `data/`); exported HTML is sandboxed (no scripts).
