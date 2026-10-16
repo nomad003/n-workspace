@@ -80,3 +80,6 @@ export const agentName = o => ({ bilibili: "Bilibili", kb: "KB", pi: "Pi", x: "X
 export const dirOf = u => String(u).replace(/^life:\/\//, "").replace(/[#?].*$/, "");
 export const notesIn = dir => records.filter(r => r.root === "life" && (dir.endsWith("/") ? r.origin.source_path.startsWith(dir) : r.origin.source_path === dir || r.origin.source_path.startsWith(dir + "/")));
 export const filesIn = dir => lifeFiles().filter(f => f.path.startsWith(dir.endsWith("/") ? dir : dir + "/"));
+// 主题 (topics): data/topics.yaml + topic-logs, loaded by build-index (missing → []).
+export const topics = () => v9?.topics || [];
+export const topicById = id => topics().find(t => t.id === id);

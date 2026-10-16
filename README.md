@@ -68,3 +68,8 @@ donut, stacked bars, horizontal bars, progress, timeline and an agent→module f
 * `data/kb-index.json` — per-note title/path/tags/links/backlinks + plain text (≤30k chars) for client-side full-text search, loaded lazily.
 * `data/notes/<hash>.json` — note HTML rendered at build time with [`marked`](https://github.com/markedjs/marked); wikilinks / `kb://` / `life://` rewritten to in-app links, scripts/iframes/`on*` attributes stripped.
 * `<root>/.nw-source.json` — written by `fetch-root.sh` (repo, ref, commit, commit date, fetch time) and shown on 数据源.
+
+## 主题 (topics)
+
+`#topics` shows long-running topics from n-life-data `data/topics.yaml` + `data/topic-logs/<id>.jsonl` (profile, current status, append-only information log, metrics).
+Both files are optional; without them the page shows an empty state. To preview with local draft data: `LIFE_ROOT=<copy of life with data/topics.yaml> npm run build && npm run serve`.

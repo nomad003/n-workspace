@@ -1,6 +1,6 @@
 // Build data/bundle.json (gitignored) from the KB: notes frontmatter + n-knowledge-base/data/*.yaml.
 // Local builds include private records by default (personal tool). Opt out with SHOW_PRIVATE=0.
-import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto"; import * as yaml from "js-yaml"; import { marked } from "marked"; import { loadV9, mask } from "./v9.mjs";
+import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto"; import * as yaml from "js-yaml"; import { marked } from "marked"; import { loadV9, loadTopics, mask } from "./v9.mjs";
 import { toItems, normalize, isPublic, match, overview, known } from "../app/src/core.js";
 
 // Two content roots (gitignored, fetched by scripts/fetch-root.sh):
@@ -207,7 +207,7 @@ const bundle = { generated: new Date().toISOString(), show_private: showPrivate,
   roots: { kb: fs.existsSync(KB_ROOT), life: hasLife }, broken_links: broken, broken_list: brokenList.slice(0, 200),
   missing, warnings, records: lite, private_hidden: records.length - shown.length, modules, sources };
 bundle.overview = overview(bundle, views.today);
-if (V9) bundle.v9 = { schema_version: 9, groups: V9.groups, plans: V9.plans, reviews: V9.reviews, sections: V9.sections, missing_dirs: V9.missingDirs, files: V9.files, updated: V9.updated };
+if (V9) bundle.v9 = { schema_version: 9, topics: loadTopics(LIFE_ROOT, w => warnings.push(w)), groups: V9.groups, plans: V9.plans, reviews: V9.reviews, sections: V9.sections, missing_dirs: V9.missingDirs, files: V9.files, updated: V9.updated };
 fs.writeFileSync(path.join(OUT, "bundle.json"), JSON.stringify(bundle));
 const size = f => (fs.statSync(path.join(OUT, f)).size / 1024).toFixed(0) + " KB";
 console.log(`roots: kb=${fs.existsSync(KB_ROOT)} (${sources[1].meta?.commit?.slice(0, 7) ?? "?"}) life=${hasLife} (${sources[0].meta?.commit?.slice(0, 7) ?? "?"}); links ${records.reduce((a, r) => a + r.links.length, 0)} (${broken} unresolved)`);
