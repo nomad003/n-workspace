@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import * as yaml from "js-yaml";
-export const mask = v => typeof v !== "string" ? v : v.replace(/([A-Za-z0-9._%+-]{1,2})[A-Za-z0-9._%+-]*@([A-Za-z0-9-]+\.)+[A-Za-z]{2,}/g, "$1***@…").replace(/(?<!\d)1[3-9]\d{5}(\d{4})(?!\d)/g, "•••$1");
+export const mask = v => typeof v !== "string" ? v : v.replace(/\b([A-Za-z0-9._%+-]{1,2})([A-Za-z0-9._%+-]*)@((?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,})/g, (m, a, b, d) => /^(git|noreply|no-reply|example)$/i.test(a + b) || /^(example\.(com|org)|users\.noreply\.github\.com)$/i.test(d) ? m : `${a}***@…`).replace(/(?<!\d)1[3-9]\d{5}(\d{4})(?!\d)/g, "•••$1");
 const deep = x => Array.isArray(x) ? x.map(deep) : x && typeof x === "object" ? (x instanceof Date ? x.toISOString().slice(0, 10) : Object.fromEntries(Object.entries(x).map(([k, v]) => [k, k === "url" ? v : deep(v)]))) : mask(x);
 const load = (dir, n) => { const f = path.join(dir, `${n}.yaml`); if (!fs.existsSync(f)) return null; try { return deep(yaml.load(fs.readFileSync(f, "utf8"))); } catch (e) { return { _error: e.message.split("\n")[0] }; } };
 export const isV9 = dir => { const d = load(dir, "accounts"); return d?.schema_version === 9; };

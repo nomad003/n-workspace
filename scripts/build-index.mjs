@@ -1,6 +1,6 @@
 // Build data/bundle.json (gitignored) from the KB: notes frontmatter + n-knowledge-base/data/*.yaml.
 // Local builds include private records by default (personal tool). Opt out with SHOW_PRIVATE=0.
-import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto"; import * as yaml from "js-yaml"; import { marked } from "marked"; import { loadV9 } from "./v9.mjs";
+import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto"; import * as yaml from "js-yaml"; import { marked } from "marked"; import { loadV9, mask } from "./v9.mjs";
 import { toItems, normalize, isPublic, match, overview, known } from "../app/src/core.js";
 
 // Two content roots (gitignored, fetched by scripts/fetch-root.sh):
@@ -48,7 +48,7 @@ function walk(root, d, rootName) {
     const p = path.join(d, e.name);
     if (e.isDirectory()) { if (SKIP_DIRS.has(e.name)) for (const t of listMd(p)) templateNames.add(t); if (!e.name.startsWith(".") && !SKIP_DIRS.has(e.name) && path.resolve(p) !== path.resolve(DATA_DIR)) walk(root, p, rootName); continue; }
     if (/\.tar\.enc$|\.enc$/.test(e.name) || !e.name.endsWith(".md") || /^(README|AGENTS|CLAUDE)\.md$/.test(e.name) && d === root) continue;
-    const text = fs.readFileSync(p, "utf8"), rel = path.relative(root, p).split(path.sep).join("/");
+    const text = mask(fs.readFileSync(p, "utf8")), rel = path.relative(root, p).split(path.sep).join("/");
     let f = frontmatter(text);
     if (f === undefined) { warnings.push(`unparseable frontmatter: ${rootName}://${rel}`); continue; }
     if (!f) { if (rootName !== "life") continue; f = {}; } // life notes may lack frontmatter
