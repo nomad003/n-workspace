@@ -1,0 +1,19 @@
+# FICTIONAL example data for n-workspace demo mode. Every name, address, number and service here is made up.
+schema_version: 9
+privacy: private
+updated: '2026-10-15'
+snapshot: {date: '2026-10-03', currency: CNY, scope: 示例家庭}
+accounts:
+- {institution: Demo Bank, type: 储蓄, identifier: 尾号0000, status: active, notes: 示例}
+income:
+- {item: 工资, amount: 20000}
+expenses:
+- {item: 房租, amount: 5000, notes: 示例}
+- {item: 日常开销, amount: 4000, notes: 示例}
+assets:
+- {item: 储蓄, amount: 100000, notes: 示例}
+- {item: 指数基金, amount: 50000, notes: 示例}
+liabilities:
+- {item: 信用卡, balance: 2000, rate_term: 免息期, notes: 示例}
+targets:
+- {item: 应急金, value: 6 个月开销, notes: 示例}

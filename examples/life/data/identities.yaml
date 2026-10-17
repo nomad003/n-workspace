@@ -1,0 +1,58 @@
+# FICTIONAL example data for n-workspace demo mode. Every name, address, number and service here is made up.
+schema_version: 9
+privacy: private
+updated: '2026-10-15'
+sources: [life://profile/about]
+identities:
+- id: id-email-main
+  type: email
+  provider: Example Mail
+  address_masked: ja***@example.com
+  role: 主邮箱（大多数账号登录）
+  anchor_account: example-mail
+  recovery: [id-phone-main]
+  two_fa: 'on'
+  two_fa_detail: 验证器 App
+  password_location: 密码管理器
+  status: active
+  last_checked: '2026-10-03'
+  notes: null
+- id: id-email-work
+  type: email
+  provider: Example Corp
+  address_masked: jd***@example.org
+  role: 工作邮箱
+  anchor_account: null
+  recovery: []
+  two_fa: 'on'
+  two_fa_detail: 公司 SSO
+  password_location: 公司 SSO
+  status: active
+  last_checked: '2026-09-20'
+  notes: null
+- id: id-email-old
+  type: email
+  provider: Legacy Mail
+  address_masked: jd***@example.net
+  role: 旧邮箱（只收不发）
+  anchor_account: legacy-mail
+  recovery: []
+  two_fa: 'off'
+  two_fa_detail: null
+  password_location: 密码管理器
+  status: active
+  last_checked: '2026-06-01'
+  notes: 计划迁移后关闭
+- id: id-phone-main
+  type: phone
+  provider: Demo Mobile
+  address_masked: •••0000
+  role: 主手机号（短信验证 / 找回）
+  anchor_account: demo-mobile
+  recovery: []
+  two_fa: na
+  two_fa_detail: null
+  password_location: null
+  status: active
+  last_checked: '2026-10-03'
+  notes: 示例号码 138-0000-0000

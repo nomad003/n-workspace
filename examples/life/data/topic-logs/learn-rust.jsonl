@@ -1,0 +1,7 @@
+{"date": "2026-09-05", "kind": "status", "title": "开始学习", "stage": "入门", "lifecycle": "active", "health": "on-track", "by": "user", "source": "life://learning/rust-path"}
+{"date": "2026-09-13", "kind": "metric", "title": "每周进度", "values": {"chapters": 1, "hours": 3}, "by": "user", "source": "life://learning/rust-path"}
+{"date": "2026-09-20", "kind": "metric", "title": "每周进度", "values": {"chapters": 2, "hours": 4}, "by": "user", "source": "life://learning/rust-path"}
+{"date": "2026-09-20", "kind": "resource", "title": "所有权笔记", "ref": "kb://n-knowledge-base/01-CS-Fundamentals/所有权与借用", "by": "user", "source": "life://learning/rust-path"}
+{"date": "2026-09-27", "kind": "metric", "title": "每周进度", "values": {"chapters": 3, "hours": 2}, "by": "user", "source": "life://learning/rust-path"}
+{"date": "2026-10-04", "kind": "metric", "title": "每周进度", "values": {"chapters": 4, "hours": 5}, "by": "user", "source": "life://learning/rust-path"}
+{"date": "2026-10-11", "kind": "metric", "title": "每周进度", "values": {"chapters": 5, "hours": 4}, "by": "user", "source": "life://learning/rust-path"}

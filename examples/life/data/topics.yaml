@@ -1,0 +1,102 @@
+# FICTIONAL example data for n-workspace demo mode. Every name, address, number and service here is made up.
+schema_version: 9
+privacy: private
+updated: '2026-10-15'
+sources: [life://plan/2026-goals]
+policy:
+  health: 只有本人可以修改 health
+  numbers: 数值统一写入 topic-logs
+topics:
+- id: running
+  title: 跑步 · 半马备赛
+  kind: habit
+  area: health
+  section: life://health/
+  narrative: life://health/running-log
+  why: 精力和睡眠都更好
+  scope: 每周 3 次，周日长距离
+  owner: user
+  started: '2026-08-01'
+  accounts: []
+  resources:
+  - {title: 训练原则, ref: 'kb://n-knowledge-base/06-Mindset/刻意练习'}
+  rules: [不连续两天跑步]
+  status: {lifecycle: active, stage: 基础期, health: on-track, since: '2026-10-03', summary: 周跑量稳定在 25km 左右, blockers: [], next: [周日 15km 长距离], updated: '2026-10-13', source: life://health/running-log}
+  tracking:
+    cadence: FREQ=WEEKLY
+    metrics:
+    - {id: km, label: 周跑量, type: number, unit: km, aggregation: sum, period: week}
+    - {id: runs, label: 次数, type: number, unit: 次, aggregation: sum, period: week}
+    goals:
+    - {id: g-half, title: 跑完半马, metric: null, target: null, deadline: 2027-03, task: null}
+    - {id: g-weekly, title: 周跑量 30km, metric: km, target: {op: '>=', value: 30, per: week}, deadline: 2026-12, task: null}
+    done_when: 完赛一次半马
+  links: {tasks: [t-run-plan, t-run-long], plans: [p-jane-q4], notes: [life://health/running-log]}
+- id: learn-rust
+  title: 学 Rust
+  kind: skill
+  area: learning
+  section: life://learning/
+  narrative: life://learning/rust-path
+  why: 想要一门系统语言写小工具
+  scope: 入门书 + 一个 CLI
+  owner: user
+  started: '2026-09-05'
+  accounts: [codehub]
+  resources:
+  - {title: 所有权笔记, ref: 'kb://n-knowledge-base/01-CS-Fundamentals/所有权与借用'}
+  rules: []
+  status: {lifecycle: active, stage: 入门, health: on-track, since: '2026-09-05', summary: 读到第 5 章, blockers: [], next: [完成第 5 章练习], updated: '2026-10-11', source: life://learning/rust-path}
+  tracking:
+    cadence: FREQ=WEEKLY
+    metrics:
+    - {id: chapters, label: 已读章节, type: number, unit: 章, aggregation: last, period: week}
+    - {id: hours, label: 学习时长, type: number, unit: h, aggregation: sum, period: week}
+    goals:
+    - {id: g-book, title: 读完前 10 章, metric: chapters, target: {op: '>=', value: 10}, deadline: 2026-12, task: null}
+    done_when: CLI 工具发布
+  links: {tasks: [t-rust-ch5, t-rust-cli], plans: [p-jane-q4], notes: [life://learning/rust-path]}
+- id: blog
+  title: 个人博客与 Chirp
+  kind: project
+  area: explore
+  section: life://explore/
+  narrative: life://explore/blog-plan
+  why: 写作帮助整理思路
+  scope: 每月 1 篇博客，Chirp 同步
+  owner: user
+  started: '2026-09-01'
+  accounts: [chirp, tinyvps]
+  resources:
+  - {title: 写作清单, ref: 'kb://n-knowledge-base/12-Tools/写作工作流'}
+  rules: [未经本人确认不发帖]
+  status: {lifecycle: active, stage: 搭建期, health: at-risk, since: '2026-10-05', summary: 主机迁移拖慢了更新, blockers: [博客迁移未完成], next: [完成迁移, 写 10 月文章], updated: '2026-10-13', source: life://explore/blog-plan}
+  tracking:
+    cadence: FREQ=WEEKLY
+    metrics:
+    - {id: followers, label: 粉丝, type: number, unit: null, aggregation: last, period: week}
+    - {id: following, label: 关注, type: number, unit: null, aggregation: last, period: week}
+    - {id: posts, label: 发帖, type: number, unit: 条, aggregation: last, period: week}
+    goals:
+    - {id: g-posts, title: 年底 12 篇博客, metric: null, target: null, deadline: 2026-12, task: t-blog-post}
+  links: {tasks: [t-blog-migrate, t-blog-post], plans: [p-jane-oct], notes: [life://explore/blog-plan]}
+- id: home-finance
+  title: 家庭财务整理
+  kind: area
+  area: finance
+  section: life://finance/
+  narrative: life://finance/budget-approach
+  why: 清楚每月钱花在哪
+  scope: 预算与订阅
+  owner: user
+  started: '2026-10-03'
+  accounts: [demo-bank, paydemo]
+  resources: []
+  rules: [不记录具体金额到日志]
+  status: {lifecycle: active, stage: 梳理订阅, health: null, since: '2026-10-03', summary: 已列出 5 个订阅, blockers: [], next: [确认 Notebook AI 是否续费], updated: '2026-10-10', source: life://finance/budget-approach}
+  tracking:
+    cadence: FREQ=MONTHLY
+    metrics:
+    - {id: subs, label: 订阅数, type: number, unit: 个, aggregation: last, period: month}
+    goals: []
+  links: {tasks: [t-sub-review], plans: [], notes: []}

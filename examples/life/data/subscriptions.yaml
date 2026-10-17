@@ -1,0 +1,10 @@
+# FICTIONAL example data for n-workspace demo mode. Every name, address, number and service here is made up.
+schema_version: 9
+privacy: private
+updated: '2026-10-15'
+subscriptions:
+- {id: sub-acme-ai, account_id: acme-ai, paid_via: paydemo, service: Acme AI Pro, plan: Pro, amount: 20, currency: USD, cycle: monthly, renew_date: '2026-10-25', status: active, task_ids: [], notes: null}
+- {id: sub-acme-cloud, account_id: acme-cloud, paid_via: demo-bank, service: Acme Cloud 200GB, plan: 200GB, amount: 100, currency: CNY, cycle: yearly, renew_date: '2027-03-01', status: active, task_ids: [], notes: null}
+- {id: sub-tinyvps, account_id: tinyvps, paid_via: paydemo, service: TinyVPS Nano, plan: Nano, amount: 5, currency: USD, cycle: monthly, renew_date: '2026-10-20', status: active, task_ids: [t-blog-migrate], notes: 博客主机}
+- {id: sub-notebook-ai, account_id: notebook-ai, paid_via: null, service: Notebook AI Plus, plan: Plus, amount: 10, currency: USD, cycle: monthly, renew_date: null, status: verify, task_ids: [t-sub-review], notes: 不确定是否还在用}
+- {id: sub-streamly, account_id: streamly, paid_via: paydemo, service: Streamly 会员, plan: 年度, amount: 200, currency: CNY, cycle: yearly, renew_date: '2026-11-11', status: active, task_ids: [], notes: null}

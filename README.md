@@ -35,7 +35,22 @@ Two content roots, fetched as plain folders (not submodules) into gitignored `kb
 | `SHOW_PRIVATE` | on | personal local tool. `SHOW_PRIVATE=0` drops all life content and every KB note/data item not marked `privacy: public` |
 | `PORT` | 5173 | server port (always bound to 127.0.0.1; only `app/`, `views/`, `schema/`, `data/bundle.json`, `data/kb-index.json`, `data/life-index.json` and `data/notes/` are served) |
 
-`npm run demo` builds from `examples/` (synthetic, fake data).
+## Demo mode (no private repos needed)
+
+```
+npm install
+npm run demo            # builds data/ from examples/ and serves http://127.0.0.1:5173/app/
+npm run demo -- --build # build only
+```
+
+Works the same on Windows, macOS and Linux (`scripts/demo.mjs` sets the roots itself — no `VAR=value` shell syntax).
+`examples/` is a **fully fictional** v9 dataset (Jane Doe, example.com, 138-0000-0000, made-up services and numbers):
+
+* `examples/life/` — n-life-data layout: `data/*.yaml` (schema_version 9: identities, account-groups, 15 accounts, 5 subscriptions linked by `account_id`, plans + reviews, tasks, sections, topics + `topic-logs/*.jsonl` with metric entries, profile, finance, content), ~17 notes across the sections and one image attachment.
+* `examples/kb/n-knowledge-base/` — ~14 general notes with MOCs and `kb://` links (never into life).
+* `examples/schemas/` + `examples/tools/validate.py` — the v9 schemas and validator; `npm run validate-examples` (Python 3 + PyYAML) must report no errors.
+
+Demo mode writes the same `data/` build output as `npm start`; run `npm start` again to go back to your own data.
 
 ## Data model
 

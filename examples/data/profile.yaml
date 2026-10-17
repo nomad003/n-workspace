@@ -1,5 +1,0 @@
-# SYNTHETIC demo data
-name: Demo User
-city: Example City
-documents:
-  - {name: Demo Passport, expires: 2027-01-31}

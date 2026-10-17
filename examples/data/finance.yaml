@@ -1,5 +1,0 @@
-# SYNTHETIC demo data — object of named lists, flattened with kind=<list>
-accounts:
-  - {name: Demo Savings, institution: Demo Bank, balance: 1000, currency: CNY, updated: 2026-10-01}
-holdings:
-  - {name: Demo Index Fund, symbol: DEMO, quantity: 10, price: 1.5, currency: CNY}

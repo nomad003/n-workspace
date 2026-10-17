@@ -1,0 +1,290 @@
+# FICTIONAL example data for n-workspace demo mode. Every name, address, number and service here is made up.
+schema_version: 9
+privacy: private
+updated: '2026-10-15'
+accounts:
+- id: example-mail
+  service: Example Mail
+  group: identity
+  subcategory: email
+  parent_id: null
+  identity_ids: ["id-email-main"]
+  login_via:
+  - method: password
+    via: null
+    confirmed: true
+  recovery: ["id-phone-main"]
+  priority: P0
+  two_fa: 'on'
+  password_location: 密码管理器
+  url: https://example-mail.example.com
+  purpose: 主邮箱
+  status: active
+  last_checked: '2026-09-22'
+  notes: null
+- id: legacy-mail
+  service: Legacy Mail
+  group: identity
+  subcategory: email
+  parent_id: null
+  identity_ids: ["id-email-old"]
+  login_via:
+  - method: password
+    via: null
+    confirmed: true
+  recovery: []
+  priority: P2
+  two_fa: 'off'
+  password_location: 密码管理器
+  url: https://legacy-mail.example.com
+  purpose: 旧邮箱
+  status: to-close
+  last_checked: '2026-09-21'
+  notes: null
+- id: demo-mobile
+  service: Demo Mobile 营业厅
+  group: identity
+  subcategory: phone
+  parent_id: null
+  identity_ids: ["id-phone-main"]
+  login_via:
+  - method: sms
+    via: null
+    confirmed: true
+  recovery: ["id-phone-main"]
+  priority: P0
+  two_fa: na
+  password_location: 密码管理器
+  url: https://demo-mobile.example.com
+  purpose: 示例运营商
+  status: active
+  last_checked: '2026-09-21'
+  notes: null
+- id: demo-bank
+  service: Demo Bank
+  group: finance
+  subcategory: bank
+  parent_id: null
+  identity_ids: ["id-phone-main"]
+  login_via:
+  - method: password
+    via: null
+    confirmed: true
+  recovery: ["id-phone-main"]
+  priority: P0
+  two_fa: 'on'
+  password_location: 密码管理器
+  url: https://demo-bank.example.com
+  purpose: 工资卡 / 储蓄
+  status: active
+  last_checked: '2026-09-19'
+  notes: null
+- id: paydemo
+  service: PayDemo
+  group: finance
+  subcategory: pay
+  parent_id: null
+  identity_ids: ["id-phone-main"]
+  login_via:
+  - method: sms
+    via: null
+    confirmed: true
+  recovery: ["id-phone-main"]
+  priority: P0
+  two_fa: 'on'
+  password_location: 密码管理器
+  url: https://paydemo.example.com
+  purpose: 日常支付
+  status: active
+  last_checked: '2026-09-17'
+  notes: null
+- id: codehub
+  service: CodeHub
+  group: dev-ai
+  subcategory: code
+  parent_id: null
+  identity_ids: ["id-email-main"]
+  login_via:
+  - method: passkey
+    via: null
+    confirmed: true
+  recovery: ["id-phone-main"]
+  priority: P1
+  two_fa: 'on'
+  password_location: 密码管理器
+  url: https://codehub.example.com
+  purpose: 代码托管 / 个人项目
+  status: active
+  last_checked: '2026-09-17'
+  notes: null
+- id: acme-ai
+  service: Acme AI
+  group: dev-ai
+  subcategory: ai
+  parent_id: null
+  identity_ids: ["id-email-main"]
+  login_via:
+  - method: oauth
+    via: example-mail
+    confirmed: true
+  recovery: ["id-phone-main"]
+  priority: P1
+  two_fa: unknown
+  password_location: 密码管理器
+  url: https://acme-ai.example.com
+  purpose: AI 助手订阅
+  status: active
+  last_checked: '2026-09-17'
+  notes: null
+- id: notebook-ai
+  service: Notebook AI
+  group: dev-ai
+  subcategory: ai
+  parent_id: null
+  identity_ids: ["id-email-main"]
+  login_via:
+  - method: oauth
+    via: codehub
+    confirmed: true
+  recovery: []
+  priority: P2
+  two_fa: 'off'
+  password_location: 密码管理器
+  url: https://notebook-ai.example.com
+  purpose: 笔记 AI
+  status: active
+  last_checked: '2026-09-21'
+  notes: null
+- id: chirp
+  service: Chirp
+  group: social
+  subcategory: social
+  parent_id: null
+  identity_ids: ["id-email-main"]
+  login_via:
+  - method: password
+    via: null
+    confirmed: true
+  recovery: []
+  priority: P2
+  two_fa: 'on'
+  password_location: 密码管理器
+  url: https://chirp.example.com
+  purpose: 个人社交账号
+  status: active
+  last_checked: '2026-09-15'
+  notes: null
+- id: streamly
+  service: Streamly
+  group: social
+  subcategory: content
+  parent_id: null
+  identity_ids: ["id-phone-main"]
+  login_via:
+  - method: app-scan
+    via: null
+    confirmed: true
+  recovery: []
+  priority: P3
+  two_fa: 'off'
+  password_location: 密码管理器
+  url: https://streamly.example.com
+  purpose: 视频平台
+  status: active
+  last_checked: '2026-09-18'
+  notes: null
+- id: acme-cloud
+  service: Acme Cloud
+  group: cloud
+  subcategory: storage
+  parent_id: null
+  identity_ids: ["id-email-main"]
+  login_via:
+  - method: oauth
+    via: example-mail
+    confirmed: true
+  recovery: ["id-phone-main"]
+  priority: P1
+  two_fa: 'on'
+  password_location: 密码管理器
+  url: https://acme-cloud.example.com
+  purpose: 照片与文件备份
+  status: active
+  last_checked: '2026-09-20'
+  notes: null
+- id: tinyvps
+  service: TinyVPS
+  group: cloud
+  subcategory: hosting
+  parent_id: null
+  identity_ids: ["id-email-main"]
+  login_via:
+  - method: password
+    via: null
+    confirmed: true
+  recovery: []
+  priority: P2
+  two_fa: 'off'
+  password_location: 密码管理器
+  url: https://tinyvps.example.com
+  purpose: 个人博客主机
+  status: active
+  last_checked: '2026-09-17'
+  notes: null
+- id: shopdemo
+  service: ShopDemo
+  group: life
+  subcategory: shopping
+  parent_id: null
+  identity_ids: ["id-phone-main"]
+  login_via:
+  - method: sms
+    via: null
+    confirmed: true
+  recovery: []
+  priority: P3
+  two_fa: 'off'
+  password_location: 密码管理器
+  url: https://shopdemo.example.com
+  purpose: 网购
+  status: active
+  last_checked: '2026-09-18'
+  notes: null
+- id: railgo
+  service: RailGo
+  group: life
+  subcategory: travel
+  parent_id: null
+  identity_ids: ["id-phone-main"]
+  login_via:
+  - method: password
+    via: null
+    confirmed: true
+  recovery: []
+  priority: P3
+  two_fa: unknown
+  password_location: 密码管理器
+  url: https://railgo.example.com
+  purpose: 火车票
+  status: active
+  last_checked: '2026-09-16'
+  notes: null
+- id: forum-x
+  service: Example Forum
+  group: other
+  subcategory: misc
+  parent_id: null
+  identity_ids: []
+  login_via:
+  - method: unknown
+    via: null
+    confirmed: false
+  recovery: []
+  priority: P4
+  two_fa: unknown
+  password_location: null
+  url: https://forum-x.example.com
+  purpose: 很久不用的论坛
+  status: to-close
+  last_checked: '2026-09-17'
+  notes: null

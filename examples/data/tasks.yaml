@@ -1,4 +1,0 @@
-# SYNTHETIC demo data
-- {title: Demo work task, status: doing, due: 2026-10-10, priority: p1, owner: me, module: work}
-- {title: Demo agent sync, status: todo, owner: agent:grok, due: 2026-10-18, module: work}
-- {title: Demo renew ID card, status: todo, due: 2026-11-05, module: life}

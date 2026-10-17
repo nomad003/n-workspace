@@ -1,0 +1,15 @@
+# FICTIONAL example data for n-workspace demo mode. Every name, address, number and service here is made up.
+schema_version: 9
+privacy: private
+updated: '2026-10-15'
+personal:
+  name: Jane Doe
+  occupation: 后端工程师（示例）
+  employer: Example Corp
+  location: Springfield
+contacts:
+  phone: 138-0000-0000
+  emails: jane.doe@example.com
+documents:
+- {name: 示例护照, number: 待补充, expires: '2027-06-30'}
+- {name: 示例驾照, number: 待补充, expires: '2030-01-01'}
