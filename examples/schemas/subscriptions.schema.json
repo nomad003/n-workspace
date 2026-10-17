@@ -1,0 +1,138 @@
+{
+ "type": "object",
+ "required": [
+  "schema_version",
+  "privacy",
+  "updated",
+  "subscriptions"
+ ],
+ "properties": {
+  "schema_version": {
+   "enum": [
+    9
+   ]
+  },
+  "privacy": {
+   "enum": [
+    "private",
+    "public"
+   ]
+  },
+  "updated": {
+   "type": "string",
+   "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+  },
+  "sources": {
+   "type": "array"
+  },
+  "subscriptions": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "id",
+     "account_id",
+     "service",
+     "plan",
+     "amount",
+     "currency",
+     "cycle",
+     "status"
+    ],
+    "properties": {
+     "id": {
+      "type": "string",
+      "pattern": "^sub-[a-z0-9-]+$"
+     },
+     "account_id": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "paid_via": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "service": {
+      "type": "string"
+     },
+     "plan": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "amount": {
+      "type": [
+       "number",
+       "null"
+      ]
+     },
+     "currency": {
+      "enum": [
+       "CNY",
+       "USD",
+       "HKD",
+       "EUR",
+       null
+      ]
+     },
+     "cycle": {
+      "enum": [
+       "monthly",
+       "yearly",
+       "prepaid",
+       "one-time",
+       "unknown"
+      ]
+     },
+     "renew_date": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+     },
+     "billed_date": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "status": {
+      "enum": [
+       "active",
+       "verify",
+       "paused",
+       "prepaid",
+       "canceled",
+       "one-time",
+       "refund-requested"
+      ]
+     },
+     "task_ids": {
+      "type": "array"
+     },
+     "notes": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "legacy": {
+      "type": "object"
+     },
+     "renew_day": {
+      "type": [
+       "integer",
+       "null"
+      ]
+     }
+    }
+   }
+  }
+ }
+}

@@ -1,0 +1,168 @@
+{
+ "type": "object",
+ "required": [
+  "schema_version",
+  "privacy",
+  "updated",
+  "tasks"
+ ],
+ "properties": {
+  "schema_version": {
+   "enum": [
+    9
+   ]
+  },
+  "privacy": {
+   "enum": [
+    "private",
+    "public"
+   ]
+  },
+  "updated": {
+   "type": "string",
+   "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+  },
+  "sources": {
+   "type": "array"
+  },
+  "tasks": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "id",
+     "title",
+     "status",
+     "priority",
+     "owner",
+     "created"
+    ],
+    "properties": {
+     "id": {
+      "type": "string",
+      "pattern": "^t-[a-z0-9-]+$"
+     },
+     "title": {
+      "type": "string"
+     },
+     "status": {
+      "enum": [
+       "inbox",
+       "open",
+       "in-progress",
+       "waiting",
+       "done",
+       "canceled"
+      ]
+     },
+     "priority": {
+      "enum": [
+       "P0",
+       "P1",
+       "P2",
+       "P3"
+      ]
+     },
+     "due": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "pattern": "^(\\d{4}-\\d{2}-\\d{2}|\\d{4}-\\d{2}|\\d{4}-Q[1-4]|\\d{4}-H[12]|\\d{4})$"
+     },
+     "due_event": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "scheduled": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+     },
+     "recurrence": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "owner": {
+      "type": "string",
+      "pattern": "^(user|agent:[a-z0-9-]+)$"
+     },
+     "area": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "project": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "plan": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "pattern": "^p-"
+     },
+     "parent": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "pattern": "^t-"
+     },
+     "source": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "pattern": "^(kb|life)://|^agent:"
+     },
+     "created": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+     },
+     "done_at": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "estimate": {
+      "type": [
+       "string",
+       "null"
+      ],
+      "pattern": "^\\d+(\\.\\d+)?[mhd]$"
+     },
+     "tags": {
+      "type": "array"
+     },
+     "standard": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "notes": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "legacy": {
+      "type": "object"
+     }
+    }
+   }
+  }
+ }
+}

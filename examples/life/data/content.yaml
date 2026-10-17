@@ -1,0 +1,20 @@
+# FICTIONAL example data for n-workspace demo mode. Every name, address, number and service here is made up.
+schema_version: 9
+privacy: private
+updated: '2026-10-15'
+channels:
+- platform: Chirp
+  handle: "@jane_example"
+  url: https://chirp.example.com/jane_example
+  owner_agent: social
+  stage: 起步期
+  topic: blog
+  snapshots_ref: data/topic-logs/blog.jsonl
+  rules: 未经本人确认不发帖
+  next: [每周发 2 条, 博客更新后同步一条]
+- platform: Streamly
+  handle: 待补充
+  url: 待补充
+  owner_agent: social
+  stage: 待补充
+  snapshots: [{date: '2026-09-01', followers: 10, following: 20}]

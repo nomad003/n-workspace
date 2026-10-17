@@ -1,0 +1,59 @@
+# FICTIONAL example data for n-workspace demo mode. Every name, address, number and service here is made up.
+schema_version: 9
+privacy: private
+updated: '2026-10-15'
+groups:
+- id: identity
+  label: 身份与邮箱
+  order: 1
+  subcategories:
+  - id: email
+    label: 邮箱
+  - id: phone
+    label: 手机号
+- id: finance
+  label: 金融
+  order: 2
+  subcategories:
+  - id: bank
+    label: 银行
+  - id: pay
+    label: 支付
+- id: dev-ai
+  label: 开发与 AI
+  order: 3
+  subcategories:
+  - id: code
+    label: 代码托管
+  - id: ai
+    label: AI 工具
+- id: social
+  label: 社交与内容
+  order: 4
+  subcategories:
+  - id: social
+    label: 社交
+  - id: content
+    label: 内容平台
+- id: cloud
+  label: 云与存储
+  order: 5
+  subcategories:
+  - id: storage
+    label: 存储
+  - id: hosting
+    label: 主机
+- id: life
+  label: 生活服务
+  order: 6
+  subcategories:
+  - id: shopping
+    label: 购物
+  - id: travel
+    label: 出行
+- id: other
+  label: 其他
+  order: 7
+  subcategories:
+  - id: misc
+    label: 其他

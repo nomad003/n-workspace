@@ -7,8 +7,9 @@
   "fetch-kb": "sh scripts/fetch-root.sh kb",
   "build": "node scripts/build-index.mjs",
   "serve": "node scripts/serve.mjs",
-  "demo": "KB_DEST=examples SHOW_PRIVATE=1 node scripts/build-index.mjs && node scripts/serve.mjs",
-  "fetch-life": "sh scripts/fetch-root.sh life"
+  "demo": "node scripts/demo.mjs",
+  "fetch-life": "sh scripts/fetch-root.sh life",
+  "validate-examples": "python3 examples/tools/validate.py --data examples/life/data --life examples/life --kb examples/kb/n-knowledge-base"
  },
  "dependencies": {
   "js-yaml": "^5.4.3",

@@ -1,0 +1,208 @@
+{
+ "type": "object",
+ "required": [
+  "id",
+  "type",
+  "area",
+  "status",
+  "privacy",
+  "created",
+  "updated"
+ ],
+ "properties": {
+  "id": {
+   "type": "string",
+   "pattern": "^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)*$"
+  },
+  "type": {
+   "enum": [
+    "note",
+    "moc",
+    "daily",
+    "weekly",
+    "log",
+    "task",
+    "plan",
+    "review",
+    "report",
+    "profile",
+    "template",
+    "account",
+    "subscription",
+    "roadmap",
+    "record"
+   ]
+  },
+  "area": {
+   "type": "string"
+  },
+  "project": {
+   "type": [
+    "string",
+    "null"
+   ]
+  },
+  "status": {
+   "enum": [
+    "draft",
+    "active",
+    "done",
+    "archived",
+    "template"
+   ]
+  },
+  "maturity": {
+   "enum": [
+    "stub",
+    "learning",
+    "evolving",
+    "evergreen"
+   ]
+  },
+  "privacy": {
+   "enum": [
+    "private",
+    "public"
+   ]
+  },
+  "created": {
+   "type": "string",
+   "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+  },
+  "updated": {
+   "type": "string",
+   "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+  },
+  "tags": {
+   "type": "array"
+  },
+  "links": {
+   "type": "array",
+   "items": {
+    "type": "string",
+    "pattern": "^(kb|life)://"
+   }
+  },
+  "owner": {
+   "type": "string"
+  },
+  "title": {
+   "type": "string"
+  },
+  "aliases": {
+   "type": "array"
+  }
+ },
+ "x-type-extras": {
+  "daily": {
+   "required": [
+    "date"
+   ],
+   "optional": [
+    "tasks",
+    "mood",
+    "energy"
+   ]
+  },
+  "weekly": {
+   "required": [
+    "period"
+   ],
+   "optional": [
+    "tasks"
+   ]
+  },
+  "log": {
+   "required": [
+    "date"
+   ],
+   "optional": [
+    "agent",
+    "project"
+   ]
+  },
+  "review": {
+   "required": [
+    "period",
+    "review_of"
+   ],
+   "optional": [
+    "tasks",
+    "metrics"
+   ]
+  },
+  "report": {
+   "required": [
+    "period"
+   ],
+   "optional": [
+    "audience"
+   ]
+  },
+  "plan": {
+   "required": [
+    "plan_id"
+   ]
+  },
+  "roadmap": {
+   "optional": [
+    "tasks"
+   ]
+  },
+  "note": {
+   "optional": [
+    "maturity",
+    "origin",
+    "source_url"
+   ]
+  },
+  "moc": {},
+  "task": {
+   "required": [
+    "task_id"
+   ]
+  },
+  "template": {
+   "required": [
+    "template_for"
+   ]
+  }
+ },
+ "x-repo-rules": {
+  "kb": {
+   "maturity": "recommended for type note",
+   "areas": [
+    "moc",
+    "cs",
+    "game-backend",
+    "ai-ml",
+    "math",
+    "mindset",
+    "reading",
+    "templates",
+    "tools"
+   ]
+  },
+  "life": {
+   "maturity": "not used",
+   "areas": [
+    "profile",
+    "plan",
+    "finance",
+    "family",
+    "health",
+    "records",
+    "affairs",
+    "digital",
+    "explore",
+    "journal",
+    "review",
+    "work",
+    "agent-ops",
+    "learning",
+    "moc",
+    "templates"
+   ]
+  }
+ }
+}

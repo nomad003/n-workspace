@@ -1,0 +1,55 @@
+{
+ "type": "object",
+ "required": [
+  "schema_version",
+  "sections"
+ ],
+ "properties": {
+  "schema_version": {
+   "enum": [
+    9
+   ]
+  },
+  "sections": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "id",
+     "label",
+     "tabs"
+    ],
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "label": {
+      "type": "string"
+     },
+     "tabs": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "required": [
+        "id",
+        "label",
+        "source"
+       ],
+       "properties": {
+        "id": {
+         "type": "string"
+        },
+        "label": {
+         "type": "string"
+        },
+        "source": {
+         "type": "array"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

@@ -1,0 +1,411 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "data/topics.yaml (v9)",
+ "type": "object",
+ "required": [
+  "schema_version",
+  "privacy",
+  "topics"
+ ],
+ "properties": {
+  "schema_version": {
+   "enum": [
+    9
+   ]
+  },
+  "privacy": {
+   "enum": [
+    "private"
+   ]
+  },
+  "updated": {
+   "type": "string",
+   "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+  },
+  "sources": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "topics": {
+   "type": "array",
+   "items": {
+    "$ref": "#/$defs/topic"
+   }
+  },
+  "policy": {
+   "type": "object"
+  }
+ },
+ "$defs": {
+  "period": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "pattern": "^\\d{4}(-(\\d{2}(-\\d{2})?|Q[1-4]|H[12]))?$"
+  },
+  "metric": {
+   "type": "object",
+   "required": [
+    "id",
+    "label",
+    "type",
+    "aggregation"
+   ],
+   "properties": {
+    "id": {
+     "type": "string",
+     "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "label": {
+     "type": "string"
+    },
+    "type": {
+     "enum": [
+      "number",
+      "bool",
+      "enum",
+      "text"
+     ]
+    },
+    "unit": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "values": {
+     "type": "array"
+    },
+    "aggregation": {
+     "enum": [
+      "last",
+      "sum",
+      "avg",
+      "max",
+      "min",
+      "count",
+      "any",
+      "list"
+     ]
+    },
+    "period": {
+     "enum": [
+      "day",
+      "week",
+      "month",
+      "quarter",
+      "year"
+     ]
+    }
+   }
+  },
+  "goal": {
+   "type": "object",
+   "required": [
+    "id",
+    "title",
+    "metric",
+    "target",
+    "deadline"
+   ],
+   "properties": {
+    "id": {
+     "type": "string"
+    },
+    "title": {
+     "type": "string"
+    },
+    "metric": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "target": {
+     "type": [
+      "object",
+      "null"
+     ],
+     "required": [
+      "op",
+      "value"
+     ],
+     "properties": {
+      "op": {
+       "enum": [
+        ">=",
+        "<=",
+        "==",
+        ">",
+        "<",
+        "between"
+       ]
+      },
+      "per": {
+       "enum": [
+        "day",
+        "week",
+        "month",
+        "quarter",
+        "year"
+       ]
+      }
+     }
+    },
+    "deadline": {
+     "$ref": "#/$defs/period"
+    },
+    "task": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "done_at": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    }
+   }
+  },
+  "topic": {
+   "type": "object",
+   "required": [
+    "id",
+    "title",
+    "kind",
+    "area",
+    "owner",
+    "status",
+    "links"
+   ],
+   "properties": {
+    "id": {
+     "type": "string",
+     "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "title": {
+     "type": "string"
+    },
+    "kind": {
+     "enum": [
+      "project",
+      "habit",
+      "skill",
+      "area"
+     ]
+    },
+    "area": {
+     "type": "string"
+    },
+    "section": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "pattern": "^life://[^#?]+/$"
+    },
+    "narrative": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "pattern": "^(kb|life)://"
+    },
+    "why": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "scope": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "owner": {
+     "type": "string",
+     "pattern": "^(user|agent:[a-z0-9-]+)$"
+    },
+    "started": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "ended": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "accounts": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "resources": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "title",
+       "ref"
+      ],
+      "properties": {
+       "title": {
+        "type": "string"
+       },
+       "ref": {
+        "type": "string",
+        "pattern": "^((kb|life)://|https?://|data/)"
+       }
+      }
+     }
+    },
+    "rules": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "status": {
+     "$ref": "#/$defs/status"
+    },
+    "tracking": {
+     "$ref": "#/$defs/tracking"
+    },
+    "links": {
+     "type": "object",
+     "properties": {
+      "tasks": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "plans": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "notes": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "pattern": "^(kb|life)://"
+       }
+      }
+     }
+    }
+   }
+  },
+  "status": {
+   "type": "object",
+   "required": [
+    "lifecycle",
+    "stage",
+    "health",
+    "summary",
+    "updated"
+   ],
+   "properties": {
+    "lifecycle": {
+     "enum": [
+      "active",
+      "paused",
+      "done",
+      "archived"
+     ]
+    },
+    "stage": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "health": {
+     "enum": [
+      "on-track",
+      "at-risk",
+      "off-track",
+      null
+     ]
+    },
+    "since": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "summary": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "blockers": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "next": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "updated": {
+     "type": "string",
+     "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "source": {
+     "type": "string"
+    }
+   }
+  },
+  "tracking": {
+   "type": "object",
+   "required": [
+    "metrics",
+    "goals"
+   ],
+   "properties": {
+    "cadence": {
+     "type": [
+      "string",
+      "null"
+     ],
+     "pattern": "^FREQ=(DAILY|WEEKLY|MONTHLY|YEARLY)(;[A-Z]+=[^;]+)*$"
+    },
+    "metrics": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/metric"
+     }
+    },
+    "goals": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/goal"
+     }
+    },
+    "done_when": {
+     "type": "string"
+    }
+   }
+  }
+ }
+}

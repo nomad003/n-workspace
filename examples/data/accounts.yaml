@@ -1,4 +1,0 @@
-# SYNTHETIC demo data (fake). Real data lives in the private KB: n-knowledge-base/data/
-- {name: Example Mail, platform: email, status: active, two_fa: totp, last_login: 2026-10-01}
-- {name: Example Social, platform: x, status: active, two_fa: false, risk: 未绑定备用邮箱}
-- {name: Example Bank, platform: bank, status: at_risk, two_fa: sms, risk_level: high}
