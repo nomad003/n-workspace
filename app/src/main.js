@@ -26,7 +26,7 @@ const NAV_IC = { today: IC('<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 1
 const setTheme = t => { document.documentElement.dataset.theme = t; localStorage.setItem("nw-theme", t); };
 
 function sidebar() {
-  const open = tasks().filter(t => isOpenTask(t) && t.owner === "user").length, w2 = weak2fa(M.accounts?.items || []).length, n = id => (section(id)?.tabs || []).length;
+  const open = tasks().filter(t => isOpenTask(t) && t.owner === "user").length, w2 = weak2fa(M.accounts?.items || []).length;
   const tw = topics().filter(t => topicStale(t) || t.open_issues?.length).length;
   const cnt = { topics: tw ? `<span class="w">${tw}</span>` : (topics().length || ""), plan: open || "", life: records.filter(r => r.root === "life" && r.origin.source_path.includes("/") && !/^(journal|work|plan|learning|agent-ops|moc)\//.test(r.origin.source_path)).length || "", journal: records.filter(r => r.root === "life" && /^(journal|work)\//.test(r.origin.source_path)).length || "", knowledge: records.filter(r => r.root === "kb").length, accounts: w2 ? `<span class="w">${w2}</span>` : "" };
   const src = (bundle?.sources || []).filter(s => s.meta);
