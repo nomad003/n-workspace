@@ -19,21 +19,31 @@ const ALIAS = { overview: "today", kb: "knowledge", assets: "accounts", affairs:
 const NAV_OF = { account: "accounts" };
 const ICON_SUN = `<svg class="th-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`;
 const ICON_MOON = `<svg class="th-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`;
+const IC = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const NAV_IC = { today: IC('<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/>'), plan: IC('<path d="M4 6h10M4 12h16M4 18h7"/><circle cx="18" cy="6" r="2"/>'), topics: IC('<path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-4 3 3 5-6"/>'), life: IC('<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>'),
+  journal: IC('<path d="M6 3h10l3 3v15H6z"/><path d="M9 9h7M9 13h7M9 17h4"/>'), accounts: IC('<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>'), knowledge: IC('<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/>'),
+  agents: IC('<rect x="5" y="7" width="14" height="12" rx="3"/><path d="M12 3v4M9 12h.01M15 12h.01"/>'), settings: IC('<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1c.6.5 1.3.9 2 1.2L10 21h4l.5-2.6c.7-.3 1.4-.7 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/>') };
 const setTheme = t => { document.documentElement.dataset.theme = t; localStorage.setItem("nw-theme", t); };
 
-function shell() {
+function sidebar() {
   const open = tasks().filter(t => isOpenTask(t) && t.owner === "user").length, w2 = weak2fa(M.accounts?.items || []).length;
   const tw = topics().filter(t => topicStale(t) || t.open_issues?.length).length;
   const cnt = { topics: tw ? `<span class="w">${tw}</span>` : (topics().length || ""), plan: open || "", life: records.filter(r => r.root === "life" && r.origin.source_path.includes("/") && !/^(journal|work|plan|learning|agent-ops|moc)\//.test(r.origin.source_path)).length || "", journal: records.filter(r => r.root === "life" && /^(journal|work)\//.test(r.origin.source_path)).length || "", knowledge: records.filter(r => r.root === "kb").length, accounts: w2 ? `<span class="w">${w2}</span>` : "" };
   const src = (bundle?.sources || []).filter(s => s.meta);
-  const meta = [src.map(s => `${esc(s.id)} ${esc((s.meta.commit || "").slice(0, 7))}`).join(" · "), bundle?.show_private ? "本机 · 含私密" : ""].filter(Boolean).join(" · ");
-  document.getElementById("tabnav").innerHTML = `<div class="tabnav-in"><div class="tabnav-links">${NAV.map(([id, l]) => `<a href="#${id}" data-id="${id}">${l}${cnt[id] ? `<span class="c">${cnt[id]}</span>` : ""}</a>`).join("")}</div>${meta ? `<div class="tabnav-meta">${meta}</div>` : ""}</div>`;
+  document.getElementById("side").innerHTML = `
+   <div class="me"><span class="av">n</span><b>n-workspace</b></div>
+   <button class="find" data-cmdk>⌕ 搜索或跳转<kbd>⌘K</kbd></button>
+   <div class="navh">工作区</div><nav class="nav5">${NAV.map(([id, l]) => `<a href="#${id}" data-id="${id}" class="ni">${NAV_IC[id]}${l}<span class="c">${cnt[id] ?? ""}</span></a>`).join("")}</nav>
+   <div class="foot"><a href="#settings" data-id="settings" class="ni sm">${NAV_IC.settings}设置</a>
+     <div class="meta">${src.map(s => `${esc(s.id)} ${esc((s.meta.commit || "").slice(0, 7))}`).join(" · ")}<br>${bundle?.show_private ? "本机 · 含私密" : ""}</div>
+     <button class="iconbtn theme" aria-label="切换主题">${ICON_MOON}${ICON_SUN}</button></div>`;
 }
 document.addEventListener("click", e => {
   if (e.target.closest("[data-cmdk]")) { e.preventDefault(); openK(); return; }
   if (e.target.closest(".theme")) { e.preventDefault(); setTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"); return; }
   const ts = e.target.closest("[data-theme-set]"); if (ts) { e.preventDefault(); setTheme(ts.dataset.themeSet); }
 });
+document.getElementById("menu")?.addEventListener("click", () => document.body.classList.toggle("nav-open"));
 
 /* ---------- ⌘K ---------- */
 const TABS = { topics: [["all", "全部"], ["project", "项目"], ["habit", "习惯"], ["skill", "技能"], ["area", "领域"]], plan: [["board", "本周 / 本月"], ["tree", "目标树"], ["reviews", "复盘"], ["learning", "学习路线"]], knowledge: [["home", "项目"], ["topics", "主题"], ["tree", "目录"], ["search", "全文搜索"]],
@@ -85,12 +95,12 @@ let seq = 0;
 async function render() {
   const [path, qs = ""] = location.hash.slice(1).split("?"), [raw, sub, ...rest] = path.split("/").map(decodeURIComponent);
   const id = PAGES[ALIAS[raw] ?? raw] ? (ALIAS[raw] ?? raw) : "today", el = document.getElementById("view"), my = ++seq;
-  const cur = NAV_OF[id] || id;
-  document.querySelectorAll("a[data-id]").forEach(a => { const on = a.dataset.id === cur; a.classList.toggle("on", on); if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+  document.querySelectorAll("#side a[data-id]").forEach(a => a.classList.toggle("on", a.dataset.id === (NAV_OF[id] || id)));
+  document.body.classList.remove("nav-open");
   if (!bundle) { el.innerHTML = `<div class="body"><p class="empty">未找到 data/bundle.json，请先运行 <code>npm start</code>。</p></div>`; return; }
   try { const out = await PAGES[id](sub || undefined, new URLSearchParams(qs), rest); if (my === seq) { el._acct?.abort(); el.innerHTML = out.html; out.mount?.(el); } }
   catch (err) { console.error(err); if (my === seq) el.innerHTML = `<div class="body"><p class="empty">页面渲染失败：${esc(err.message)}</p></div>`; }
 }
-shell(); document.querySelectorAll(".mast .theme").forEach(b => b.innerHTML = ICON_MOON + ICON_SUN);
+sidebar(); document.querySelectorAll(".topbar .theme").forEach(b => b.innerHTML = ICON_MOON + ICON_SUN);
 addEventListener("hashchange", () => { render().then(() => scrollTo(0, 0)); });
 render();
