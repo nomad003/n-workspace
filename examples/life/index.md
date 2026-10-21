@@ -11,5 +11,5 @@ title: 生活首页
 # 生活首页（示例）
 
 - 计划：[[2026-goals]]
-- 健康：[[Health-MOC]]
+- 健康：life://health/index
 - 记录：[[2026-10-13]]

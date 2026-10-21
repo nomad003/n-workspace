@@ -1,11 +1,11 @@
 // 生活 / 记录 (v9): tabs come from data/sections.yaml; each tab mirrors its life:// folder(s): subfolders, notes, attachments, counts, last update.
-// A source naming a single note (life://moc/Health-MOC) is pinned as the tab's index (MOC) above the folder groups. life:// only — never KB.
-import { section, notesIn, filesIn, dirOf, M, v9, records } from "../data.js";
+// A source naming a single note (life://health/index, or the old life://moc/Health-MOC) is pinned as the tab's index above the folder groups. life:// only — never KB.
+import { section, notesIn, filesIn, dirOf, findLifeNote, M, v9 } from "../data.js";
 import { esc, header, tabs, noteHref, box, mainSide, more } from "../ui.js";
 const md = d => String(d ?? "").slice(0, 10);
 const kb = n => n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
 const isIdx = r => /(^|\/)(index|README)\.md$/i.test(r.origin.source_path);
-const pinOf = u => { const p = String(u).replace(/^life:\/\//, "").replace(/[#?].*$/, ""); return /^life:\/\//.test(u) && !p.endsWith("/") && !p.startsWith("data/") ? records.find(r => r.root === "life" && (r.origin.source_path === p || r.origin.source_path === p + ".md")) || { missing: p } : null; };
+const pinOf = u => { const p = String(u).replace(/^life:\/\//, "").replace(/[#?].*$/, ""); return /^life:\/\//.test(u) && !p.endsWith("/") && !p.startsWith("data/") ? findLifeNote(p) || { missing: p } : null; };
 const last = xs => xs.map(r => r.updated).filter(Boolean).sort().at(-1);
 export function folderPage(secId, title, sub, P) {
   const S = section(secId);
@@ -31,7 +31,8 @@ export function folderPage(secId, title, sub, P) {
     : secId === "life" && cur.id === "profile" ? `<p class="note">data/profile.yaml：证件 ${(M.profile?.data?.documents || []).length} 项（只显示到期提醒，号码不展示）。</p>` : "";
   const blocks = keys.map(k => { const xs = (groups[k] || []).sort((a, b) => isIdx(b) - isIdx(a) || String(b.updated).localeCompare(String(a.updated))), fs = filesOf(k);
     return xs.length || fs.length ? box({ title: esc(k || cur.label), meta: `${xs.length} 篇${fs.length ? ` · ${fs.length} 个附件` : ""}${last(xs) ? ` · ${esc(md(last(xs)))}` : ""}`, flush: true, body: big && xs.length + fs.length > 12 ? `<div class="rows">${xs.slice(0, 10).map(nrow).join("")}</div>` + more(Math.max(0, xs.length - 10) + fs.length, `<div class="rows">${xs.slice(10).map(nrow).join("")}${fs.map(frow).join("")}</div>`, "展开其余") : `<div class="rows">${xs.map(nrow).join("")}${fs.map(frow).join("")}</div>` }) : ""; }).join("");
-  const pinned = cur.pins.length ? box({ title: "索引", meta: "MOC · data/sections.yaml", cls: "focus", flush: true, body: `<div class="rows">${cur.pins.map(p => p.missing ? `<div class="row r3"><span class="t">life://${esc(p.missing)}</span><span class="tag">未找到</span><span class="tag"></span></div>` : nrow(p)).join("")}</div>` }) : "";
+  const pinRows = cur.pins.filter(p => p.missing || !cur.notes.some(n => n.id === p.id));
+  const pinned = pinRows.length ? box({ title: "索引", meta: "MOC · data/sections.yaml", cls: "focus", flush: true, body: `<div class="rows">${pinRows.map(p => p.missing ? `<div class="row r3"><span class="t">life://${esc(p.missing)}</span><span class="tag">未找到</span><span class="tag"></span></div>` : nrow(p)).join("")}</div>` }) : "";
   const main = pinned + (cur.missing.length && !cur.notes.length ? box({ title: esc(cur.label), body: `<p class="empty">${cur.missing.map(d => `life://${esc(d)}`).join("、")} 目录还不存在。</p>` }) : "") + blocks;
   const side = box({ title: "目录", body: `<dl class="mini-kv"><dt>来源</dt><dd>${cur.dirs.map(d => `<span class="mono sm">life://${esc(d)}</span>`).join("<br>")}</dd><dt>笔记</dt><dd>${cur.notes.length}</dd><dt>附件</dt><dd>${cur.files.length}</dd><dt>最近更新</dt><dd>${esc(md(cur.last)) || "—"}</dd></dl>`, footer: extra.replace(/<\/?p[^>]*>/g, "") })
     + box({ title: `全部${title}目录`, flush: true, body: `<div class="rows">${T.map(t => `<a class="row r2" href="#${secId}/${t.id}"${t.id === cur.id ? ' style="background:var(--accent-soft)"' : ""}><span class="t">${esc(t.label)}</span><span class="tag">${t.notes.length}</span></a>`).join("")}</div>` });

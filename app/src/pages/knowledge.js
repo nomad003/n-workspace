@@ -1,7 +1,7 @@
 // 知识: n-knowledge-base ONLY (general knowledge; since the 2026-10 separation all personal/work notes live in n-life-data).
 // 领域 (from 00-MOC: each MOC + the notes it links to) · 主题 (top folders) · 目录 · 搜索 (kb-index.json) · note page (any root).
 // Life notes live under 生活 / 记录 / 计划; the note page still renders them (with a link back to their section).
-import { V, records as ALL, byId, v9, kbIndex, noteBody, notesWhere, match } from "../data.js";
+import { V, records as ALL, byId, v9, kbIndex, noteBody, notesWhere, match, choosePrefixes, dirCovers, fallbacks } from "../data.js";
 import { esc, header, tabs, card, noteList, noteLink, noteHref, badge, more, box, mainSide } from "../ui.js";
 const MC = { stub: "infra", learning: "agent", evolving: "coding", evergreen: "ai" };
 const records = ALL.filter(r => r.root === "kb");
@@ -83,7 +83,12 @@ async function searchPage(q, head) {
 
 // which 生活 / 记录 / 计划 tab owns a life note (via data/sections.yaml)
 function lifeSec(r) {
-  for (const s of v9?.sections || []) for (const t of s.tabs) for (const u of t.source) { const d = String(u).replace(/^life:\/\//, "").replace(/[#?].*$/, "");
-    if (d.endsWith("/") ? r.origin.source_path.startsWith(d) : r.origin.source_path === d || r.origin.source_path === d + ".md") return `${s.id}/${t.id}`; }
+  const path = r.origin.source_path, bare = path.replace(/\.md$/i, "");
+  for (const s of v9?.sections || []) for (const t of s.tabs) for (const u of t.source) {
+    const d = String(u).replace(/^life:\/\//, "").replace(/[#?].*$/, "");
+    if (!d || d.startsWith("data/")) continue;
+    const prefs = d.endsWith("/") ? choosePrefixes(d, dirCovers) : [d, ...fallbacks(d)];
+    if (prefs.some(p => p.endsWith("/") ? path.startsWith(p) : bare === p.replace(/\.md$/i, "").replace(/\/+$/, ""))) return `${s.id}/${t.id}`;
+  }
   return "life";
 }

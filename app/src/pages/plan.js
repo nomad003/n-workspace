@@ -1,5 +1,5 @@
-// 计划 (v9): 本周/本月 board · 目标树 (decade → year → half/quarter → tasks) · 复盘 (cadences + instances + reviews/) · 学习路线.
-import { tasks, plansV9, reviews, notesIn, noteByPath, records, v9 } from "../data.js";
+// 计划 (v9): 本周/本月 board · 目标树 (decade → year → half/quarter → tasks) · 复盘 (cadences + instances + mind/reviews/) · 学习路线 (ai/).
+import { tasks, plansV9, reviews, notesIn, noteByPath, records, v9, dirCovers } from "../data.js";
 import { dueEnd, daysUntil, isOpenTask, quarterOf, ymdOf } from "../core.js";
 import { esc, header, tabs, noteHref, noteList, box, mainSide } from "../ui.js";
 import { taskRow } from "./_tasks.js";
@@ -29,15 +29,15 @@ export default function (sub = "board") {
       <section class="blk"><h2>未挂计划的任务<span class="more">${loose.length} 项 · backlog</span></h2><div class="rows">${loose.map(t => taskRow(t)).join("")}</div></section></div>` };
   }
   if (sub === "reviews") {
-    const notes = notesIn("reviews/"), hasDir = !(v9.missing_dirs || []).includes("reviews/");
+    const notes = notesIn("mind/reviews/"), hasDir = dirCovers("mind/reviews/") || dirCovers("reviews/") || notes.length > 0;
     return { html: head + `<div class="body">${reviews().map(r => `<section class="blk"><h2>${esc(KIND[r.kind] ?? r.id)}<span class="more">${esc(rr(r.rrule))} · ${r.duration_min} 分钟</span>${src(r.template)}</h2>
       <div class="hz"><div class="h">清单</div><div class="rows">${(r.checklist || []).map(c => `<div class="prow"><span class="cb"></span><div class="t">${esc(c)}</div><span></span></div>`).join("")}</div></div>
       <div class="hz"><div class="h">实例</div><div class="rows">${(r.instances || []).map(i => `<div class="prow ${i.status === "done" ? "done" : ""}"><span class="cb ${i.status === "done" ? "done" : ""}"></span><div><div class="t">${esc(i.period)}</div><div class="d">${esc(i.note ?? "")}${i.done_at ? ` · 完成于 ${esc(i.done_at)}` : ""}</div></div><span class="pill ${daysUntil(dueEnd(i.due)) < 0 && i.status === "open" ? "late" : "g"}">${esc(i.due)}</span></div>`).join("")}</div></div></section>`).join("") || `<p class="empty">plans.yaml 中没有 reviews。</p>`}
-      <section class="blk"><h2>复盘记录<span class="more">life://reviews/</span></h2>${hasDir ? noteList(notes, 99) : `<p class="empty">reviews/ 目录还不存在。第一次复盘后在 n-life-data/reviews/YYYY/ 新建笔记（type: review, period, review_of），这里会自动出现。</p>`}</section></div>` };
+      <section class="blk"><h2>复盘记录<span class="more">life://mind/reviews/</span></h2>${hasDir ? noteList(notes, 99) : `<p class="empty">mind/reviews/ 目录还不存在。第一次复盘后在 n-life-data/mind/reviews/YYYY/ 新建笔记（type: review, period, review_of），这里会自动出现。</p>`}</section></div>` };
   }
   if (sub === "learning") {
-    const learn = notesIn("learning/"), lt = open.filter(t => t.area === "learning");
-    return { html: head + `<div class="body"><section class="blk"><h2>学习路线<span class="more">life://learning/</span></h2>${noteList(learn, 99)}</section>
+    const learn = notesIn("ai/"), lt = open.filter(t => t.area === "learning");
+    return { html: head + `<div class="body"><section class="blk"><h2>学习路线<span class="more">life://ai/</span></h2>${noteList(learn, 99)}</section>
       <section class="blk"><h2>学习任务<span class="more">${lt.length} 项 · area: learning</span></h2><div class="rows">${lt.map(t => taskRow(t)).join("")}</div></section></div>` };
   }
   // board: grouped by time window

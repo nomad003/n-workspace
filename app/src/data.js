@@ -1,5 +1,6 @@
 // Loaded data + derived helpers shared by pages.
 import { match, nextRenewal, taskDue, known, isAgentTask, daysUntil, twoFaState, weak2fa } from "./core.js";
+import { choosePrefixes, fallbacks, LIFE_INDEX } from "./life-paths.js";
 export const bundle = await fetch("../data/bundle.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null);
 const IDS = ["today", "plan", "life", "journal", "knowledge", "accounts", "agents", "settings"];
 export const views = (await Promise.all(IDS.map(id => fetch(`../views/${id}.json`).then(r => r.json())))).sort((a, b) => a.order - b.order);
@@ -78,8 +79,63 @@ export const subsOf = id => subs().filter(s => s.account_id === id);
 export const paidBy = id => subs().filter(s => s.paid_via === id);
 export const agentName = o => ({ bilibili: "Bilibili", kb: "KB", pi: "Pi", x: "X", register: "Register", bot: "Bot", github: "Github" })[String(o).replace(/^agent:/, "")] ?? String(o).replace(/^agent:/, "");
 export const dirOf = u => String(u).replace(/^life:\/\//, "").replace(/[#?].*$/, "");
-export const notesIn = dir => records.filter(r => r.root === "life" && (dir.endsWith("/") ? r.origin.source_path.startsWith(dir) : r.origin.source_path === dir || r.origin.source_path.startsWith(dir + "/")));
-export const filesIn = dir => lifeFiles().filter(f => f.path.startsWith(dir.endsWith("/") ? dir : dir + "/"));
+const barePath = p => String(p ?? "").replace(/\.md$/i, "").replace(/\/+$/, "");
+const pathHit = (file, prefix) => {
+  const f = String(file);
+  if (prefix.endsWith("/")) return f.startsWith(prefix);
+  const b = barePath(prefix);
+  return barePath(f) === b || f.startsWith(prefix) || f.startsWith(b);
+};
+export const dirCovers = prefix => {
+  if (prefix.endsWith("/") && (v9?.dirs || []).some(d => d === prefix || d.startsWith(prefix))) return true;
+  if (records.some(r => r.root === "life" && pathHit(r.origin.source_path, prefix))) return true;
+  return lifeFiles().some(f => pathHit(f.path, prefix));
+};
+const rawNotes = prefix => records.filter(r => r.root === "life" && pathHit(r.origin.source_path, prefix));
+const dedupeNotes = xs => { const seen = new Set(), out = []; for (const r of xs) if (r && !seen.has(r.id)) { seen.add(r.id); out.push(r); } return out; };
+// Directory queries try the given path, then the paired old/new path when the given one is absent.
+export const notesIn = dir => {
+  const q = dir.endsWith("/") || !dir.includes("/") ? (dir.endsWith("/") ? dir : dir + "/") : dir;
+  const prefs = choosePrefixes(q, dirCovers);
+  const out = dedupeNotes(prefs.flatMap(rawNotes));
+  const seen = new Set(out.map(r => r.id));
+  for (const [folder, index, legacy] of LIFE_INDEX) {
+    if (!prefs.some(p => p === folder || p.startsWith(folder))) continue;
+    if (records.some(r => r.root === "life" && barePath(r.origin.source_path) === barePath(index))) continue;
+    for (const r of rawNotes(legacy)) if (!seen.has(r.id)) { seen.add(r.id); out.push(r); }
+  }
+  return out;
+};
+export const filesIn = dir => {
+  const prefs = choosePrefixes(dir.endsWith("/") ? dir : dir + "/", dirCovers);
+  const seen = new Set(), out = [];
+  for (const p of prefs) for (const f of lifeFiles()) if (pathHit(f.path, p) && !seen.has(f.path)) { seen.add(f.path); out.push(f); }
+  return out;
+};
+export const findLifeNote = path => {
+  const want = [barePath(path), ...fallbacks(path).map(barePath)];
+  for (const b of want) { const hit = records.find(r => r.root === "life" && barePath(r.origin.source_path) === b); if (hit) return hit; }
+  return null;
+};
+const dropRedundantIndex = xs => xs.filter(r => {
+  if (!/\/index\.md$/i.test(r.origin.source_path)) return true;
+  const dir = r.origin.source_path.replace(/index\.md$/i, "");
+  return !xs.some(o => o.id !== r.id && o.origin.source_path.startsWith(dir));
+});
+// Agents notes: x/, blibli/, pi/ (and bot/团队.md). Falls back to agent-ops/ when none of those homes exist yet.
+export function agentNotes() {
+  const specs = (V.agents?.agent_notes?.path || ["x/", "blibli/", "pi/"]).map(p => p.endsWith("/") ? p : p + "/");
+  let notes = dedupeNotes(specs.flatMap(notesIn));
+  const team = findLifeNote("bot/团队");
+  if (team) notes = dedupeNotes([...notes, team]);
+  let label = specs.map(s => `life://${s}`).join(" · ");
+  if (!notes.length && !specs.some(dirCovers) && dirCovers("agent-ops/")) {
+    notes = rawNotes("agent-ops/");
+    label = "life://agent-ops/";
+  }
+  return { notes: dropRedundantIndex(notes), label };
+}
+export { choosePrefixes, fallbacks };
 // 主题 (topics): data/topics.yaml + topic-logs, loaded by build-index (missing → []).
 export const topics = () => v9?.topics || [];
 export const topicById = id => topics().find(t => t.id === id);

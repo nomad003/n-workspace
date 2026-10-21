@@ -2,7 +2,7 @@
 schema_version: 9
 privacy: private
 updated: '2026-10-15'
-sources: [life://plan/2026-goals]
+sources: [life://bot/plan/2026-goals]
 policy:
   health: 只有本人可以修改 health
   numbers: 数值统一写入 topic-logs
@@ -36,8 +36,8 @@ topics:
   title: 学 Rust
   kind: skill
   area: learning
-  section: life://learning/
-  narrative: life://learning/rust-path
+  section: life://ai/
+  narrative: life://ai/rust-path
   why: 想要一门系统语言写小工具
   scope: 入门书 + 一个 CLI
   owner: user
@@ -46,7 +46,7 @@ topics:
   resources:
   - {title: 所有权笔记, ref: 'kb://n-knowledge-base/01-CS-Fundamentals/所有权与借用'}
   rules: []
-  status: {lifecycle: active, stage: 入门, health: on-track, since: '2026-09-05', summary: 读到第 5 章, blockers: [], next: [完成第 5 章练习], updated: '2026-10-11', source: life://learning/rust-path}
+  status: {lifecycle: active, stage: 入门, health: on-track, since: '2026-09-05', summary: 读到第 5 章, blockers: [], next: [完成第 5 章练习], updated: '2026-10-11', source: life://ai/rust-path}
   tracking:
     cadence: FREQ=WEEKLY
     metrics:
@@ -55,13 +55,13 @@ topics:
     goals:
     - {id: g-book, title: 读完前 10 章, metric: chapters, target: {op: '>=', value: 10}, deadline: 2026-12, task: null}
     done_when: CLI 工具发布
-  links: {tasks: [t-rust-ch5, t-rust-cli], plans: [p-jane-q4], notes: [life://learning/rust-path]}
+  links: {tasks: [t-rust-ch5, t-rust-cli], plans: [p-jane-q4], notes: [life://ai/rust-path]}
 - id: blog
   title: 个人博客与 Chirp
   kind: project
   area: explore
-  section: life://explore/
-  narrative: life://explore/blog-plan
+  section: life://idea/
+  narrative: life://idea/blog-plan
   why: 写作帮助整理思路
   scope: 每月 1 篇博客，Chirp 同步
   owner: user
@@ -70,7 +70,7 @@ topics:
   resources:
   - {title: 写作清单, ref: 'kb://n-knowledge-base/12-Tools/写作工作流'}
   rules: [未经本人确认不发帖]
-  status: {lifecycle: active, stage: 搭建期, health: at-risk, since: '2026-10-05', summary: 主机迁移拖慢了更新, blockers: [博客迁移未完成], next: [完成迁移, 写 10 月文章], updated: '2026-10-13', source: life://explore/blog-plan}
+  status: {lifecycle: active, stage: 搭建期, health: at-risk, since: '2026-10-05', summary: 主机迁移拖慢了更新, blockers: [博客迁移未完成], next: [完成迁移, 写 10 月文章], updated: '2026-10-13', source: life://idea/blog-plan}
   tracking:
     cadence: FREQ=WEEKLY
     metrics:
@@ -79,7 +79,7 @@ topics:
     - {id: posts, label: 发帖, type: number, unit: 条, aggregation: last, period: week}
     goals:
     - {id: g-posts, title: 年底 12 篇博客, metric: null, target: null, deadline: 2026-12, task: t-blog-post}
-  links: {tasks: [t-blog-migrate, t-blog-post], plans: [p-jane-oct], notes: [life://explore/blog-plan]}
+  links: {tasks: [t-blog-migrate, t-blog-post], plans: [p-jane-oct], notes: [life://idea/blog-plan]}
 - id: home-finance
   title: 家庭财务整理
   kind: area

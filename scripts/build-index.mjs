@@ -1,6 +1,7 @@
 // Build data/bundle.json (gitignored) from the KB: notes frontmatter + n-knowledge-base/data/*.yaml.
 // Local builds include private records by default (personal tool). Opt out with SHOW_PRIVATE=0.
 import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto"; import * as yaml from "js-yaml"; import { marked } from "marked"; import { loadV9, loadTopics, mask } from "./v9.mjs";
+import { fallbacks } from "../app/src/life-paths.js";
 import { toItems, normalize, isPublic, match, overview, known } from "../app/src/core.js";
 
 // Two content roots (gitignored, fetched by scripts/fetch-root.sh):
@@ -43,10 +44,11 @@ function linksIn(t, root) {
 function listMd(d) { try { return fs.readdirSync(d, { recursive: true }).filter(f => String(f).endsWith(".md")).map(f => path.basename(String(f), ".md")); } catch { return []; } }
 function safeDecode(x) { try { return decodeURIComponent(x); } catch { return x; } }
 const records = [];
+const lifeDirs = new Set();
 function walk(root, d, rootName) {
   for (const e of fs.readdirSync(d, { withFileTypes: true })) {
     const p = path.join(d, e.name);
-    if (e.isDirectory()) { if (SKIP_DIRS.has(e.name)) for (const t of listMd(p)) templateNames.add(t); if (!e.name.startsWith(".") && !SKIP_DIRS.has(e.name) && path.resolve(p) !== path.resolve(DATA_DIR)) walk(root, p, rootName); continue; }
+    if (e.isDirectory()) { if (rootName === "life") { const rel = path.relative(root, p).split(path.sep).join("/"); if (rel) lifeDirs.add(rel + "/"); } if (SKIP_DIRS.has(e.name)) for (const t of listMd(p)) templateNames.add(t); if (!e.name.startsWith(".") && !SKIP_DIRS.has(e.name) && path.resolve(p) !== path.resolve(DATA_DIR)) walk(root, p, rootName); continue; }
     if (/\.tar\.enc$|\.enc$/.test(e.name) || !e.name.endsWith(".md") || /^(README|AGENTS|CLAUDE)\.md$/.test(e.name) && d === root) continue;
     const text = mask(fs.readFileSync(p, "utf8")), rel = path.relative(root, p).split(path.sep).join("/");
     let f = frontmatter(text);
@@ -78,6 +80,10 @@ function resolve({ root, path: p }, from) {
   const dir = from && from.root === root ? path.posix.dirname(from.origin.source_path) : "";
   for (const c of [clean, dir && dir !== "." ? path.posix.join(dir, clean) : null].filter(Boolean))
     for (const x of [c, c + ".md"]) if (byId.has(`${root}:${x}`)) return `${root}:${x}`;
+  if (root === "life") for (const alt of fallbacks(clean)) {
+    const a = String(alt).replace(/\/$/, "").replace(/\.md$/i, "");
+    for (const x of [a, a + ".md"]) if (byId.has(`${root}:${x}`)) return `${root}:${x}`;
+  }
   const base = clean.split("/").pop();
   const hits = records.filter(r => r.root === root && r.origin.source_path.replace(/\.md$/, "").split("/").pop() === base)
     .sort((a, b) => a.origin.source_path.length - b.origin.source_path.length);
@@ -146,7 +152,10 @@ if (hasLife && !process.env.DATA_DIR) {
     const src = n => `life://data/${n}.yaml`;
     for (const [n, items] of [["accounts", V9.accounts], ["identities", V9.identities], ["subscriptions", V9.subscriptions], ["tasks", V9.tasks]])
       modules[n] = { ...modules[n], items: showPrivate ? items : [], hidden: showPrivate ? 0 : items.length, source: src(n), root: "life", updated: V9.updated[n] ?? modules[n]?.updated ?? null, schema_version: 9 };
-    for (const w of V9.missingDirs) warnings.push(`sections.yaml: life://${w} does not exist yet (tab shows empty)`);
+    for (const w of V9.missingDirs) {
+      const alt = fallbacks(w).find(p => fs.existsSync(path.join(LIFE_ROOT, String(p).replace(/\/$/, ""))));
+      warnings.push(alt ? `sections.yaml: life://${w} is not there yet; showing ${alt}` : `sections.yaml: life://${w} does not exist yet (tab shows empty)`);
+    }
   }
 }
 const shown = showPrivate ? records : records.filter(isPublic);
@@ -250,7 +259,7 @@ for (const t of TOPICS) {
   if (bad.length) warnings.push(`topics: ${t.id}: ${bad.length} unresolved ref(s): ${bad.slice(0, 4).join("; ")}`);
   if (/^kb:\/\//.test(t.narrative ?? "")) warnings.push(`topics: ${t.id}: narrative is a KB note (topics link to KB as resources only)`);
 }
-if (V9) bundle.v9 = { schema_version: 9, topics: TOPICS, groups: V9.groups, plans: V9.plans, reviews: V9.reviews, sections: V9.sections, missing_dirs: V9.missingDirs, files: V9.files, updated: V9.updated };
+if (V9) bundle.v9 = { schema_version: 9, topics: TOPICS, groups: V9.groups, plans: V9.plans, reviews: V9.reviews, sections: V9.sections, missing_dirs: V9.missingDirs, files: V9.files, dirs: [...lifeDirs].sort(), updated: V9.updated };
 fs.writeFileSync(path.join(OUT, "bundle.json"), JSON.stringify(bundle));
 const size = f => (fs.statSync(path.join(OUT, f)).size / 1024).toFixed(0) + " KB";
 console.log(`roots: kb=${fs.existsSync(KB_ROOT)} (${sources[1].meta?.commit?.slice(0, 7) ?? "?"}) life=${hasLife} (${sources[0].meta?.commit?.slice(0, 7) ?? "?"}); links ${records.reduce((a, r) => a + r.links.length, 0)} (${broken} unresolved)`);
