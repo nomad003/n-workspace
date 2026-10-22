@@ -44,7 +44,8 @@ topics:
   started: '2026-09-05'
   accounts: [codehub]
   resources:
-  - {title: 所有权笔记, ref: 'kb://n-knowledge-base/cs/所有权与借用'}
+  - {title: 所有权笔记, ref: 'kb://cs/所有权与借用'}
+  - {title: gRPC 参数, ref: 'kb://backend/network/gRPC/gRPC Args'}
   rules: []
   status: {lifecycle: active, stage: 入门, health: on-track, since: '2026-09-05', summary: 读到第 5 章, blockers: [], next: [完成第 5 章练习], updated: '2026-10-11', source: life://learn/ai/rust-path}
   tracking:
@@ -68,7 +69,7 @@ topics:
   started: '2026-09-01'
   accounts: [chirp, tinyvps]
   resources:
-  - {title: 写作清单, ref: 'kb://n-knowledge-base/tools/写作工作流'}
+  - {title: 写作清单, ref: 'kb://tools/写作工作流'}
   rules: [未经本人确认不发帖]
   status: {lifecycle: active, stage: 搭建期, health: at-risk, since: '2026-10-05', summary: 主机迁移拖慢了更新, blockers: [博客迁移未完成], next: [完成迁移, 写 10 月文章], updated: '2026-10-13', source: life://learn/idea/blog-plan}
   tracking:

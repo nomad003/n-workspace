@@ -1,4 +1,5 @@
 // Shared logic (browser + Node build): normalization, filters, countdowns, risk alerts.
+import { linkContext, normalizeUriPath, resolveUri } from "./kb-uri.js";
 export const as = v => v == null ? [] : Array.isArray(v) ? v : [v];
 export const isPublic = r => r?.privacy === "public"; // privacy comes ONLY from data; missing => private
 
@@ -140,15 +141,17 @@ export function overview(bundle, cfg = {}, now = Date.now()) {
   return { upcoming, alerts, agentTasks, recent };
 }
 
-// kb:// and life:// link resolution against bundle records (exact, +.md, or unique basename).
+// kb:// and life:// against bundle records: path, then frontmatter id, then a unique basename.
+// A folder URI ending in / resolves to that folder's index.md when the note is in `records`.
 export function resolveLink(records, href) {
-  const m = String(href).match(/^(kb|life):\/\/(.+)$/); if (!m) return null;
-  const root = m[1]; let clean = m[2]; try { clean = decodeURIComponent(clean); } catch {}
-  clean = clean.replace(/^\/+/, "").replace(/^n-knowledge-base\//, "").replace(/#.*$/, "").replace(/\.md$/, "");
-  const hit = records.find(r => r.root === root && (r.origin?.source_path === clean || r.origin?.source_path === clean + ".md"));
-  if (hit) return hit;
-  const base = clean.split("/").pop().replace(/\.md$/, ""), hs = records.filter(r => r.root === root && r.origin?.source_path.replace(/\.md$/, "").split("/").pop() === base);
-  return hs.length === 1 ? hs[0] : null;
+  let s = String(href ?? "").trim();
+  if (s.startsWith("<") && s.endsWith(">")) s = s.slice(1, -1).trim();
+  const m = s.match(/^(kb|life):\/\/([\s\S]+)$/); if (!m || !m[2]) return null;
+  const root = m[1];
+  const ctx = linkContext(records, root, { allowFolder: false, shortestBasename: false });
+  const hit = resolveUri(normalizeUriPath(m[2], { stripVault: root === "kb" }), ctx);
+  if (!hit?.file) return null;
+  return records.find(r => r.root === root && r.origin?.source_path === hit.file) || null;
 }
 
 // ---- v9 tasks / plans: a due value means "by the END of that period" (2026-12 → 12-31, 2026-Q4 → 12-31, 2027-H1 → 06-30)

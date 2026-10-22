@@ -3,6 +3,8 @@
 //   #topics/<id>[/overview|log|metrics|resources][?kind=…]   detail: status strip, KPIs, tabs, side rail (next steps, issues, links)
 import { topics, topicById, tasks, plansV9, reviews, records, accById, accHref, v9 } from "../data.js";
 import { esc, header, tabs, box, mainSide, noteHref } from "../ui.js";
+import { linkContext, normalizeUriPath, resolveUri } from "../kb-uri.js";
+import { fallbacks } from "../life-paths.js";
 const KIND = { project: "项目", habit: "习惯", skill: "技能", area: "领域" };
 const LC = { active: "进行中", paused: "暂停", done: "完成", archived: "归档" };
 const HL = { "on-track": ["正常", "ok"], "at-risk": ["有风险", "warn"], "off-track": ["偏离", "warn"] };
@@ -17,13 +19,27 @@ const cadLabel = cad => { if (!cad) return "不定期"; const by = (cad.match(/B
 export const stale = t => { const p = period(t.tracking?.cadence); return !!(p && t.status?.lifecycle === "active" && t.last && days(t.last) > 2 * p); };
 const tr = t => t.tracking || { metrics: [], goals: [] };
 const keyMetric = t => tr(t).metrics.find(m => m.type === "number" && (t.series?.[m.id] || []).length) || tr(t).metrics.find(m => m.type === "number");
-// resolve life:// / kb:// / https refs to an in-app link (plain text when the note does not exist)
+// resolve life:// / kb:// / https refs to an in-app link (plain text when the note does not exist).
+// Path first, then frontmatter id. kb://<dir>/ opens index.md, or the filtered folder list when there is no index.
+const uriCtx = (() => { const box = {}; return root => box[root] ||= linkContext(records, root, { allowFolder: root === "kb", shortestBasename: true }); })();
 function ref(u, label) {
-  const s = String(u ?? ""); if (/^https?:\/\//.test(s)) return `<a href="${esc(s)}" target="_blank" rel="noopener noreferrer">${esc(label || s)} ↗</a>`;
-  const m = s.match(/^(kb|life):\/\/(?:n-knowledge-base\/)?([^#?]+)/); if (!m) return esc(label || s);
-  const p = m[2].replace(/\.md$/, ""), r = records.find(x => x.root === m[1] && (x.slug === p || x.origin.source_path.replace(/\.md$/, "") === p));
-  const nm = !r ? "" : /^(index|readme)$/i.test(r.title) ? r.origin.source_path.split("/").slice(-2, -1)[0] || r.title : r.title;
-  return r ? `<a href="${noteHref(r)}">${esc(label || nm)}</a>` : `<span class="muted">${esc(label || p.split("/").pop())}</span>`;
+  const s0 = String(u ?? "").trim(); if (/^https?:\/\//.test(s0)) return `<a href="${esc(s0)}" target="_blank" rel="noopener noreferrer">${esc(label || s0)} ↗</a>`;
+  let s = s0; if (s.startsWith("<") && s.endsWith(">")) s = s.slice(1, -1).trim();
+  const m = s.match(/^(kb|life):\/\/([\s\S]+)$/); if (!m || !m[2]) return esc(label || s0);
+  const root = m[1], path = normalizeUriPath(m[2], { stripVault: root === "kb" });
+  const extra = root === "life" ? fallbacks(path) : [];
+  const hit = resolveUri(path, uriCtx(root), { extraPaths: extra });
+  if (hit?.file) {
+    const r = records.find(x => x.root === root && x.origin.source_path === hit.file);
+    const nm = !r ? "" : /^(index|readme)$/i.test(r.title) ? r.origin.source_path.split("/").slice(-2, -1)[0] || r.title : r.title;
+    if (r) return `<a href="${noteHref(r)}">${esc(label || nm)}</a>`;
+  }
+  if (hit?.folder != null && root === "kb") {
+    const name = label || hit.folder.split("/").filter(Boolean).pop() || "知识库";
+    return `<a href="#knowledge/tree?dir=${encodeURIComponent(hit.folder ? `kb/${hit.folder}` : "kb")}">${esc(name)}</a>`;
+  }
+  const shown = path.replace(/\/+$/, "").split("/").pop();
+  return `<span class="muted">${esc(label || shown || s0)}</span>`;
 }
 // SVG: sparkline (cards) and line chart (指标 tab); vanilla, no deps
 function spark(pts, w = 120, h = 28) {
