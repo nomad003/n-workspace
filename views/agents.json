@@ -7,9 +7,9 @@
    "life"
   ],
   "path": [
-   "x/",
-   "blibli/",
-   "pi/"
+   "content/x/",
+   "content/blibli/",
+   "learn/agent/pi/"
   ]
  }
 }

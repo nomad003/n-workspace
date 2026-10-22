@@ -1,12 +1,12 @@
 {"date": "2026-08-01", "kind": "status", "title": "开始跑步", "stage": "恢复期", "lifecycle": "active", "health": "on-track", "by": "user", "source": "用户 2026-08-01"}
-{"date": "2026-08-24", "kind": "metric", "title": "周跑量", "values": {"km": 12, "runs": 2}, "by": "user", "source": "life://health/running-log"}
-{"date": "2026-08-31", "kind": "metric", "title": "周跑量", "values": {"km": 15, "runs": 3}, "by": "user", "source": "life://health/running-log"}
-{"date": "2026-09-05", "kind": "metric", "title": "周跑量", "values": {"km": 18, "runs": 3}, "by": "user", "source": "life://health/running-log"}
-{"date": "2026-09-14", "kind": "metric", "title": "周跑量", "values": {"km": 16, "runs": 2}, "by": "user", "source": "life://health/running-log"}
-{"date": "2026-09-14", "kind": "issue", "title": "膝盖不适", "body": "减量一周", "by": "user", "source": "life://health/running-log"}
-{"date": "2026-09-21", "kind": "metric", "title": "周跑量", "values": {"km": 21, "runs": 3}, "by": "user", "source": "life://health/running-log"}
-{"date": "2026-09-28", "kind": "metric", "title": "周跑量", "values": {"km": 22, "runs": 3}, "by": "user", "source": "life://health/running-log"}
-{"date": "2026-09-28", "kind": "note", "title": "膝盖恢复", "resolves": "2026-09-14#膝盖不适", "by": "user", "source": "life://health/running-log"}
-{"date": "2026-10-03", "kind": "status", "title": "进入基础期", "stage": "基础期", "by": "user", "source": "life://health/running-log"}
-{"date": "2026-10-05", "kind": "metric", "title": "周跑量", "values": {"km": 24, "runs": 3}, "by": "user", "source": "life://health/running-log"}
-{"date": "2026-10-13", "kind": "metric", "title": "周跑量", "values": {"km": 26, "runs": 3}, "by": "user", "source": "life://health/running-log"}
+{"date": "2026-08-24", "kind": "metric", "title": "周跑量", "values": {"km": 12, "runs": 2}, "by": "user", "source": "life://life/health/running-log"}
+{"date": "2026-08-31", "kind": "metric", "title": "周跑量", "values": {"km": 15, "runs": 3}, "by": "user", "source": "life://life/health/running-log"}
+{"date": "2026-09-05", "kind": "metric", "title": "周跑量", "values": {"km": 18, "runs": 3}, "by": "user", "source": "life://life/health/running-log"}
+{"date": "2026-09-14", "kind": "metric", "title": "周跑量", "values": {"km": 16, "runs": 2}, "by": "user", "source": "life://life/health/running-log"}
+{"date": "2026-09-14", "kind": "issue", "title": "膝盖不适", "body": "减量一周", "by": "user", "source": "life://life/health/running-log"}
+{"date": "2026-09-21", "kind": "metric", "title": "周跑量", "values": {"km": 21, "runs": 3}, "by": "user", "source": "life://life/health/running-log"}
+{"date": "2026-09-28", "kind": "metric", "title": "周跑量", "values": {"km": 22, "runs": 3}, "by": "user", "source": "life://life/health/running-log"}
+{"date": "2026-09-28", "kind": "note", "title": "膝盖恢复", "resolves": "2026-09-14#膝盖不适", "by": "user", "source": "life://life/health/running-log"}
+{"date": "2026-10-03", "kind": "status", "title": "进入基础期", "stage": "基础期", "by": "user", "source": "life://life/health/running-log"}
+{"date": "2026-10-05", "kind": "metric", "title": "周跑量", "values": {"km": 24, "runs": 3}, "by": "user", "source": "life://life/health/running-log"}
+{"date": "2026-10-13", "kind": "metric", "title": "周跑量", "values": {"km": 26, "runs": 3}, "by": "user", "source": "life://life/health/running-log"}
