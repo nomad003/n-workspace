@@ -11,4 +11,4 @@ title: 示例订单服务
 # 示例订单服务（虚构项目）
 
 - 架构：API 网关 → 订单服务 → 数据库
-- 背景知识：kb://n-knowledge-base/02-Backend/限流算法
+- 背景知识：kb://n-knowledge-base/backend/architecture/限流算法

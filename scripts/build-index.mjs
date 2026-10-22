@@ -25,7 +25,7 @@ const showPrivate = process.env.SHOW_PRIVATE !== "0";
 const MODULE_FILES = ["accounts", "subscriptions", "finance", "profile", "tasks", "content", "identities"];
 const OPTIONAL_FILES = new Set(["identities"]); // newer files: absence is not reported as missing
 const templateNames = new Set();
-const SKIP_DIRS = new Set(["templates", "11-Templates", "node_modules"]);
+const SKIP_DIRS = new Set(["templates", "node_modules"]);
 
 function frontmatter(t) {
   const m = t.replace(/^\uFEFF/, "").match(/^---\r?\n([\s\S]*?)\r?\n---/); if (!m) return null;

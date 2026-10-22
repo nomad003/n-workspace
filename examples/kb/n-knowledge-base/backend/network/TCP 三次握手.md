@@ -1,5 +1,5 @@
 ---
-id: 01-cs-fundamentals/tcp-handshake
+id: backend/network/tcp-handshake
 type: note
 area: cs
 status: active

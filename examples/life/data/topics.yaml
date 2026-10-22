@@ -19,7 +19,7 @@ topics:
   started: '2026-08-01'
   accounts: []
   resources:
-  - {title: 训练原则, ref: 'kb://n-knowledge-base/06-Mindset/刻意练习'}
+  - {title: 训练原则, ref: 'life://learn/mind/刻意练习'}
   rules: [不连续两天跑步]
   status: {lifecycle: active, stage: 基础期, health: on-track, since: '2026-10-03', summary: 周跑量稳定在 25km 左右, blockers: [], next: [周日 15km 长距离], updated: '2026-10-13', source: life://life/health/running-log}
   tracking:
@@ -44,7 +44,7 @@ topics:
   started: '2026-09-05'
   accounts: [codehub]
   resources:
-  - {title: 所有权笔记, ref: 'kb://n-knowledge-base/01-CS-Fundamentals/所有权与借用'}
+  - {title: 所有权笔记, ref: 'kb://n-knowledge-base/cs/所有权与借用'}
   rules: []
   status: {lifecycle: active, stage: 入门, health: on-track, since: '2026-09-05', summary: 读到第 5 章, blockers: [], next: [完成第 5 章练习], updated: '2026-10-11', source: life://learn/ai/rust-path}
   tracking:
@@ -68,7 +68,7 @@ topics:
   started: '2026-09-01'
   accounts: [chirp, tinyvps]
   resources:
-  - {title: 写作清单, ref: 'kb://n-knowledge-base/12-Tools/写作工作流'}
+  - {title: 写作清单, ref: 'kb://n-knowledge-base/tools/写作工作流'}
   rules: [未经本人确认不发帖]
   status: {lifecycle: active, stage: 搭建期, health: at-risk, since: '2026-10-05', summary: 主机迁移拖慢了更新, blockers: [博客迁移未完成], next: [完成迁移, 写 10 月文章], updated: '2026-10-13', source: life://learn/idea/blog-plan}
   tracking:

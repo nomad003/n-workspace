@@ -14,4 +14,4 @@ title: 跑步记录
 
 ![配速图](pace-chart.png)
 
-原则参考 kb://n-knowledge-base/06-Mindset/刻意练习。
+原则参考 [[刻意练习]]。

@@ -1,43 +1,46 @@
-// 知识: n-knowledge-base ONLY (general knowledge; since the 2026-10 separation all personal/work notes live in n-life-data).
-// 领域 (from 00-MOC: each MOC + the notes it links to) · 主题 (top folders) · 目录 · 搜索 (kb-index.json) · note page (any root).
+// 知识: n-knowledge-base ONLY (general knowledge; personal notes, including mindset, live in n-life-data).
+// 领域 is one row per top-level folder (cs, backend, devtools, ai, math, tools). 主题 is the next level
+// (backend/network, ai/llm, …). 目录 · 搜索 (kb-index.json) · note page (any root).
 // Life notes live under 生活 / 记录 / 计划; the note page still renders them (with a link back to their section).
-import { V, records as ALL, byId, v9, kbIndex, noteBody, notesWhere, match, choosePrefixes, dirCovers, fallbacks } from "../data.js";
-import { esc, header, tabs, card, noteList, noteLink, noteHref, badge, more, box, mainSide } from "../ui.js";
-const MC = { stub: "infra", learning: "agent", evolving: "coding", evergreen: "ai" };
+import { V, records as ALL, byId, v9, kbIndex, noteBody, notesWhere, choosePrefixes, dirCovers, fallbacks } from "../data.js";
+import { esc, header, tabs, card, noteList, noteLink, more, box, mainSide } from "../ui.js";
 const records = ALL.filter(r => r.root === "kb");
 const T = sub => tabs("knowledge", [["home", "领域"], ["topics", "主题"], ["tree", "目录"], ["search", "搜索"]], sub);
 const searchBox = (q = "") => `<form class="kbsearch" onsubmit="location.hash='#knowledge/search?q='+encodeURIComponent(this.q.value);return false"><input name="q" value="${esc(q)}" placeholder="搜索标题、标签与正文…" autocomplete="off"></form>`;
 const md = d => String(d ?? "").slice(5).replace("-", "/");
+const DOMAIN_ORDER = ["cs", "backend", "devtools", "ai", "math", "tools"];
+const byOrder = (a, b) => { const rank = n => { const i = DOMAIN_ORDER.indexOf(String(n).split("/")[0]); return i < 0 ? 99 : i; }; return rank(a.k) - rank(b.k) || a.k.localeCompare(b.k); };
 const group = (rs, depth) => { const g = {}; for (const r of rs) { const k = r.origin.source_path.split("/").slice(0, depth).join("/"); (g[k] ||= []).push(r); }
-  return Object.entries(g).filter(([k]) => !/\.md$/.test(k)).map(([k, xs]) => ({ k, name: k.split("/").pop(), xs, last: xs.map(x => x.updated).filter(Boolean).sort().at(-1) })).sort((a, b) => String(b.last).localeCompare(String(a.last))); };
+  return Object.entries(g).filter(([k]) => k && !/\.md$/.test(k)).map(([k, xs]) => ({ k, name: k.split("/").pop(), xs, last: xs.map(x => x.updated).filter(Boolean).sort().at(-1) })).sort(byOrder); };
+const kbNotes = v => notesWhere(v.topics).filter(r => r.root === "kb");
+function topicGroups(v) {
+  const g = {};
+  for (const r of kbNotes(v)) { const parts = r.origin.source_path.split("/"); const k = parts.length > 2 ? parts.slice(0, 2).join("/") : parts[0]; if (!k || /\.md$/i.test(k)) continue; (g[k] ||= []).push(r); }
+  return Object.entries(g).map(([k, xs]) => ({ k, name: k.split("/").pop(), xs, last: xs.map(x => x.updated).filter(Boolean).sort().at(-1) })).sort(byOrder);
+}
 export default async function (sub = "home", P = new URLSearchParams()) {
   if (sub === "domains") sub = "home"; // sections.yaml tab id
   const v = V.knowledge, kbN = records.filter(r => r.root === "kb").length;
-  const mocN = records.filter(r => r.type === "moc").length, lastU = records.map(r => r.updated).filter(Boolean).sort().at(-1) ?? "";
-  const head = (extra = [], lede = "通用知识库：按领域（MOC）与主题组织。个人、工作与项目笔记在 生活 / 记录。") => header("知识", "", [`n-knowledge-base · ${kbN} 篇`, ...extra], lede, { actions: [["全文搜索", "#knowledge/search", true]],
-    kpis: sub === "home" ? [[kbN, "笔记", { tone: "focus" }], [domainMocs().length, "领域"], [group(notesWhere(v.topics).filter(r => r.root === "kb"), 1).length, "主题"], [mocN, "MOC"], [lastU.slice(5).replace("-", "/") || "—", "最近更新", { sub: esc(lastU) }]] : [] });
+  const lastU = records.map(r => r.updated).filter(Boolean).sort().at(-1) ?? "";
+  const head = (extra = [], lede = "通用知识库：按顶层目录与下一级主题组织。个人、工作与项目笔记在 生活 / 记录。") => header("知识", "", [`n-knowledge-base · ${kbN} 篇`, ...extra], lede, { actions: [["全文搜索", "#knowledge/search", true]],
+    kpis: sub === "home" ? [[kbN, "笔记", { tone: "focus" }], [group(kbNotes(v), 1).length, "领域"], [topicGroups(v).length, "主题"], [lastU.slice(5).replace("-", "/") || "—", "最近更新", { sub: esc(lastU) }]] : [] });
   if (sub === "note") return notePage(P.get("id"));
   if (sub === "search") return searchPage(P.get("q") || "", head);
   if (sub === "tree") return treePage(P, head);
   if (sub === "topics") {
-    const topics = group(notesWhere(v.topics).filter(r => r.root === "kb"), 1), mocs = records.filter(r => r.type === "moc");
-    return { html: head() + T(sub) + `<div class="body"><section class="blk"><h2>MOC<span class="more">${mocs.length}</span></h2>${noteList(mocs, 99)}</section>${topics.map(g => `<section class="blk"><h2><a href="#knowledge/tree?root=kb&dir=${encodeURIComponent("kb/" + g.k)}">${esc(g.name)}</a><span class="more">${g.xs.length} 篇 · ${md(g.last)}</span></h2>${noteList(g.xs.sort((a, b) => String(b.updated).localeCompare(String(a.updated))), 8)}</section>`).join("")}</div>` };
+    const topics = topicGroups(v), mocs = records.filter(r => r.type === "moc" && !/^(README|index)\.md$/i.test(r.origin.source_path));
+    return { html: head() + T(sub) + `<div class="body">${mocs.length ? `<section class="blk"><h2>MOC<span class="more">${mocs.length}</span></h2>${noteList(mocs, 99)}</section>` : ""}${topics.map(g => `<section class="blk"><h2><a href="#knowledge/tree?root=kb&dir=${encodeURIComponent("kb/" + g.k)}">${esc(g.k)}</a><span class="more">${g.xs.length} 篇 · ${md(g.last)}</span></h2>${noteList(g.xs.sort((a, b) => String(b.updated).localeCompare(String(a.updated))), 8)}</section>`).join("")}</div>` };
   }
   if (sub === "logs") { location.hash = "#journal"; return { html: "" }; }
-  // home (领域): one row per MOC (except Home) with the KB notes it links to; then topic folders; recent on the side
-  const idx = await kbIndex(), ixById = new Map(idx.map(x => [x.id, x])), topics = group(notesWhere(v.topics).filter(r => r.root === "kb"), 1);
-  const doms = domainMocs().map(m => { const xs = [...new Set(ixById.get(m.id)?.links || [])].map(i => byId.get(i)).filter(x => x && x.root === "kb" && x.type !== "moc");
-    return { m, xs, last: [m.updated, ...xs.map(x => x.updated)].filter(Boolean).sort().at(-1) }; });
-  const home = records.find(r => r.type === "moc" && /(^|\/)Home\.md$/.test(r.origin.source_path));
+  // home (领域): one row per top-level folder. Nested folders (backend/network, ai/llm) are 主题.
+  const topics = topicGroups(v), doms = group(kbNotes(v), 1);
   const recent = [...records].filter(r => !/(^|\/)(index|README)\.md$/i.test(r.origin.source_path) && r.type !== "moc").sort((a, b) => String(b.updated).localeCompare(String(a.updated)));
-  const prow = g => `<a class="row r3" href="#knowledge/tree?root=kb&dir=${encodeURIComponent("kb/" + g.k)}"><span class="t">${esc(g.name)}</span><span class="tag">${g.xs.length} 篇</span><span class="tag">${md(g.last)}</span></a>`;
-  const drow = d => `<a class="row r3" href="${noteHref(d.m)}"><span class="t">${esc(d.m.title.replace(/[-\s]*MOC$/i, ""))}<span class="s">${esc(d.m.title)}</span></span><span class="tag">${d.xs.length} 篇</span><span class="tag">${md(d.last)}</span></a>`;
+  const row = g => `<a class="row r3" href="#knowledge/tree?root=kb&dir=${encodeURIComponent("kb/" + g.k)}"><span class="t">${esc(g.k)}</span><span class="tag">${g.xs.length} 篇</span><span class="tag">${md(g.last)}</span></a>`;
   return { html: head() + T("home") + `<div class="body">${searchBox()}${mainSide(
-    box({ title: "领域", meta: `${doms.length} 个 · 00-MOC`, link: home ? ["Home", noteHref(home)] : null, flush: true, cls: "focus", body: doms.length ? `<div class="rows">${doms.map(drow).join("")}</div>` : `<p class="empty">00-MOC 下没有 MOC。</p>` })
-    + box({ title: "主题", meta: `${topics.length} 个 · 顶层目录`, link: ["主题页", "#knowledge/topics"], flush: true, body: `<div class="rows">${topics.map(prow).join("")}</div>` }),
+    box({ title: "领域", meta: `${doms.length} 个 · 顶层目录`, flush: true, cls: "focus", body: doms.length ? `<div class="rows">${doms.map(row).join("")}</div>` : `<p class="empty">知识库里还没有笔记。</p>` })
+    + box({ title: "主题", meta: `${topics.length} 个`, link: ["主题页", "#knowledge/topics"], flush: true, body: topics.length ? `<div class="rows">${topics.map(row).join("")}</div>` : `<p class="empty">没有主题目录。</p>` }),
     box({ title: "最近更新", link: ["目录", "#knowledge/tree"], flush: true, body: noteList(recent, 12) }))}</div>` };
 }
-function domainMocs() { return records.filter(r => r.origin.source_path.startsWith("00-MOC/") && !/(^|\/)Home\.md$/.test(r.origin.source_path)).sort((a, b) => a.title.localeCompare(b.title)); }
 function treePage(P, head) {
   const root = "kb", dir = P.get("dir") || "", area = P.get("area") || "", type = P.get("type") || "", status = P.get("status") || "";
   const pool = records.filter(r => (!root || r.root === root) && (!area || r.area === area) && (!type || r.type === type) && (!status || r.status === status));
