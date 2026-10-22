@@ -7,7 +7,9 @@
    "life"
   ],
   "path": [
-   "agent-ops/"
+   "x/",
+   "blibli/",
+   "pi/"
   ]
  }
 }

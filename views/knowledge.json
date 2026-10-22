@@ -35,7 +35,7 @@
     "life"
    ],
    "path": [
-    "journal/daily/"
+    "bot/journal/daily/"
    ]
   },
   "reports": {
@@ -43,7 +43,7 @@
     "life"
    ],
    "path": [
-    "work/reports/"
+    "cfwork/reports/"
    ]
   }
  },
