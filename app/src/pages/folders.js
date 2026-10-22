@@ -1,5 +1,5 @@
 // 生活 / 记录 (v9): tabs come from data/sections.yaml; each tab mirrors its life:// folder(s): subfolders, notes, attachments, counts, last update.
-// A source naming a single note (life://health/index, or the old life://moc/Health-MOC) is pinned as the tab's index above the folder groups. life:// only — never KB.
+// A source naming a single note (life://life/health/index, life://health/index, or life://moc/Health-MOC) is pinned as the tab's index above the folder groups. life:// only — never KB.
 import { section, notesIn, filesIn, dirOf, findLifeNote, M, v9 } from "../data.js";
 import { esc, header, tabs, noteHref, box, mainSide, more } from "../ui.js";
 const md = d => String(d ?? "").slice(0, 10);

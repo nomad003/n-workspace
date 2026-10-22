@@ -1,4 +1,4 @@
-// Agents (v9): tasks with owner agent:<name> (tasks.yaml), channels (content.yaml owner_agent; numbers from the topic log via channelStats), notes under x/ blibli/ pi/ (agent-ops/ until the move).
+// Agents (v9): tasks with owner agent:<name> (tasks.yaml), channels (content.yaml owner_agent; numbers from the topic log via channelStats), notes under content/x/ content/blibli/ learn/agent/pi/ (x/ blibli/ pi/, then agent-ops/, until the move).
 import { M, tasks, agentNotes, agentName, known, channelStats } from "../data.js";
 import { isOpenTask } from "../core.js";
 import { esc, header, noteList, box, mainSide } from "../ui.js";

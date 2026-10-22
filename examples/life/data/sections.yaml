@@ -4,31 +4,31 @@ sections:
 - id: today
   label: 今天
   tabs:
-  - {id: today, label: 今天, source: [life://data/tasks.yaml, life://data/plans.yaml, life://data/subscriptions.yaml, life://bot/journal/daily/]}
+  - {id: today, label: 今天, source: [life://data/tasks.yaml, life://data/plans.yaml, life://data/subscriptions.yaml, life://life/journal/daily/]}
 - id: plan
   label: 计划
   tabs:
   - {id: board, label: 本周 / 本月, source: [life://data/tasks.yaml]}
-  - {id: tree, label: 目标树, source: [life://data/plans.yaml, life://bot/plan/]}
-  - {id: reviews, label: 复盘, source: ['life://data/plans.yaml#reviews', life://mind/reviews/]}
-  - {id: learning, label: 学习路线, source: [life://ai/]}
+  - {id: tree, label: 目标树, source: [life://data/plans.yaml, life://life/plan/]}
+  - {id: reviews, label: 复盘, source: ['life://data/plans.yaml#reviews', life://learn/mind/reviews/]}
+  - {id: learning, label: 学习路线, source: [life://learn/ai/]}
 - id: life
   label: 生活
   tabs:
-  - {id: profile, label: 我, source: [life://bot/profile/]}
-  - {id: family, label: 家庭, source: [life://bot/family/]}
-  - {id: finance, label: 财务, source: [life://finance/]}
-  - {id: health, label: 健康, source: [life://health/]}
-  - {id: records, label: 时间线, source: [life://bot/records/]}
-  - {id: idea, label: 想法, source: [life://idea/]}
-  - {id: mind, label: 心智, source: [life://mind/]}
+  - {id: profile, label: 我, source: [life://life/profile/]}
+  - {id: family, label: 家庭, source: [life://life/family/]}
+  - {id: finance, label: 财务, source: [life://life/finance/]}
+  - {id: health, label: 健康, source: [life://life/health/]}
+  - {id: records, label: 时间线, source: [life://life/records/]}
+  - {id: idea, label: 想法, source: [life://learn/idea/]}
+  - {id: mind, label: 心智, source: [life://learn/mind/]}
 - id: journal
   label: 记录
   tabs:
-  - {id: daily, label: 日记, source: [life://bot/journal/daily/]}
-  - {id: weekly, label: 周记, source: [life://bot/journal/weekly/]}
-  - {id: work, label: 工作汇报, source: [life://cfwork/reports/]}
-  - {id: server, label: 服务器, source: [life://server/]}
+  - {id: daily, label: 日记, source: [life://life/journal/daily/]}
+  - {id: weekly, label: 周记, source: [life://life/journal/weekly/]}
+  - {id: work, label: 工作汇报, source: [life://work/cfwork/reports/]}
+  - {id: server, label: 服务器, source: [life://work/server/]}
 - id: accounts
   label: 账号
   tabs:
@@ -43,4 +43,4 @@ sections:
 - id: agents
   label: Agents
   tabs:
-  - {id: agents, label: Agents, source: [life://x/, life://blibli/, life://pi/, life://data/content.yaml, 'life://data/tasks.yaml?owner=agent:*']}
+  - {id: agents, label: Agents, source: [life://content/x/, life://content/blibli/, life://learn/agent/pi/, life://data/content.yaml, 'life://data/tasks.yaml?owner=agent:*']}

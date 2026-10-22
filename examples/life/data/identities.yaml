@@ -2,7 +2,7 @@
 schema_version: 9
 privacy: private
 updated: '2026-10-15'
-sources: [life://bot/profile/about]
+sources: [life://life/profile/about]
 identities:
 - id: id-email-main
   type: email

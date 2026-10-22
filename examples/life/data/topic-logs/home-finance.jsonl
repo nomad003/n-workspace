@@ -1,3 +1,3 @@
-{"date": "2026-10-03", "kind": "status", "title": "开始整理", "stage": "梳理订阅", "lifecycle": "active", "by": "user", "source": "life://finance/budget-approach"}
+{"date": "2026-10-03", "kind": "status", "title": "开始整理", "stage": "梳理订阅", "lifecycle": "active", "by": "user", "source": "life://life/finance/budget-approach"}
 {"date": "2026-10-03", "kind": "metric", "title": "订阅数", "values": {"subs": 6}, "by": "user", "source": "data/subscriptions.yaml"}
 {"date": "2026-10-10", "kind": "metric", "title": "订阅数", "values": {"subs": 5}, "body": "取消一个重复的存储订阅", "by": "user", "source": "data/subscriptions.yaml"}

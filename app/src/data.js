@@ -1,6 +1,6 @@
 // Loaded data + derived helpers shared by pages.
 import { match, nextRenewal, taskDue, known, isAgentTask, daysUntil, twoFaState, weak2fa } from "./core.js";
-import { choosePrefixes, fallbacks, LIFE_INDEX } from "./life-paths.js";
+import { choosePrefixes, fallbacks, matchesPath, LIFE_INDEX } from "./life-paths.js";
 export const bundle = await fetch("../data/bundle.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null);
 const IDS = ["today", "plan", "life", "journal", "knowledge", "accounts", "agents", "settings"];
 export const views = (await Promise.all(IDS.map(id => fetch(`../views/${id}.json`).then(r => r.json())))).sort((a, b) => a.order - b.order);
@@ -80,12 +80,7 @@ export const paidBy = id => subs().filter(s => s.paid_via === id);
 export const agentName = o => ({ bilibili: "Bilibili", kb: "KB", pi: "Pi", x: "X", register: "Register", bot: "Bot", github: "Github" })[String(o).replace(/^agent:/, "")] ?? String(o).replace(/^agent:/, "");
 export const dirOf = u => String(u).replace(/^life:\/\//, "").replace(/[#?].*$/, "");
 const barePath = p => String(p ?? "").replace(/\.md$/i, "").replace(/\/+$/, "");
-const pathHit = (file, prefix) => {
-  const f = String(file);
-  if (prefix.endsWith("/")) return f.startsWith(prefix);
-  const b = barePath(prefix);
-  return barePath(f) === b || f.startsWith(prefix) || f.startsWith(b);
-};
+const pathHit = matchesPath;
 export const dirCovers = prefix => {
   if (prefix.endsWith("/") && (v9?.dirs || []).some(d => d === prefix || d.startsWith(prefix))) return true;
   if (records.some(r => r.root === "life" && pathHit(r.origin.source_path, prefix))) return true;
@@ -99,10 +94,16 @@ export const notesIn = dir => {
   const prefs = choosePrefixes(q, dirCovers);
   const out = dedupeNotes(prefs.flatMap(rawNotes));
   const seen = new Set(out.map(r => r.id));
-  for (const [folder, index, legacy] of LIFE_INDEX) {
-    if (!prefs.some(p => p === folder || p.startsWith(folder))) continue;
-    if (records.some(r => r.root === "life" && barePath(r.origin.source_path) === barePath(index))) continue;
-    for (const r of rawNotes(legacy)) if (!seen.has(r.id)) { seen.add(r.id); out.push(r); }
+  for (const [folder, ...indexes] of LIFE_INDEX) {
+    if (!prefs.some(p => p === folder || (folder.endsWith("/") && p.startsWith(folder)))) continue;
+    const newest = indexes[0];
+    if (records.some(r => r.root === "life" && barePath(r.origin.source_path) === barePath(newest))) continue;
+    for (const legacy of indexes.slice(1)) {
+      const hit = records.find(r => r.root === "life" && barePath(r.origin.source_path) === barePath(legacy));
+      if (!hit) continue;
+      if (!seen.has(hit.id)) { seen.add(hit.id); out.push(hit); }
+      break;
+    }
   }
   return out;
 };
@@ -122,14 +123,15 @@ const dropRedundantIndex = xs => xs.filter(r => {
   const dir = r.origin.source_path.replace(/index\.md$/i, "");
   return !xs.some(o => o.id !== r.id && o.origin.source_path.startsWith(dir));
 });
-// Agents notes: x/, blibli/, pi/ (and bot/团队.md). Falls back to agent-ops/ when none of those homes exist yet.
+// Agents notes: content/x/, content/blibli/, learn/agent/pi/ (and team.md). Falls back through x/ blibli/ pi/, then the whole agent-ops/ tree.
 export function agentNotes() {
-  const specs = (V.agents?.agent_notes?.path || ["x/", "blibli/", "pi/"]).map(p => p.endsWith("/") ? p : p + "/");
+  const specs = (V.agents?.agent_notes?.path || ["content/x/", "content/blibli/", "learn/agent/pi/"]).map(p => p.endsWith("/") ? p : p + "/");
   let notes = dedupeNotes(specs.flatMap(notesIn));
-  const team = findLifeNote("bot/团队");
+  const team = findLifeNote("team");
   if (team) notes = dedupeNotes([...notes, team]);
-  let label = specs.map(s => `life://${s}`).join(" · ");
-  if (!notes.length && !specs.some(dirCovers) && dirCovers("agent-ops/")) {
+  const used = specs.map(s => choosePrefixes(s, dirCovers)[0]);
+  let label = used.map(s => `life://${s}`).join(" · ");
+  if (!notes.length && !used.some(dirCovers) && dirCovers("agent-ops/")) {
     notes = rawNotes("agent-ops/");
     label = "life://agent-ops/";
   }
