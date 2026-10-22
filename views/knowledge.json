@@ -13,8 +13,7 @@
    "game-backend",
    "reading",
    "tools",
-   "math",
-   "mindset"
+   "math"
   ],
   "root": [
    "kb"
@@ -25,8 +24,7 @@
    "kb"
   ],
   "not_path": [
-   "00-MOC/",
-   "11-Templates/"
+   "templates/"
   ]
  },
  "logs": {

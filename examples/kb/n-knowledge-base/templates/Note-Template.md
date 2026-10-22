@@ -1,5 +1,5 @@
 ---
-id: 11-templates/note-template
+id: templates/note-template
 type: template
 area: templates
 status: template

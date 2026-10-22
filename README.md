@@ -26,7 +26,7 @@ Two content roots, fetched as plain folders (not submodules) into gitignored `kb
 * Structured data (`data/*.yaml`) is read per file from `LIFE_ROOT/data/`, falling back to the KB's `data/` with a warning.
 * `kb://path` and `life://path` links in notes and data values become in-app links (`#notes?id=…`), with backlinks in the 知识库 detail panel.
   Paths are relative to the repo root; `.md` is optional; a unique file name also resolves. Encode spaces as `%20`.
-* `life/templates/`, `11-Templates/` and template notes are skipped. Life notes without frontmatter are included (area/type = top folder).
+* `templates/` (in either root) and template notes are skipped. Life notes without frontmatter are included (area/type = top folder).
 
 | env | default | meaning |
 |---|---|---|
@@ -47,7 +47,7 @@ Works the same on Windows, macOS and Linux (`scripts/demo.mjs` sets the roots it
 `examples/` is a **fully fictional** v9 dataset (Jane Doe, example.com, 138-0000-0000, made-up services and numbers):
 
 * `examples/life/` — fictional n-life-data v3 layout: `data/*.yaml` still at the repo root (schema_version 9: identities, account-groups, 15 accounts, 5 subscriptions linked by `account_id`, plans + reviews, tasks, sections, topics + `topic-logs/*.jsonl` with metric entries, profile, finance, content), notes under `life/` (`profile` `family` `journal` `plan` `records` `health` `finance`), `learn/` (`ai` `idea` `mind/reviews` `agent/pi`), `content/` (`x` `blibli`), `work/` (`cfwork` `server`), plus one image attachment. Frontmatter ids are unchanged.
-* `examples/kb/n-knowledge-base/` — ~14 general notes with MOCs and `kb://` links (never into life).
+* `examples/kb/n-knowledge-base/` — fictional general notes in the current vault layout (`cs/`, `backend/{network,storage,architecture}`, `ai/llm/`, `math/`, `tools/`, `templates/`, `README.md`, `AGENTS.md`) with `kb://` links. Mindset lives in `examples/life/learn/mind/`.
 * `examples/schemas/` + `examples/tools/validate.py` — the v9 schemas and validator; `npm run validate-examples` (Python 3 + PyYAML) must report no errors.
 
 Demo mode writes the same `data/` build output as `npm start`; run `npm start` again to go back to your own data.
@@ -92,7 +92,7 @@ Both files are optional; without them the page shows an empty state. To preview 
 ## Separation (2026-10): KB = general knowledge, life = everything personal
 
 - **Branches**: `KB_REF` / `LIFE_REF` default to `main`; to preview unmerged data: `KB_REF=feat/separation LIFE_REF=feat/separation npm start`.
-- **知识** reads n-knowledge-base only. Its home tab is **领域** (one row per `00-MOC/*` MOC with the KB notes it links to), replacing the old 项目 (10-Projects) tab.
+- **知识** reads n-knowledge-base only. Its home tab is **领域** (one row per top-level folder: `cs`, `backend`, `devtools`, `ai`, `math`, `tools`). **主题** is the next level (`backend/network`, `ai/llm`, …).
 - **生活 / 记录** read n-life-data only (`data/sections.yaml`). A tab source that names a single note (`life://life/health/index`, `life://life/finance/index`) is pinned as the tab's 索引. Folder tabs follow the v3 homes (`life/journal/daily/`, `learn/mind/reviews/`, `learn/ai/`, `work/server/`, `work/cfwork/reports/`, `content/x/` `content/blibli/` `learn/agent/pi/`). A missing v3 folder still shows the bot-domain path (`mind/reviews/`, `ai/`, `bot/journal/`, `health/index`, `server/`, …) and, if that is missing too, the original folder (`reviews/`, `learning/`, `journal/`, `moc/Health-MOC`, `work/projects/comet-server/`, `agent-ops/`).
 - **主题** reads `data/topics.yaml` + `data/topic-logs/*.jsonl` from n-life-data. Channel numbers (X followers …) come from the topic log (`content.yaml snapshots_ref`), falling back to old `snapshots`.
 - **Build warnings**: `boundary:` when a KB note links into life (explicit `life://`, resolves to a life note, or a dangling wikilink whose name is now a life note); `topics:` for unresolved topic refs or a KB narrative; `attachments:` for missing files.

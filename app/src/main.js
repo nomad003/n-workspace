@@ -50,7 +50,7 @@ document.addEventListener("click", e => {
 document.getElementById("menu")?.addEventListener("click", () => document.body.classList.toggle("nav-open"));
 
 /* ---------- ⌘K ---------- */
-const TABS = { topics: [["all", "全部"], ["project", "项目"], ["habit", "习惯"], ["skill", "技能"], ["area", "领域"]], plan: [["board", "本周 / 本月"], ["tree", "目标树"], ["reviews", "复盘"], ["learning", "学习路线"]], knowledge: [["home", "项目"], ["topics", "主题"], ["tree", "目录"], ["search", "全文搜索"]],
+const TABS = { topics: [["all", "全部"], ["project", "项目"], ["habit", "习惯"], ["skill", "技能"], ["area", "领域"]], plan: [["board", "本周 / 本月"], ["tree", "目标树"], ["reviews", "复盘"], ["learning", "学习路线"]], knowledge: [["home", "领域"], ["topics", "主题"], ["tree", "目录"], ["search", "全文搜索"]],
   accounts: [["identities", "身份"], ["groups", "分类"], ["subscriptions", "订阅"], ["security", "安全"], ["graph", "关系图"]],
   ...Object.fromEntries(["life", "journal"].map(id => [id, (section(id)?.tabs || []).map(t => [t.id, t.label])])) };
 function searchIndex() {

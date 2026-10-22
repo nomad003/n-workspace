@@ -10,4 +10,4 @@ title: 博客计划
 ---
 # 博客计划
 
-选题池：跑步与专注、Rust 初体验、整理数字账号。写作流程见 kb://n-knowledge-base/12-Tools/写作工作流。
+选题池：跑步与专注、Rust 初体验、整理数字账号。写作流程见 kb://n-knowledge-base/tools/写作工作流。

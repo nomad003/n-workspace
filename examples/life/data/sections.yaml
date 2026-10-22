@@ -38,7 +38,7 @@ sections:
 - id: knowledge
   label: 知识
   tabs:
-  - {id: domains, label: 领域, source: [kb://00-MOC/]}
+  - {id: domains, label: 领域, source: [kb://cs/, kb://backend/, kb://devtools/, kb://ai/, kb://math/, kb://tools/]}
   - {id: search, label: 搜索, source: ['kb://']}
 - id: agents
   label: Agents
