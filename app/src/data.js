@@ -88,7 +88,7 @@ export const dirCovers = prefix => {
 };
 const rawNotes = prefix => records.filter(r => r.root === "life" && pathHit(r.origin.source_path, prefix));
 const dedupeNotes = xs => { const seen = new Set(), out = []; for (const r of xs) if (r && !seen.has(r.id)) { seen.add(r.id); out.push(r); } return out; };
-// Directory queries try the given path, then the paired old/new path when the given one is absent.
+// Directory queries try the given path, then the v3, bot-domain, and original names when it is absent.
 export const notesIn = dir => {
   const q = dir.endsWith("/") || !dir.includes("/") ? (dir.endsWith("/") ? dir : dir + "/") : dir;
   const prefs = choosePrefixes(q, dirCovers);
