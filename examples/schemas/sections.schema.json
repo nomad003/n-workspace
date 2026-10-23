@@ -2,13 +2,107 @@
  "type": "object",
  "required": [
   "schema_version",
-  "sections"
+  "sections",
+  "modules",
+  "views"
  ],
  "properties": {
   "schema_version": {
    "enum": [
     9
    ]
+  },
+  "modules": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "id",
+     "title",
+     "owners",
+     "paths",
+     "tabs"
+    ],
+    "properties": {
+     "id": {
+      "enum": [
+       "life",
+       "work",
+       "learn",
+       "content",
+       "accounts",
+       "kb"
+      ]
+     },
+     "title": {
+      "type": "string"
+     },
+     "icon": {
+      "type": "string"
+     },
+     "owners": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "paths": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "tabs": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "pattern": "^[a-z0-9-]+/[a-z0-9-]+$"
+      }
+     }
+    }
+   }
+  },
+  "views": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "id",
+     "title",
+     "paths",
+     "tabs"
+    ],
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "title": {
+      "type": "string"
+     },
+     "icon": {
+      "type": "string"
+     },
+     "owners": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "paths": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "tabs": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "pattern": "^[a-z0-9-]+/[a-z0-9-]+$"
+      }
+     }
+    }
+   }
   },
   "sections": {
    "type": "array",

@@ -184,6 +184,7 @@ if (hasLife && !process.env.DATA_DIR) {
       warnings.push(`sections.yaml: life://${w} does not exist yet (tab shows empty)`);
     }
     for (const w of tabWarnings(V9.sections)) warnings.push(w);
+    if (Array.isArray(V9.modules)) for (const entry of [...V9.modules, ...(V9.views || [])]) for (const t of entry.resolved || []) if (t.missing) warnings.push(`sections.yaml: ${entry.id} references missing tab ${t.ref}`);
     if (legacyPaths()) {
       const bare = p => String(p).replace(/\.md$/i, "").replace(/\/+$/, "");
       const has = p => records.some(r => r.root === "life" && bare(r.origin.source_path) === bare(p));
@@ -322,14 +323,14 @@ for (const t of TOPICS) {
   if (bad.length) warnings.push(`topics: ${t.id}: ${bad.length} unresolved ref(s): ${bad.slice(0, 4).join("; ")}`);
   if (/^kb:\/\//.test(t.narrative ?? "")) warnings.push(`topics: ${t.id}: narrative is a KB note (topics link to KB as resources only)`);
 }
-if (V9) bundle.v9 = { schema_version: 9, topics: TOPICS, groups: V9.groups, plans: V9.plans, reviews: V9.reviews, sections: V9.sections, missing_dirs: V9.missingDirs, files: V9.files, dirs: [...lifeDirs].sort(), updated: V9.updated };
+if (V9) bundle.v9 = { schema_version: 9, topics: TOPICS, groups: V9.groups, plans: V9.plans, reviews: V9.reviews, sections: V9.sections, modules: V9.modules, views: V9.views, missing_dirs: V9.missingDirs, files: V9.files, dirs: [...lifeDirs].sort(), updated: V9.updated };
 for (const w of drainFallbackWarnings()) if (!warnings.includes(w)) warnings.push(w);
 fs.writeFileSync(path.join(OUT, "bundle.json"), JSON.stringify(bundle));
 const size = f => (fs.statSync(path.join(OUT, f)).size / 1024).toFixed(0) + " KB";
 console.log(`roots: kb=${fs.existsSync(KB_ROOT)} (${sources[1].meta?.commit?.slice(0, 7) ?? "?"}) life=${hasLife} (${sources[0].meta?.commit?.slice(0, 7) ?? "?"}); links ${records.reduce((a, r) => a + r.links.length, 0)} (${broken} unresolved)`);
 console.log(`notes: ${records.length} (kb ${records.filter(r => r.root === "kb").length}, life ${records.filter(r => r.root === "life").length}); ${shown.length} included, private ${showPrivate ? "SHOWN" : "hidden"}`);
 console.log(`files: bundle.json ${size("bundle.json")}, kb-index.json ${size("kb-index.json")} (${kbIndex.length}), life-index.json ${size("life-index.json")} (${lifeIndex.length}), notes/ ${kbIndex.length + lifeIndex.length} files`);
-console.log(V9 ? `v9: ${V9.accounts.length} accounts · ${V9.groups.length} groups · ${V9.subscriptions.length} subs (${V9.subscriptions.filter(x => x.account_id).length} linked) · ${V9.tasks.length} tasks · ${V9.plans.length} plans · ${V9.reviews.length} reviews · ${V9.sections.length} sections` : "v8 data (schema_version != 9)");
+console.log(V9 ? `v9: ${V9.accounts.length} accounts · ${V9.groups.length} groups · ${V9.subscriptions.length} subs (${V9.subscriptions.filter(x => x.account_id).length} linked) · ${V9.tasks.length} tasks · ${V9.plans.length} plans · ${V9.reviews.length} reviews · ${V9.sections.length} sections · ${V9.modules ? `${V9.modules.length} modules` : "no modules"} · ${(V9.views || []).length} views` : "v8 data (schema_version != 9)");
 console.log(`data: ${dataFiles.map(d => `${d.name}=${d.root ?? "missing"}:${d.items}`).join(" ")}`);
 console.log(`attachments: ${served.size} resolved (${FILES.life.length} life / ${FILES.kb.length} kb files), ${attBroken.length} missing; boundary kb→life: ${boundary.length}`);
 console.log(`overview: ${bundle.overview.upcoming.length} upcoming, ${bundle.overview.alerts.length} alerts`);

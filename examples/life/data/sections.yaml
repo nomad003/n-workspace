@@ -1,6 +1,129 @@
 # FICTIONAL example data for n-workspace demo mode. Every name, address, number and service here is made up.
-# Same sections and tab ids as n-life-data data/sections.yaml. Sources point at the example v3 folders.
+# Same section and tab ids as the life repo. modules and views point at those tabs by sectionId/tabId.
 schema_version: 9
+modules:
+- id: life
+  title: 生活
+  icon: home
+  owners: [Health, House, Travel]
+  paths:
+  - life/profile
+  - life/family
+  - life/finance
+  - life/health
+  - life/house
+  - life/travel
+  - life/reading
+  - life/records
+  - life/journal
+  - life/plan
+  tabs:
+  - today/today
+  - plan/board
+  - plan/tree
+  - life/profile
+  - life/family
+  - life/finance
+  - life/health
+  - life/house
+  - life/travel
+  - life/reading
+  - journal/daily
+  - journal/weekly
+  - journal/records
+- id: work
+  title: 工作
+  icon: briefcase
+  owners: [Pi, Server]
+  paths:
+  - work
+  tabs:
+  - journal/work
+  - journal/cfwork
+  - journal/server
+- id: learn
+  title: 学习
+  icon: book
+  owners: [Mind, English]
+  paths:
+  - learn/ai
+  - learn/english
+  - learn/mind
+  - learn/idea
+  - learn/agent
+  tabs:
+  - life/idea
+  - life/mind
+  - life/english
+  - plan/reviews
+  - plan/learning
+- id: content
+  title: 内容
+  icon: radio
+  owners: [X, Blibli]
+  paths:
+  - content
+  tabs:
+  - agents/agents
+- id: accounts
+  title: 账号
+  icon: key
+  owners: [Register, Github]
+  paths:
+  - accounts
+  - data/identities.yaml
+  - data/account-groups.yaml
+  - data/accounts.yaml
+  - data/subscriptions.yaml
+  tabs:
+  - life/register
+  - life/workspace
+  - accounts/identities
+  - accounts/groups
+  - accounts/subscriptions
+  - accounts/security
+  - accounts/graph
+- id: kb
+  title: 知识
+  icon: library
+  owners: [KB]
+  paths:
+  - kb://cs/
+  - kb://backend/
+  - kb://ai/
+  - kb://math/
+  - kb://devtools/
+  - kb://tools/
+  tabs:
+  - knowledge/home
+  - knowledge/topics
+  - knowledge/tree
+  - knowledge/search
+views:
+- id: plan-review
+  title: 规划与复盘
+  icon: calendar
+  paths:
+  - life/plan
+  - life/journal
+  - data/plans.yaml
+  - data/tasks.yaml
+  tabs:
+  - today/today
+  - plan/board
+  - plan/tree
+  - plan/reviews
+  - journal/daily
+  - journal/weekly
+  - journal/records
+- id: team
+  title: 团队
+  icon: users
+  owners: [Bot, X, KB, Pi, Github, Register, Blibli]
+  paths:
+  - team.md
+  tabs:
+  - agents/agents
 sections:
 - id: today
   label: 今天

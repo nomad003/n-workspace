@@ -180,6 +180,7 @@
     "title",
     "kind",
     "area",
+    "module",
     "owner",
     "status",
     "links"
@@ -202,6 +203,29 @@
     },
     "area": {
      "type": "string"
+    },
+    "module": {
+     "type": "string",
+     "pattern": "^[a-z0-9-]+$"
+    },
+    "modules": {
+     "type": "array",
+     "items": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$"
+     }
+    },
+    "paths": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "tags": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
     },
     "section": {
      "type": [
@@ -322,6 +346,7 @@
    "properties": {
     "lifecycle": {
      "enum": [
+      "proposed",
       "active",
       "paused",
       "done",

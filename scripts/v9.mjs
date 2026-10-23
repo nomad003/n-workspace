@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import * as yaml from "js-yaml";
+import { resolveLayer } from "../app/src/module-model.js";
 export const mask = v => typeof v !== "string" ? v : v.replace(/\b([A-Za-z0-9._%+-]{1,2})([A-Za-z0-9._%+-]*)@((?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,})/g, (m, a, b, d) => /^(git|noreply|no-reply|example)$/i.test(a + b) || /^(example\.(com|org)|users\.noreply\.github\.com)$/i.test(d) ? m : `${a}***@…`).replace(/(?<!\d)1[3-9]\d{5}(\d{4})(?!\d)/g, "•••$1");
 const deep = x => Array.isArray(x) ? x.map(deep) : x && typeof x === "object" ? (x instanceof Date ? x.toISOString().slice(0, 10) : Object.fromEntries(Object.entries(x).map(([k, v]) => [k, k === "url" ? v : deep(v)]))) : mask(x);
 const load = (dir, n) => { const f = path.join(dir, `${n}.yaml`); if (!fs.existsSync(f)) return null; try { return deep(yaml.load(fs.readFileSync(f, "utf8"))); } catch (e) { return { _error: e.message.split("\n")[0] }; } };
@@ -32,6 +33,7 @@ export function loadV9(LIFE_ROOT, warn) {
     renew_date: s.renew_date ?? (s.renew_day ? `约每月 ${s.renew_day} 日` : "待补充"), billing: s.paid_via ? byAcc[s.paid_via]?.service ?? s.paid_via : s.legacy?.billing ?? "待补充" }));
   const tasks = (D.tasks?.tasks || []).map(t => ({ ...t, due: t.due ?? (t.due_event ? null : null) }));
   const plans = D.plans?.plans || [], reviews = D.plans?.reviews || [], sections = D.sections?.sections || [];
+  const layer = resolveLayer(D.sections || {});
   // folders referenced by sections that do not exist (e.g. reviews/) are reported, never fatal
   const sourcesOf = t => Array.isArray(t?.source) ? t.source : [];
   const missingDirs = [...new Set(sections.flatMap(s => (s.tabs || []).flatMap(sourcesOf)).filter(u => /^life:\/\/[^#?]+\/$/.test(String(u))).map(u => String(u).slice(7)).filter(d => !fs.existsSync(path.join(LIFE_ROOT, d))))];
@@ -39,7 +41,7 @@ export function loadV9(LIFE_ROOT, warn) {
   const files = []; const walk = (d, rel) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (e.name.startsWith(".")) continue; const r = rel ? `${rel}/${e.name}` : e.name;
     if (e.isDirectory()) { if (!["data", "tools", "schemas", "templates"].includes(r)) walk(path.join(d, e.name), r); } else if (!/\.(md|enc)$/.test(e.name)) files.push({ path: r, size: fs.statSync(path.join(d, e.name)).size }); } };
   walk(LIFE_ROOT, "");
-  return { schema_version: 9, accounts, identities, subscriptions, tasks, plans, reviews, groups, sections, missingDirs, files,
+  return { schema_version: 9, accounts, identities, subscriptions, tasks, plans, reviews, groups, sections, modules: layer.modules, views: layer.views, missingDirs, files,
     updated: Object.fromEntries(Object.entries(D).map(([k, v]) => [k, v?.updated ? String(v.updated) : null])) };
 }
 
