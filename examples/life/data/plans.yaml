@@ -23,4 +23,5 @@ reviews:
   duration_min: 20
   checklist: [清空收件箱, 看下周日历, 写周记]
   template: null
-  instances: []
+  instances:
+  - {period: 2026-W41, due: '2026-10-11', status: done, done_at: '2026-10-12', note: "见 life://life/journal/weekly/2026-W41"}

@@ -1,5 +1,5 @@
 // Dated events for 时间线. Pure: build-index and tests both call this.
-import { moduleIdsForRecord, topicIdsForRecord, topicModuleIds } from "./module-model.js";
+import { matchesPaths, moduleIdsForRecord, topicIdsForRecord, topicModuleIds } from "./module-model.js";
 
 // Left out of timeline.json for both life and kb. A reorg touches these in bulk.
 export const TIMELINE_EXCLUDE = {
@@ -25,6 +25,16 @@ export function isStructuralNote(record) {
 }
 
 const GENERIC_BASE = /^(index|readme|reorg|agents|moc)$/i;
+
+export function latestStructuralDate(paths, records) {
+  let latest = "";
+  for (const r of records || []) {
+    if (!matchesPaths(paths, r) || !isStructuralNote(r)) continue;
+    const d = iso(r.updated);
+    if (d > latest) latest = d;
+  }
+  return latest || null;
+}
 
 export function noteDisplayTitle({ title, path, text } = {}) {
   const given = String(title ?? "").trim();

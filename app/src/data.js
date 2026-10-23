@@ -14,6 +14,8 @@ export const byId = new Map(records.map(r => [r.id, r]));
 export const notesWhere = f => f ? records.filter(r => match(r, f)).sort((a, b) => String(b.updated).localeCompare(String(a.updated))) : [];
 let lidx; export const lifeIndex = async () => lidx ||= await fetch("../data/life-index.json", { cache: "no-store" }).then(r => r.ok ? r.json() : []).catch(() => []);
 let tl; export const loadTimeline = async () => tl ||= await fetch("../data/timeline.json", { cache: "no-store" }).then(r => r.ok ? r.json() : []).catch(() => []);
+let rollups; export const loadRollups = async () => rollups ||= await fetch("../data/rollups.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null);
+let coverage; export const loadCoverage = async () => coverage ||= await fetch("../data/coverage.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null);
 let idx; export const kbIndex = async () => idx ||= await fetch("../data/kb-index.json", { cache: "no-store" }).then(r => r.ok ? r.json() : []).catch(() => []);
 export const noteBody = r => fetch(`../data/notes/${r.f}.json`, { cache: "no-store" }).then(x => x.ok ? x.json() : null).catch(() => null);
 

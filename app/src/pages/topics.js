@@ -1,9 +1,9 @@
 // 主题 (topics): long-running dossiers from data/topics.yaml + data/topic-logs/<id>.jsonl.
 //   #topics[/<kind>]                 overview grid (all | project | habit | skill | area)
 //   #topics/<id>[/overview|log|metrics|resources][?kind=…]   detail: status strip, KPIs, tabs, side rail (next steps, issues, links)
-import { topics, topicById, tasks, plansV9, reviews, records, accById, accHref, v9, section } from "../data.js";
+import { topics, topicById, tasks, plansV9, reviews, records, accById, accHref, v9, section, isIndexNote, loadTimeline, loadCoverage, lifeIndex, kbIndex, byId } from "../data.js";
 import { pageTabs } from "../page-tabs.js";
-import { topicModuleIds, routeOfModule } from "../module-model.js";
+import { topicModuleIds, routeOfModule, topicIdsForRecord, moduleIdsForRecord } from "../module-model.js";
 import { esc, header, tabs, box, mainSide, noteHref } from "../ui.js";
 import { linkContext, normalizeUriPath, resolveUri } from "../kb-uri.js";
 import { fallbacks } from "../life-paths.js";
@@ -82,7 +82,7 @@ function card(t) {
     footer: `更新 ${md(t.last)} · ${t.entries.length} 条记录${t.open_issues.length ? ` · <span class="w">${t.open_issues.length} 个未解决问题</span>` : ""}${st ? ` · <span class="w">停滞</span>` : ""} · ${cadLabel(t.tracking?.cadence)}` });
 }
 
-export default function (sub, P = new URLSearchParams(), rest = []) {
+export default async function (sub, P = new URLSearchParams(), rest = []) {
   const all = topics();
   if (!v9) return { html: header("主题", "", [], "需要 n-life-data schema_version 9。") };
   const t = sub && topicById(sub);
@@ -100,7 +100,8 @@ export default function (sub, P = new URLSearchParams(), rest = []) {
   return { html: head + `<div class="body">${live.length ? `<div class="tgrid">${live.map(card).join("")}</div>` : ""}${proposed.length ? `<h2 class="ov-sec">提议</h2><div class="tgrid">${proposed.map(card).join("")}</div>` : ""}</div>` };
 }
 
-function detail(t, tab, P) {
+async function detail(t, tab, P) {
+  if (t.status?.lifecycle === "proposed" && (!tab || tab === "overview")) return proposedPage(t);
   const S = t.status || {}, T = tr(t), base = `topics/${encodeURIComponent(t.id)}`, taskOf = id => tasks().find(x => x.id === id), planOf = id => [...plansV9(), ...reviews()].find(x => x.id === id);
   const kpis = [...T.metrics.filter(m => m.type === "number").slice(0, 3).map(m => { const s = t.series?.[m.id] || []; return [s.length ? esc(s.at(-1)[1]) : "—", esc(m.label), { unit: m.unit ?? "", sub: s.length ? `${md(s.at(-1)[0])} · ${s.length} 次记录` : "未记录" }]; }),
     [t.entries.length, "记录", { tone: "focus", sub: `最近 ${md(t.last)}` }], T.goals.length && [`${T.goals.filter(g => goalProgress(t, g) === 100 || g.done_at).length}<small>/ ${T.goals.length}</small>`, "目标达成"],
@@ -128,17 +129,68 @@ function detail(t, tab, P) {
       + box({ title: "关联笔记", meta: `${notes.length} 篇`, flush: true, body: notes.length ? `<div class="rows">${notes.map(n => `<div class="row r2"><span class="t">${ref(n)}</span><span class="tag mono">${esc(String(n).split("://")[0])}</span></div>`).join("")}</div>` : `<p class="empty" style="padding:16px">无</p>` })
       + (le.length ? box({ title: "记录中的资料", flush: true, body: `<div class="tl">${[...le].reverse().map(erow).join("")}</div>` }) : "");
   } else {
-    const gl = T.goals.map(g => { const p = goalProgress(t, g); return `<div class="row r2"><span class="t">${esc(g.title)}<span class="s">${g.deadline ? `期限 ${esc(g.deadline)}` : "无期限"}${g.task ? ` · ${esc(g.task)}` : ""}</span></span><span class="tag">${p == null ? "" : `<span class="prog mini"><i style="width:${p}%"></i></span> ${p}%`}</span></div>`; }).join("");
-    const hist = t.history.length ? `<div class="stl">${t.history.map(h => `<div class="stl-i"><span class="ev-d">${esc(h.date)}</span><span class="stl-dot"></span><div><b>${esc(h.stage || LC[h.lifecycle] || h.title)}</b><small>${esc(h.title ?? "")}</small></div></div>`).join("")}</div>` : `<p class="empty">还没有状态变化记录。</p>`;
-    main = box({ title: "档案", body: `<dl class="kv2"><dt>为什么</dt><dd>${t.why ? esc(t.why) : `<span class="muted">未填</span>`}</dd><dt>范围</dt><dd>${t.scope ? esc(t.scope) : `<span class="muted">未填</span>`}</dd>${(t.rules || []).length ? `<dt>规则</dt><dd>${t.rules.map(esc).join("<br>")}</dd>` : ""}${t.tracking?.done_when ? `<dt>完成标准</dt><dd>${esc(t.tracking.done_when)}</dd>` : ""}</dl>`, footer: t.narrative ? `叙述页：${ref(t.narrative)}` : "" })
-      + box({ title: "阶段历史", meta: `${t.history.length} 次变化`, body: hist })
-      + (T.goals.length ? box({ title: "目标", meta: `${T.goals.length} 个`, flush: true, body: `<div class="rows">${gl}</div>` }) : "")
-      + box({ title: "最近记录", link: ["全部记录", `#${base}/log`], flush: true, body: `<div class="tl">${[...t.entries].reverse().slice(0, 5).map(erow).join("") || `<p class="empty" style="padding:16px">无</p>`}</div>` });
+    main = await topicMain(t, base);
   }
   const tl = (t.links?.tasks || []).map(id => { const x = taskOf(id); return `<a class="row r2" href="${x?.owner === "user" ? "#plan/board" : "#agents"}"><span class="t">${esc(x?.title ?? id)}</span><span class="tag">${esc(x?.status ?? "")}</span></a>`; }).join("");
   const pl = (t.links?.plans || []).map(id => { const x = planOf(id); return `<a class="row r2" href="#plan/${x?.rrule ? "reviews" : "tree"}"><span class="t">${esc(x?.title ?? ({ quarterly: "季度复盘", annual: "年度复盘" })[x?.kind] ?? id)}</span><span class="tag">${esc(x?.period ?? "")}</span></a>`; }).join("");
   const side = box({ title: "下一步", flush: true, body: (S.next || []).length ? `<div class="rows">${S.next.map(n => `<div class="prow"><span class="cb"></span><div class="t">${esc(n)}</div><span></span></div>`).join("")}</div>` : `<p class="empty" style="padding:16px">未写下一步</p>` })
     + box({ title: "阻碍 / 未解决问题", meta: `${(S.blockers || []).length + t.open_issues.length}`, flush: true, body: (S.blockers || []).length + t.open_issues.length ? `<div class="rows">${(S.blockers || []).map(b => `<div class="row r2"><span class="t">${esc(b)}</span><span class="tag warn">阻碍</span></div>`).join("")}${t.open_issues.map(i => `<div class="row r2"><span class="t">${esc(i.title)}</span><span class="tag warn">${md(i.date)}</span></div>`).join("")}</div>` : `<p class="empty" style="padding:16px">无</p>` })
     + box({ title: "关联", flush: true, body: `${tl ? `<div class="hz"><div class="h">任务</div><div class="rows">${tl}</div></div>` : ""}${pl ? `<div class="hz"><div class="h">计划</div><div class="rows">${pl}</div></div>` : ""}${(t.accounts || []).length ? `<div class="hz"><div class="h">账号</div><div class="rows">${t.accounts.map(a => { const x = accById(a); return x ? `<a class="row r2" href="${accHref(x)}"><span class="t">${esc(x.service)}</span><span class="tag">${esc(x.priority ?? "")}</span></a>` : `<div class="row r2"><span class="t">${esc(a)}</span></div>`; }).join("")}</div></div>` : ""}${t.narrative ? `<div class="hz"><div class="h">叙述页</div><div class="rows"><div class="row r2"><span class="t">${ref(t.narrative)}</span></div></div></div>` : ""}` || `<p class="empty" style="padding:16px">无</p>` });
+  if (!tab || tab === "overview") return { html: head + T4 + `<div class="body">${main}</div>` };
   return { html: head + T4 + `<div class="body">${mainSide(main, side)}</div>` };
+}
+
+function proposedPage(t) {
+  const S = t.status || {};
+  const meta = [moduleBadges(t), KIND[t.kind] ?? t.kind, "提议"];
+  const head = header(esc(t.title), "", meta, S.summary ? esc(S.summary) : "这个主题还在提议里。", { actions: [["全部主题", "#topics"]] });
+  const body = `<dl class="kv2"><dt>为什么</dt><dd>${t.why ? esc(t.why) : `<span class="muted">未填</span>`}</dd><dt>范围</dt><dd>${t.scope ? esc(t.scope) : `<span class="muted">未填</span>`}</dd></dl><p class="ov-note">还没开始，所以这里不算节奏、覆盖和活动。</p>${t.narrative ? `<p>叙述页：${ref(t.narrative)}</p>` : ""}`;
+  return { html: head + `<div class="body">${box({ title: "提议", body })}</div>` };
+}
+
+async function topicMain(t, base) {
+  const T = tr(t), S = t.status || {};
+  const [cov, timeline, life, kb] = await Promise.all([loadCoverage(), loadTimeline(), lifeIndex(), kbIndex()]);
+  const row = cov?.topics?.find(x => x.id === t.id);
+  const weeks = cov?.weeks || [];
+  const max = Math.max(1, ...(row?.weeks || [0]));
+  const bars = row ? `<div class="wkbar">${row.weeks.map((n, i) => `<div class="barcol" title="${esc(weeks[i]?.key || "")} · ${n}"><i class="${n ? "on" : ""}" style="height:${Math.max(4, Math.round(n / max * 56))}px"></i><span>${esc(String(weeks[i]?.key || "").replace(/^\d{4}-W/, ""))}</span></div>`).join("")}</div><p class="ov-note">${esc(row.status)} · 近 12 周有活动的 ${row.activeWeeks} 周 · 最长间隔 ${row.longestGap ?? "—"} 天</p>` : `<p class="empty">还没有覆盖数据。</p>`;
+  const goals = (T.goals || []).map(g => `<div class="row r2"><span class="t">${esc(g.title)}<span class="s">${g.deadline ? `期限 ${esc(g.deadline)}` : "无期限"}</span></span><span class="tag">${g.metric ? esc(g.metric) : ""}</span></div>`).join("");
+  const overview = box({ title: "概览", body: `<dl class="kv2"><dt>目标</dt><dd>${T.done_when ? esc(T.done_when) : (T.goals?.[0]?.title ? esc(T.goals[0].title) : `<span class="muted">未写完成标准</span>`)}</dd><dt>节奏</dt><dd>${esc(cadLabel(T.cadence))}${row?.missing?.length ? ` · 缺 ${row.missing.length} 个周期` : ""}</dd><dt>状态</dt><dd>${esc(S.summary || "未写当前小结")} · ${stagePill(t)} ${healthDot(t)}</dd><dt>为什么</dt><dd>${t.why ? esc(t.why) : `<span class="muted">未填</span>`}</dd></dl>${(S.next || []).length ? `<p class="ov-note">下一步：${S.next.map(esc).join(" · ")}</p>` : ""}` });
+  const numbers = T.metrics.filter(m => m.type === "number");
+  const charts = numbers.length ? numbers.map(m => { const s = t.series?.[m.id] || [], g = T.goals.find(x => x.metric === m.id);
+    return box({ title: esc(m.label), meta: `${esc(m.aggregation || "")}${m.unit ? ` · ${esc(m.unit)}` : ""}`, body: chart(s, g, m.unit || "") }); }).join("") : box({ title: "指标", body: `<p class="empty">这个主题没有数值指标。</p>` });
+  const events = (Array.isArray(timeline) ? timeline : []).filter(e => !e.touch && ((e.topics || []).includes(t.id) || e.topic === t.id)).slice(0, 8);
+  const tl = events.length ? `<div class="rows">${events.map(e => `<a class="row r3" href="${esc(e.href)}"><span class="t">${esc(e.title)}</span><span class="tag">${esc(e.type)}</span><span class="tag">${esc(e.date)}</span></a>`).join("")}</div>` : `<p class="empty">这个主题还没有记进时间线的活动。</p>`;
+  const related = records.filter(r => topicIdsForRecord([t], r).includes(t.id) && !isIndexNote(r));
+  const notes = related.length ? `<div class="rows">${related.map(r => `<a class="row r2" href="${noteHref(r)}"><span class="t">${esc(r.title)}</span><span class="tag mono">${esc(r.root)}://${esc(r.origin.source_path)}</span></a>`).join("")}</div>` : `<p class="empty">没有路径或链接对上的笔记。</p>`;
+  const ix = new Map([...(life || []), ...(kb || [])].map(x => [x.id, x]));
+  const self = new Set(related.map(r => r.id));
+  const seen = new Set(), incoming = [];
+  for (const r of related) for (const id of ix.get(r.id)?.backlinks || []) {
+    if (self.has(id) || seen.has(id)) continue;
+    const n = byId.get(id); if (!n) continue;
+    seen.add(id); incoming.push(n);
+  }
+  const mods = Array.isArray(v9?.modules) ? v9.modules : [];
+  const groups = new Map();
+  for (const n of incoming) {
+    const ids = moduleIdsForRecord(mods, n);
+    const key = ids[0] || (n.root === "kb" ? "kb" : "");
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(n);
+  }
+  const cited = incoming.length ? [...groups.entries()].map(([k, xs]) => {
+    const title = k ? (mods.find(m => m.id === k)?.title || (k === "kb" ? "知识" : k)) : "未归类";
+    const h = k && mods.some(m => m.id === k) ? `<a href="#${routeOfModule(k)}">${esc(title)}</a>` : esc(title);
+    return `<div class="cite-g"><h3>${h}</h3><div class="rows">${xs.map(n => `<a class="row r2" href="${noteHref(n)}"><span class="t">${esc(n.title)}</span><span class="tag">${esc(n.root)}</span></a>`).join("")}</div></div>`;
+  }).join("") : `<p class="empty">还没有别的笔记指向这些相关笔记。</p>`;
+  return overview
+    + (goals ? box({ title: "目标", meta: `${T.goals.length} 个`, flush: true, body: `<div class="rows">${goals}</div>` }) : "")
+    + box({ title: "近 12 周", meta: row?.last ? `最近 ${esc(row.last)}` : "", link: ["时间线", `#timeline?topic=${encodeURIComponent(t.id)}`], body: bars })
+    + charts
+    + box({ title: "最近时间线", meta: `${events.length} 条`, link: ["全部", `#timeline?topic=${encodeURIComponent(t.id)}`], flush: true, body: tl })
+    + box({ title: "相关笔记", meta: `${related.length} 篇`, flush: true, body: notes })
+    + box({ title: `被引用 · ${incoming.length}`, body: cited })
+    + `<p class="ov-note"><a href="#${base}/log">记录</a> · <a href="#${base}/metrics">指标</a> · <a href="#${base}/resources">资料</a></p>`;
 }
