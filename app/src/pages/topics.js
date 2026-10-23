@@ -3,11 +3,20 @@
 //   #topics/<id>[/overview|log|metrics|resources][?kind=…]   detail: status strip, KPIs, tabs, side rail (next steps, issues, links)
 import { topics, topicById, tasks, plansV9, reviews, records, accById, accHref, v9, section } from "../data.js";
 import { pageTabs } from "../page-tabs.js";
+import { topicModuleIds, routeOfModule } from "../module-model.js";
 import { esc, header, tabs, box, mainSide, noteHref } from "../ui.js";
 import { linkContext, normalizeUriPath, resolveUri } from "../kb-uri.js";
 import { fallbacks } from "../life-paths.js";
 const KIND = { project: "项目", habit: "习惯", skill: "技能", area: "领域" };
-const LC = { active: "进行中", paused: "暂停", done: "完成", archived: "归档" };
+const LC = { active: "进行中", paused: "暂停", done: "完成", archived: "归档", proposed: "提议" };
+function moduleBadges(t) {
+  const mods = Array.isArray(v9?.modules) ? v9.modules : null;
+  if (!mods) return "";
+  return topicModuleIds(t).map(id => {
+    const m = mods.find(x => x.id === id);
+    return `<a class="pill mod" href="#${routeOfModule(id)}">${esc(m?.title || id)}</a>`;
+  }).join("");
+}
 const HL = { "on-track": ["正常", "ok"], "at-risk": ["有风险", "warn"], "off-track": ["偏离", "warn"] };
 const EK = { event: "事件", decision: "决定", note: "笔记", review: "复盘", resource: "资料", milestone: "里程碑", issue: "问题", metric: "指标", status: "状态" };
 const md = d => { const m = String(d ?? "").match(/^\d{4}-(\d{2})-(\d{2})/); return m ? `${+m[1]}/${+m[2]}` : esc(d ?? "—"); };
@@ -59,13 +68,14 @@ function chart(pts, goal, unit = "") {
     <polyline points="${pts.map(p => `${X(p[0]).toFixed(1)},${Y(+p[1]).toFixed(1)}`).join(" ")}"/>${pts.map(p => `<circle cx="${X(p[0]).toFixed(1)}" cy="${Y(+p[1]).toFixed(1)}" r="3"><title>${esc(p[0])}: ${esc(p[1])}${esc(unit)}</title></circle>`).join("")}
     <text class="ax" x="${L}" y="${H - 6}">${md(pts[0][0])}</text>${pts.length > 1 ? `<text class="ax" x="${W - R}" y="${H - 6}" text-anchor="end">${md(pts.at(-1)[0])}</text>` : ""}</svg>`;
 }
-const stagePill = t => `<span class="pill ${t.status?.lifecycle === "active" ? "accent" : ""}">${esc(t.status?.stage || LC[t.status?.lifecycle] || "—")}</span>`;
+const stagePill = t => `<span class="pill ${t.status?.lifecycle === "active" ? "accent" : ""}">${esc(t.status?.stage || LC[t.status?.lifecycle] || "—")}</span>${t.status?.lifecycle === "proposed" ? `<span class="pill">提议</span>` : ""}`;
 const healthDot = t => { const h = HL[t.status?.health]; return `<span class="hdot ${h ? h[1] : ""}" title="健康度（由本人设置）">${h ? h[0] : "健康 —"}</span>`; };
 const goalProgress = (t, g) => { if (!g.metric || !g.target || typeof g.target.value !== "number" || g.target.per) return null; const s = t.series?.[g.metric]; if (!s?.length) return 0; return Math.max(0, Math.min(100, Math.round(+s.at(-1)[1] / g.target.value * 100))); };
 
 function card(t) {
   const km = keyMetric(t), s = km ? t.series?.[km.id] || [] : [], st = stale(t), next = (t.status?.next || [])[0];
-  return box({ title: `<a href="#topics/${encodeURIComponent(t.id)}">${esc(t.title)}</a>`, meta: `${KIND[t.kind] ?? t.kind} · ${esc(owner(t.owner))}`, cls: `tcard ${t.status?.lifecycle !== "active" ? "dim" : ""}`,
+  const badges = moduleBadges(t);
+  return box({ title: `<a href="#topics/${encodeURIComponent(t.id)}">${esc(t.title)}</a>`, meta: `${badges ? `${badges} · ` : ""}${KIND[t.kind] ?? t.kind} · ${esc(owner(t.owner))}`, cls: `tcard ${t.status?.lifecycle !== "active" ? "dim" : ""}`,
     body: `<div class="tc-st">${stagePill(t)}${healthDot(t)}</div>
       ${km ? `<div class="tc-m"><div><div class="kpi-k">${esc(km.label)}</div><div class="tc-v">${s.length ? esc(s.at(-1)[1]) : "—"}<small>${esc(km.unit ?? "")}</small></div></div>${spark(s)}</div>` : `<div class="tc-m"><div><div class="kpi-k">记录</div><div class="tc-v">${t.entries.length}<small>条</small></div></div>${spark([])}</div>`}
       <p class="tc-n">${next ? `下一步：${esc(next)}` : t.status?.summary ? esc(t.status.summary) : `<span class="muted">未写当前小结</span>`}</p>`,
@@ -78,14 +88,16 @@ export default function (sub, P = new URLSearchParams(), rest = []) {
   const t = sub && topicById(sub);
   if (t) return detail(t, rest[0] || "overview", P);
   const kind = KIND[sub] ? sub : "all", xs = all.filter(x => kind === "all" || x.kind === kind).sort((a, b) => (a.status?.lifecycle !== "active") - (b.status?.lifecycle !== "active") || String(b.last).localeCompare(String(a.last)));
+  const proposed = xs.filter(x => x.status?.lifecycle === "proposed"), live = xs.filter(x => x.status?.lifecycle !== "proposed");
   const week = all.flatMap(x => x.entries).filter(e => days(e.date) != null && days(e.date) <= 7).length, issues = all.reduce((n, x) => n + x.open_issues.length, 0), stl = all.filter(stale);
   const goals = all.flatMap(x => tr(x).goals.filter(g => g.deadline).map(g => ({ x, g })));
+  const proposedN = all.filter(x => x.status?.lifecycle === "proposed").length, otherN = all.filter(x => x.status?.lifecycle !== "active" && x.status?.lifecycle !== "proposed").length;
   const head = header("主题", "", [`${all.length} 个主题`, "data/topics.yaml + topic-logs"], all.length ? `长期在推进的事：每个主题有档案、当前状态、信息登记和指标。${stl.length ? `<b class="w">${stl.length} 个停滞</b>，` : ""}${issues ? `${issues} 个未解决问题。` : "没有未解决问题。"}` : "", {
-    kpis: all.length ? [[all.filter(x => x.status?.lifecycle === "active").length, "进行中", { tone: "focus", sub: `${all.filter(x => x.status?.lifecycle !== "active").length} 个暂停 / 完成` }], [week, "近 7 天新记录"],
+    kpis: all.length ? [[all.filter(x => x.status?.lifecycle === "active").length, "进行中", { tone: "focus", sub: `${proposedN} 个提议${otherN ? ` · ${otherN} 个暂停 / 完成` : ""}` }], [week, "近 7 天新记录"],
       [stl.length, "停滞", { tone: stl.length ? "warn" : "", sub: "超过 2 个周期未记录" }], [issues, "未解决问题", { tone: issues ? "warn" : "" }], [goals.length, "有期限的目标", { sub: goals.length ? `最近：${esc(goals.sort((a, b) => String(a.g.deadline).localeCompare(String(b.g.deadline)))[0].g.deadline)}` : "" }]] : [] })
     + tabs("topics", pageTabs(section("topics"), "topics").map(([id, label]) => [id, label, id === "all" ? all.length : all.filter(x => x.kind === id).length || ""]), kind);
   if (!all.length) return { html: head + `<div class="body">${box({ title: "还没有主题", body: `<p class="empty">n-life-data 中没有 data/topics.yaml。按 topics 提案添加 data/topics.yaml 与 data/topic-logs/&lt;id&gt;.jsonl 后重新 npm start。</p>` })}</div>` };
-  return { html: head + `<div class="body"><div class="tgrid">${xs.map(card).join("")}</div></div>` };
+  return { html: head + `<div class="body">${live.length ? `<div class="tgrid">${live.map(card).join("")}</div>` : ""}${proposed.length ? `<h2 class="ov-sec">提议</h2><div class="tgrid">${proposed.map(card).join("")}</div>` : ""}</div>` };
 }
 
 function detail(t, tab, P) {
@@ -93,7 +105,7 @@ function detail(t, tab, P) {
   const kpis = [...T.metrics.filter(m => m.type === "number").slice(0, 3).map(m => { const s = t.series?.[m.id] || []; return [s.length ? esc(s.at(-1)[1]) : "—", esc(m.label), { unit: m.unit ?? "", sub: s.length ? `${md(s.at(-1)[0])} · ${s.length} 次记录` : "未记录" }]; }),
     [t.entries.length, "记录", { tone: "focus", sub: `最近 ${md(t.last)}` }], T.goals.length && [`${T.goals.filter(g => goalProgress(t, g) === 100 || g.done_at).length}<small>/ ${T.goals.length}</small>`, "目标达成"],
     [t.open_issues.length, "未解决问题", { tone: t.open_issues.length ? "warn" : "" }]];
-  const meta = [KIND[t.kind] ?? t.kind, owner(t.owner), t.started ? `起于 ${esc(t.started)}` : "起始日期未填", cadLabel(T.cadence), ...(t.accounts || []).map(a => { const x = accById(a); return x ? `账号 <a href="${accHref(x)}">${esc(x.service)}</a>` : `账号 ${esc(a)}`; })];
+  const meta = [moduleBadges(t), KIND[t.kind] ?? t.kind, owner(t.owner), t.started ? `起于 ${esc(t.started)}` : "起始日期未填", cadLabel(T.cadence), ...(t.accounts || []).map(a => { const x = accById(a); return x ? `账号 <a href="${accHref(x)}">${esc(x.service)}</a>` : `账号 ${esc(a)}`; })];
   const head = header(esc(t.title), "", meta, S.summary ? esc(S.summary) : `<span class="muted">还没有当前小结（topics.yaml → status.summary）</span>`, { kpis, actions: [t.narrative && ["叙述页", "#" + (ref(t.narrative).match(/href="#([^"]+)"/)?.[1] || "topics")], ["全部主题", "#topics"]].filter(Boolean) })
     .replace('<div class="ctx">', `<div class="ctx">`) + `<div class="sstrip">${stagePill(t)}${healthDot(t)}<span>${esc(LC[S.lifecycle] ?? S.lifecycle ?? "")}${S.since ? ` · 阶段起于 ${esc(S.since)}` : ""}</span><span class="muted">状态更新 ${esc(S.updated ?? "—")}${S.source ? ` · 来源 ${ref(S.source, S.source.replace(/^life:\/\//, ""))}` : ""}</span></div>`;
   const T4 = tabs(base, [["overview", "概览"], ["log", "记录", t.entries.length], ["metrics", "指标", T.metrics.length || ""], ["resources", "资料", (t.resources || []).length + (t.links?.notes || []).length]], tab);

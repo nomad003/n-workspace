@@ -11,6 +11,8 @@ topics:
   title: 跑步 · 半马备赛
   kind: habit
   area: health
+  module: life
+  paths: [life/health]
   section: life://life/health/
   narrative: life://life/health/running-log
   why: 精力和睡眠都更好
@@ -36,6 +38,8 @@ topics:
   title: 学 Rust
   kind: skill
   area: learning
+  module: learn
+  paths: [learn/ai]
   section: life://learn/ai/
   narrative: life://learn/ai/rust-path
   why: 想要一门系统语言写小工具
@@ -61,6 +65,9 @@ topics:
   title: 个人博客与 Chirp
   kind: project
   area: explore
+  module: learn
+  modules: [content]
+  paths: [learn/idea, content/x]
   section: life://learn/idea/
   narrative: life://learn/idea/blog-plan
   why: 写作帮助整理思路
@@ -85,6 +92,8 @@ topics:
   title: 家庭财务整理
   kind: area
   area: finance
+  module: life
+  paths: [life/finance]
   section: life://life/finance/
   narrative: life://life/finance/budget-approach
   why: 清楚每月钱花在哪
@@ -101,3 +110,22 @@ topics:
     - {id: subs, label: 订阅数, type: number, unit: 个, aggregation: last, period: month}
     goals: []
   links: {tasks: [t-sub-review], plans: [], notes: []}
+- id: desk-plan
+  title: 书桌改造
+  kind: project
+  area: house
+  module: life
+  paths: [life/house]
+  section: life://life/house/
+  narrative: life://life/house/index
+  why: 想有一块固定的阅读角
+  scope: 只改书桌，不动别的家具
+  owner: user
+  accounts: []
+  resources: []
+  rules: []
+  status: {lifecycle: proposed, stage: 草稿, health: null, summary: 还没决定要不要做, blockers: [], next: [], updated: '2026-10-20', source: "life://life/house/index"}
+  tracking:
+    metrics: []
+    goals: []
+  links: {tasks: [], plans: [], notes: []}

@@ -2,6 +2,7 @@
 import { match, nextRenewal, taskDue, known, isAgentTask, daysUntil, twoFaState, weak2fa } from "./core.js";
 import { choosePrefixes, fallbacks, matchesPath, LIFE_INDEX, setLegacyPaths, legacyPaths, noteFallback } from "./life-paths.js";
 import { folderBanner } from "./ui.js";
+import { routeOfModule } from "./module-model.js";
 export const bundle = await fetch("../data/bundle.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null);
 setLegacyPaths(!!bundle?.life_legacy_paths);
 const IDS = ["today", "plan", "life", "journal", "knowledge", "accounts", "agents", "settings"];
@@ -78,6 +79,11 @@ export const groups = () => v9?.groups || [];
 export const plansV9 = () => v9?.plans || [];
 export const reviews = () => v9?.reviews || [];
 export const section = id => (v9?.sections || []).find(s => s.id === id) || null;
+// Null when sections.yaml has no modules array: the shell keeps the section pages.
+export const moduleList = () => Array.isArray(v9?.modules) && v9.modules.length ? v9.modules : null;
+export const viewList = () => moduleList() ? (Array.isArray(v9?.views) ? v9.views : []) : [];
+export const moduleByRoute = route => moduleList()?.find(m => routeOfModule(m.id) === route) || null;
+export const viewById = id => viewList().find(v => v.id === id) || null;
 // Directory sources on one sections.yaml tab. `fallback` is used only when that page has no section.
 export function dirSources(pageId, tabId, fallback = []) {
   const S = section(pageId);

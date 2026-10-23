@@ -466,3 +466,34 @@ details.more>:not(summary){margin:0 14px 14px}
   .gx-stage{height:70vh;min-height:420px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---------- modules + 总览 ---------- */
+.surface .ph:not(.modhead) h1{display:none}
+.surface .modhead .paths{font-family:var(--mono);font-size:12.5px;color:var(--text-3);word-break:break-word}
+.ov-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.ov-card{display:flex;flex-direction:column;gap:8px;min-height:196px;padding:16px 16px 14px;border:1px solid var(--border);background:var(--surface);color:inherit;text-decoration:none}
+.ov-card:hover{background:var(--n-50)}
+.ov-kicker,.ov-sec{font-size:12px;font-weight:650;letter-spacing:.08em;color:var(--text-3)}
+.ov-card h2{margin:0;font-size:22px;line-height:1.25;letter-spacing:-.02em}
+.ov-own{margin:0;color:var(--text-2);font-size:13px}
+.ov-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin:auto 0 0}
+.ov-stats div{min-width:0}
+.ov-stats dt{font-size:11px;color:var(--text-3)}
+.ov-stats dd{margin:2px 0 0;font-size:15px;font-weight:650;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.age.stale,.age.old{color:var(--accent)!important}
+.ov-sec{margin:28px 0 8px}
+.ov-note{margin:0 0 8px;color:var(--text-3);font-size:13px}
+.ov-strip{border-top:1px solid var(--border)}
+.ov-row{display:grid;grid-template-columns:minmax(140px,1.6fr) minmax(88px,1fr) 72px 108px 88px;gap:10px;align-items:center;padding:10px 2px;border-bottom:1px solid var(--border);font-size:14px}
+.ov-head{color:var(--text-3);font-size:11px;letter-spacing:.04em}
+.ov-title{font-weight:650}
+.ov-title:hover{color:var(--accent)}
+.ov-mods{display:flex;flex-wrap:wrap;gap:4px}
+.ov-mods .pill{font-size:12px}
+.tcard .box-m .pill{margin-right:2px}
+@media (max-width:760px){
+  .ov-grid{grid-template-columns:1fr}
+  .ov-row,.ov-head{grid-template-columns:minmax(0,1fr) auto}
+  .ov-row span:nth-child(n+3),.ov-head span:nth-child(n+3){display:none}
+  .ov-row span.age{display:inline}
+}

@@ -1,0 +1,128 @@
+// Pure module / view model. Sections stay the source of tab labels and sources.
+// `modules` and `views` only name tabs as "sectionId/tabId". Absent modules → the old section nav.
+
+export const MODULE_IDS = ["life", "work", "learn", "content", "accounts", "kb"];
+export const MODULE_ROUTE = { life: "life", work: "work", learn: "learn", content: "content", accounts: "accounts", kb: "knowledge" };
+const LEGACY_DEFAULT = { today: "today", plan: "board", journal: "daily", agents: "agents" };
+const INDEX_RE = /(^|\/)(index|README)\.md$/i;
+
+export const routeOfModule = id => MODULE_ROUTE[id] || id;
+export const moduleIdFromRoute = route => Object.entries(MODULE_ROUTE).find(([, r]) => r === route)?.[0] || null;
+
+export function tabIndex(sections) {
+  const map = new Map();
+  for (const s of sections || []) for (const t of s.tabs || []) {
+    const ref = `${s.id}/${t.id}`;
+    map.set(ref, { ref, sectionId: s.id, tabId: String(t.id), label: t.label || t.id, source: Array.isArray(t.source) ? t.source : [], sectionLabel: s.label || s.id });
+  }
+  return map;
+}
+
+function resolveEntry(entry, index) {
+  const tabs = (entry?.tabs || []).map(ref => {
+    const key = String(ref);
+    const hit = index.get(key);
+    if (hit) return { ...hit };
+    const [sectionId, tabId = ""] = key.split("/");
+    return { ref: key, missing: true, sectionId, tabId, label: key, source: [] };
+  });
+  return { ...entry, tabs: [...(entry?.tabs || [])], resolved: tabs };
+}
+
+// `doc` is a sections.yaml object. modules: null means "keep the current section pages".
+export function resolveLayer(doc) {
+  const sections = doc?.sections || [];
+  const index = tabIndex(sections);
+  const raw = doc?.modules;
+  if (!Array.isArray(raw) || !raw.length) return { modules: null, views: null };
+  return {
+    modules: raw.map(m => resolveEntry(m, index)),
+    views: (Array.isArray(doc?.views) ? doc.views : []).map(v => resolveEntry(v, index)),
+  };
+}
+
+export function ownerModule(ref, modules) {
+  return (modules || []).find(m => (m.tabs || []).includes(ref)) || null;
+}
+
+// Old page hashes (#today, #plan/reviews, #journal/cfwork, #agents) land on the module that owns that tab.
+export function legacyTarget(raw, sub, modules) {
+  if (!modules || !(raw in LEGACY_DEFAULT)) return null;
+  const tab = sub || LEGACY_DEFAULT[raw];
+  const mod = ownerModule(`${raw}/${tab}`, modules);
+  if (!mod) return null;
+  return `${routeOfModule(mod.id)}/${tab}`;
+}
+
+export function todayStamp(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function daysSince(date, today) {
+  const d = String(date || "").slice(0, 10), t = String(today || "").slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !/^\d{4}-\d{2}-\d{2}$/.test(t)) return null;
+  const a = Date.parse(t + "T00:00:00Z"), b = Date.parse(d + "T00:00:00Z");
+  if (Number.isNaN(a) || Number.isNaN(b)) return null;
+  return Math.round((a - b) / 86400000);
+}
+
+function pathSpec(p) {
+  const s = String(p || "").trim();
+  if (!s) return null;
+  if (s.startsWith("kb://")) return { root: "kb", prefix: s.slice(5).replace(/\/+$/, "") };
+  if (s.startsWith("life://")) {
+    const body = s.slice(7).replace(/[#?].*$/, "").replace(/\/+$/, "");
+    if (!body || body.startsWith("data/") || /\.ya?ml$/i.test(body)) return null;
+    if (/\.md$/i.test(body)) return { root: "life", file: body.replace(/\.md$/i, "") };
+    return { root: "life", prefix: body };
+  }
+  if (s.startsWith("data/") || /\.ya?ml$/i.test(s)) return null;
+  if (/\.md$/i.test(s)) return { root: "life", file: s.replace(/\.md$/i, "") };
+  return { root: "life", prefix: s.replace(/\/+$/, "") };
+}
+
+function covered(spec, record) {
+  if (!spec || record?.root !== spec.root) return false;
+  const path = String(record.origin?.source_path || "");
+  const bare = path.replace(/\.md$/i, "");
+  if (spec.file) return bare === spec.file;
+  if (!spec.prefix) return spec.root === "kb" && !path.includes("/");
+  return bare === spec.prefix || bare.startsWith(spec.prefix + "/") || path.startsWith(spec.prefix + "/");
+}
+
+export function notesForPaths(paths, records) {
+  const specs = (paths || []).map(pathSpec).filter(Boolean);
+  const seen = new Set(), out = [];
+  for (const r of records || []) {
+    if (!r || INDEX_RE.test(r.origin?.source_path || "") || seen.has(r.id)) continue;
+    if (!specs.some(s => covered(s, r))) continue;
+    seen.add(r.id); out.push(r);
+  }
+  return out;
+}
+
+export function moduleNoteStats(entry, records, today) {
+  const notes = notesForPaths(entry?.paths, records);
+  const latest = notes.map(r => String(r.updated || "").slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().at(-1) || null;
+  const days = daysSince(latest, today);
+  return { count: notes.length, latest, days: days == null ? null : Math.max(0, days) };
+}
+
+export function topicModuleIds(topic) {
+  return [...new Set([topic?.module, ...(Array.isArray(topic?.modules) ? topic.modules : [])].filter(Boolean))];
+}
+
+export function topicCounts(moduleId, topics) {
+  const xs = (topics || []).filter(t => topicModuleIds(t).includes(moduleId));
+  return {
+    active: xs.filter(t => t.status?.lifecycle === "active").length,
+    proposed: xs.filter(t => t.status?.lifecycle === "proposed").length,
+  };
+}
+
+export function ageTone(days) {
+  if (days == null) return "";
+  if (days >= 30) return "old";
+  if (days >= 14) return "stale";
+  return "";
+}

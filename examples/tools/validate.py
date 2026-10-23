@@ -62,6 +62,28 @@ if A.data:
         for p in (D.get("plans") or {}).get("plans", []): x["plans.parent → plans"] += bool(p.get("parent") and p["parent"] not in plans)
         for t in (D.get("tasks") or {}).get("tasks", []):
             x["tasks.plan → plans"] += bool(t.get("plan") and t["plan"] not in plans); x["tasks.parent → tasks"] += bool(t.get("parent") and t["parent"] not in tasks)
+        # modules: six ids, every content tab in exactly one module. topics/* is the topic axis, not a module tab.
+        # views may point at a tab a module already owns.
+        sec = D.get("sections") or {}
+        mod_list = sec.get("modules") or []
+        mod_ids = [m.get("id") for m in mod_list]
+        for i in ("life", "work", "learn", "content", "accounts", "kb"):
+            x["sections.modules: missing " + i] += i not in mod_ids
+        if len(mod_ids) != len(set(mod_ids)): x["sections.modules: duplicate id"] += 1
+        defined = {f"{s.get('id')}/{t.get('id')}" for s in (sec.get("sections") or []) for t in (s.get("tabs") or [])}
+        owned = collections.Counter()
+        for m in mod_list:
+            for ref in m.get("tabs") or []:
+                owned[ref] += 1
+                x["sections.modules.tabs → sections"] += ref not in defined
+        for ref in defined:
+            if ref.startswith("topics/"):
+                x["sections: topic-axis tab placed in a module"] += bool(owned[ref])
+                continue
+            x["sections: tab not in exactly one module"] += owned[ref] != 1
+        for v in sec.get("views") or []:
+            for ref in v.get("tabs") or []:
+                x["sections.views.tabs → sections"] += ref not in defined
         for k in list(x):
             if not x[k]: del x[k]
         q = collections.Counter()  # data-quality gaps (valid but incomplete)
@@ -103,6 +125,11 @@ if TD and os.path.exists(os.path.join(TD, "topics.yaml")):
             for a in t.get("accounts", []): x["accounts → accounts.yaml"] += a not in acc
             for i in (t.get("links") or {}).get("tasks", []): x["links.tasks → tasks"] += i not in tasks
             for i in (t.get("links") or {}).get("plans", []): x["links.plans → plans/reviews"] += i not in plans
+            mod_ids = {m.get("id") for m in ((D.get("sections") or {}).get("modules") or [])}
+            x["module → sections.modules"] += t.get("module") not in mod_ids
+            for extra in t.get("modules") or []:
+                x["modules → sections.modules"] += extra not in mod_ids
+                x["modules repeats primary module"] += extra == t.get("module")
         for g in tr.get("goals", []):
             x["goals.metric → metrics"] += bool(g.get("metric") and g["metric"] not in M)
             if D: x["goals.task → tasks"] += bool(g.get("task") and g["task"] not in tasks)
