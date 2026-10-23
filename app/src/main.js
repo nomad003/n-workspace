@@ -1,8 +1,9 @@
 // n-workspace shell. With modules: 总览 · six modules · views · 主题. Without modules: the section pages.
 import { weak2fa } from "./core.js";
-import { bundle, M, records, tasks, subs, known, accHref, groups, section, agentName, topics, listedNotes, isIndexNote, moduleList, viewList, moduleByRoute, viewById } from "./data.js";
+import { bundle, M, records, tasks, subs, known, accHref, groups, section, agentName, topics, listedNotes, isIndexNote, moduleList, viewList, moduleByRoute, viewById, kbIndex, lifeIndex } from "./data.js";
 import { pageTabs } from "./page-tabs.js";
 import { legacyTarget, routeOfModule, moduleNoteStats, todayStamp } from "./module-model.js";
+import { annotateEntry } from "./search-model.js";
 import { isOpenTask } from "./core.js";
 import { esc, noteHref } from "./ui.js";
 import pToday from "./pages/today.js";
@@ -14,6 +15,7 @@ import pAgents from "./pages/agents.js";
 import pSettings from "./pages/settings.js";
 import pAccount from "./pages/account.js";
 import pOverview from "./pages/overview.js";
+import pTimeline from "./pages/timeline.js";
 import { renderSurface } from "./pages/surface.js";
 import { life as pLife, journal as pJournal } from "./pages/folders.js";
 
@@ -23,7 +25,7 @@ function navItems() {
   if (!mods) return SECTION_NAV;
   return [["overview", "总览"], ...mods.map(m => [routeOfModule(m.id), m.title]), ...viewList().map(v => [v.id, v.title]), ["topics", "主题"]];
 }
-const PAGES = { overview: pOverview, today: pToday, plan: pPlan, topics: pTopics, life: pLife, journal: pJournal, knowledge: pKnowledge, accounts: pMoney, agents: pAgents, settings: pSettings, account: pAccount };
+const PAGES = { overview: pOverview, today: pToday, plan: pPlan, topics: pTopics, life: pLife, journal: pJournal, knowledge: pKnowledge, accounts: pMoney, agents: pAgents, settings: pSettings, account: pAccount, timeline: pTimeline };
 const ALIAS = { kb: "knowledge", assets: "accounts", affairs: "plan", workcontent: "agents", sources: "settings", logs: "journal" };
 const NAV_OF = { account: "accounts" };
 const ICON_SUN = `<svg class="th-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`;
@@ -82,23 +84,58 @@ function searchIndex() {
   const boardHref = `#${legacyTarget("plan", "board", moduleList()) || "plan/board"}`;
   const agentHref = `#${legacyTarget("agents", "agents", moduleList()) || "agents"}`;
   for (const t of tasks()) idx.push({ kind: "任务", title: t.title, sub: `${t.owner === "user" ? "我" : agentName(t.owner)} · ${t.status}${t.due ? ` · ${t.due}` : t.due_event ? ` · ${t.due_event}` : ""}`, href: t.owner === "user" ? boardHref : agentHref });
-  for (const r of records) idx.push({ kind: "笔记", title: r.title, sub: `${r.root}://${r.origin?.source_path}`, href: noteHref(r) });
+  idx.push({ kind: "页面", title: "时间线", href: "#timeline", low: 1 });
   return idx;
 }
+let NOTES = null;
+function ensureNotes() {
+  if (NOTES) return Promise.resolve(NOTES);
+  return Promise.all([kbIndex(), lifeIndex()]).then(([kb, life]) => { NOTES = [...kb, ...life].map(x => annotateEntry(x, moduleList() || [], topics())); return NOTES; });
+}
+function noteItems() {
+  const rows = NOTES || records.map(r => ({ id: r.id, title: r.title, root: r.root, path: r.origin?.source_path, updated: r.updated, text: "", modules: [], topics: [], tags: [] }));
+  return rows.map(x => ({ kind: "笔记", title: x.title, sub: `${x.root}://${x.path || ""}`, href: noteHref({ id: x.id }), text: x.text || "", modules: x.modules || [], topics: x.topics || [], root: x.root, updated: x.date || x.updated, low: 1 }));
+}
+const kFilter = { source: "", module: "", topic: "", from: "", to: "" };
 let IDX, kSel = 0, kRes = [];
 const kEl = document.createElement("div"); kEl.className = "cmdk"; kEl.hidden = true;
-kEl.innerHTML = `<div class="kbox" role="dialog" aria-label="搜索"><div class="kin"><input placeholder="搜索页面、计划、账号、订阅、笔记…" autocomplete="off"><kbd>esc</kbd></div><div class="klist"></div></div>`;
+kEl.innerHTML = `<div class="kbox" role="dialog" aria-label="搜索"><div class="kin"><input placeholder="搜索页面、计划、账号、订阅、笔记正文…" autocomplete="off"><kbd>esc</kbd></div><div class="kfilters"><select data-k="source"><option value="">来源</option><option value="life">生活</option><option value="kb">知识库</option></select><select data-k="module"><option value="">模块</option></select><select data-k="topic"><option value="">主题</option></select><input data-k="from" type="date" aria-label="从"><input data-k="to" type="date" aria-label="到"></div><div class="klist"></div></div>`;
+for (const m of moduleList() || []) kEl.querySelector("[data-k=module]").insertAdjacentHTML("beforeend", `<option value="${esc(m.id)}">${esc(m.title)}</option>`);
+for (const t of topics()) kEl.querySelector("[data-k=topic]").insertAdjacentHTML("beforeend", `<option value="${esc(t.id)}">${esc(t.title)}</option>`);
+kEl.querySelector(".kfilters").addEventListener("change", e => { const el = e.target.closest("[data-k]"); if (!el) return; kFilter[el.dataset.k] = el.value; kSel = 0; kRender(); });
 document.body.appendChild(kEl);
 const kIn = kEl.querySelector("input"), kList = kEl.querySelector(".klist");
 function kRender() {
   const raw = kIn.value.trim(), q = raw.toLowerCase(); IDX ||= searchIndex();
-  const score = x => { const t = String(x.title ?? "").toLowerCase(), s = String(x.sub ?? "").toLowerCase(); if (!q) return x.kind === "页面" && !x.low ? 1 : 0; return t.startsWith(q) ? 3 : t.includes(q) ? 2 : s.includes(q) ? 1 : 0; };
-  kRes = IDX.map(x => [score(x), x]).filter(([s]) => s > 0).sort((a, b) => b[0] - a[0]).slice(0, 40).map(([, x]) => x);
-  if (q) kRes.push({ kind: "全文", title: `全文搜索 “${raw}”`, sub: "知识", href: `#knowledge/search?q=${encodeURIComponent(raw)}` });
+  if (!NOTES) ensureNotes().then(() => { if (!kEl.hidden) kRender(); });
+  const filtering = Object.values(kFilter).some(Boolean);
+  const notes = noteItems().filter(x => {
+    if (kFilter.source && x.root !== kFilter.source) return false;
+    if (kFilter.module && !x.modules.includes(kFilter.module)) return false;
+    if (kFilter.topic && !x.topics.includes(kFilter.topic)) return false;
+    const d = String(x.updated || "").slice(0, 10);
+    if (kFilter.from && (!d || d < kFilter.from)) return false;
+    if (kFilter.to && (!d || d > kFilter.to)) return false;
+    return true;
+  });
+  const terms = q.split(/\s+/).filter(Boolean);
+  const score = x => {
+    const blob = `${x.title || ""} ${x.sub || ""} ${x.kind === "笔记" ? x.text || "" : ""}`.toLowerCase();
+    if (!terms.length) return x.kind === "笔记" ? (filtering ? 1 : 0) : (x.kind === "页面" && !x.low ? 1 : 0);
+    if (!terms.every(w => blob.includes(w))) return 0;
+    const t = String(x.title || "").toLowerCase();
+    return terms.every(w => t.includes(w)) ? (t.startsWith(terms[0]) ? 3 : 2) : 1;
+  };
+  kRes = [...IDX, ...notes].map(x => [score(x), x]).filter(([s]) => s > 0).sort((a, b) => b[0] - a[0] || String(b[1].updated || "").localeCompare(String(a[1].updated || ""))).slice(0, 40).map(([, x]) => x);
+  const params = new URLSearchParams();
+  if (raw) params.set("q", raw);
+  for (const [k, v] of Object.entries(kFilter)) if (v) params.set(k, v);
+  if (raw || filtering) kRes.push({ kind: "全文", title: `打开搜索页 “${raw || "当前筛选"}”`, sub: "生活 + 知识库", href: `#knowledge/search?${params}` });
   kSel = Math.min(kSel, Math.max(0, kRes.length - 1));
   const groups = [...new Set(kRes.map(x => x.kind))];
   kList.innerHTML = kRes.length ? groups.map(g => `<div class="kg">${g}</div>` + kRes.filter(x => x.kind === g).map(x => { const j = kRes.indexOf(x);
-    return `<a class="ki ${j === kSel ? "sel" : ""}" data-i="${j}" href="${x.href}"><span class="t">${esc(x.title)}</span><span class="s">${esc(x.sub ?? "")}</span></a>`; }).join("")).join("") : `<p class="empty" style="padding:16px">无结果</p>`;
+    const badges = (x.modules || []).map(id => `<span class="pill">${esc((moduleList() || []).find(m => m.id === id)?.title || id)}</span>`).join("");
+    return `<a class="ki ${j === kSel ? "sel" : ""}" data-i="${j}" href="${x.href}"><span class="t">${esc(x.title)}</span>${badges ? `<span class="ov-mods">${badges}</span>` : ""}<span class="s">${esc(x.sub ?? "")}</span></a>`; }).join("")).join("") : `<p class="empty" style="padding:16px">无结果</p>`;
   kList.querySelector(".sel")?.scrollIntoView({ block: "nearest" });
 }
 function openK(q = "") { kEl.hidden = false; kIn.value = q; kSel = 0; kRender(); setTimeout(() => kIn.focus(), 0); }
@@ -107,6 +144,7 @@ kIn.addEventListener("input", () => { kSel = 0; kRender(); });
 kEl.addEventListener("click", e => { if (e.target === kEl || e.target.closest(".ki")) closeK(); });
 addEventListener("keydown", e => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); kEl.hidden ? openK() : closeK(); return; }
+  if (!kEl.hidden && document.activeElement !== kIn && kEl.contains(document.activeElement)) { if (e.key === "Escape") closeK(); return; }
   if (kEl.hidden) { if (e.key === "/" && !/input|textarea|select/i.test(document.activeElement.tagName)) { e.preventDefault(); openK(); } return; }
   if (e.key === "Escape") closeK();
   else if (e.key === "ArrowDown") { kSel = Math.min(kSel + 1, kRes.length - 1); kRender(); e.preventDefault(); }

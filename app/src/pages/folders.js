@@ -2,22 +2,25 @@
 // A source naming a single note is pinned above the folder groups. life:// only — never KB.
 // The folder's own index.md / README.md is the description at the top, not a row. Notes owned by a more specific tab of this same section are left out, with a 另见 hint.
 import { section, filesIn, findLifeNote, M, v9, listedNotes, isIndexNote, folderIntro } from "../data.js";
+import { scopedFolderTabs } from "../module-model.js";
 import { esc, header, tabs, noteHref, box, mainSide, more, seeAlso } from "../ui.js";
 const md = d => String(d ?? "").slice(0, 10);
 const kb = n => n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`;
 const pinOf = u => { const p = String(u).replace(/^life:\/\//, "").replace(/[#?].*$/, ""); return /^life:\/\//.test(u) && !p.endsWith("/") && !p.startsWith("data/") ? findLifeNote(p) || { missing: p } : null; };
 const last = xs => xs.map(r => r.updated).filter(Boolean).sort().at(-1);
-export async function folderPage(secId, title, sub, P) {
+export async function folderPage(secId, title, sub, P, scope) {
   const S = section(secId);
   if (!v9 || !S) return { html: header(title, "", [], "需要 n-life-data schema_version 9 的 data/sections.yaml。") };
-  const T = (S.tabs || []).map(t => { const sources = Array.isArray(t.source) ? t.source : [], pins = sources.map(pinOf).filter(Boolean), listed = listedNotes(secId, t.id);
+  const owned = scope?.entry ? new Set(scopedFolderTabs(scope.entry, secId).map(t => t.tabId)) : null;
+  const T = (S.tabs || []).filter(t => !owned || owned.has(String(t.id))).map(t => { const sources = Array.isArray(t.source) ? t.source : [], pins = sources.map(pinOf).filter(Boolean), listed = listedNotes(secId, t.id);
     const files = listed.dirs.flatMap(filesIn).filter(f => !listed.nestedDirs.some(d => f.path.startsWith(d)));
     return { ...t, pins, ...listed, files, missing: listed.dirs.filter(d => (v9.missing_dirs || []).includes(d)), last: last(listed.notes) }; });
   if (!T.length) return { html: header(title, "", [], "data/sections.yaml 里这个页面没有分页。") };
   const cur = T.find(t => t.id === sub) || T[0];
   const total = T.reduce((n, t) => n + t.notes.length, 0), allLast = T.map(t => t.last).filter(Boolean).sort().at(-1);
-  const head = header(title, "", [`${T.length} 个目录`, "data/sections.yaml"], secId === "journal" ? "日记、周记与工作记录，按时间倒序。" : "生活各领域的笔记与附件，镜像 life:// 目录。", {
-    kpis: [[total, "全部笔记"], [cur.notes.length, `当前 · ${esc(cur.label)}`, { tone: "focus" }], [cur.files.length, "附件"], [md(allLast).slice(5).replace("-", "/") || "—", "最近更新", { sub: esc(md(allLast)) }]] })
+  const lede = scope?.entry ? `${esc(scope.entry.title)}覆盖的笔记与附件。` : (secId === "journal" ? "日记、周记与工作记录，按时间倒序。" : "生活各领域的笔记与附件，镜像 life:// 目录。");
+  const head = header(title, "", [`${T.length} 个目录`, "data/sections.yaml"], lede, {
+    kpis: [[total, scope?.entry ? `${esc(scope.entry.title)}笔记` : "全部笔记"], [cur.notes.length, `当前 · ${esc(cur.label)}`, { tone: "focus" }], [cur.files.length, "附件"], [md(allLast).slice(5).replace("-", "/") || "—", "最近更新", { sub: esc(md(allLast)) }]] })
     + tabs(secId, T.map(t => [t.id, t.label, t.notes.length || ""]), cur.id);
   // group by the first path segment below the tab folder (journal/daily/2026/05 → "2026/05"; work/reports/2026-06 → "2026-06")
   const big = cur.notes.length > 60; // large trees (work/projects): one box per top subfolder, first rows + 展开
@@ -36,9 +39,10 @@ export async function folderPage(secId, title, sub, P) {
   const pinned = pinRows.length ? box({ title: "索引", meta: "MOC · data/sections.yaml", cls: "focus", flush: true, body: `<div class="rows">${pinRows.map(p => p.missing ? `<div class="row r3"><span class="t">life://${esc(p.missing)}</span><span class="tag">未找到</span><span class="tag"></span></div>` : nrow(p)).join("")}</div>` }) : "";
   const intro = await folderIntro(cur.dirs);
   const main = intro + seeAlso(secId, cur.see) + pinned + (cur.missing.length && !cur.notes.length && !intro ? box({ title: esc(cur.label), body: `<p class="empty">${cur.missing.map(d => `life://${esc(d)}`).join("、")} 目录还不存在。</p>` }) : "") + blocks;
+  const railBase = scope?.route || secId;
   const side = box({ title: "目录", body: `<dl class="mini-kv"><dt>来源</dt><dd>${cur.dirs.map(d => `<span class="mono sm">life://${esc(d)}</span>`).join("<br>")}</dd><dt>笔记</dt><dd>${cur.notes.length}</dd><dt>附件</dt><dd>${cur.files.length}</dd><dt>最近更新</dt><dd>${esc(md(cur.last)) || "—"}</dd></dl>`, footer: extra.replace(/<\/?p[^>]*>/g, "") })
-    + box({ title: `全部${title}目录`, flush: true, body: `<div class="rows">${T.map(t => `<a class="row r2" href="#${secId}/${t.id}"${t.id === cur.id ? ' style="background:var(--accent-soft)"' : ""}><span class="t">${esc(t.label)}</span><span class="tag">${t.notes.length}</span></a>`).join("")}</div>` });
+    + box({ title: scope?.entry ? `${esc(scope.entry.title)}目录` : `全部${title}目录`, flush: true, body: `<div class="rows">${T.map(t => `<a class="row r2" href="#${railBase}/${t.id}"${t.id === cur.id ? ' style="background:var(--accent-soft)"' : ""}><span class="t">${esc(t.label)}</span><span class="tag">${t.notes.length}</span></a>`).join("")}</div>` });
   return { html: head + `<div class="body">${mainSide(main || box({ title: esc(cur.label), body: `<p class="empty">空</p>` }), side)}</div>` };
 }
-export const life = (sub, P) => folderPage("life", "生活", sub, P);
-export const journal = (sub, P) => folderPage("journal", "记录", sub, P);
+export const life = (sub, P, _rest, scope) => folderPage("life", "生活", sub, P, scope);
+export const journal = (sub, P, _rest, scope) => folderPage("journal", "记录", sub, P, scope);

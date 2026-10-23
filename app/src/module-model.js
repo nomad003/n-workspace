@@ -90,6 +90,11 @@ function covered(spec, record) {
   return bare === spec.prefix || bare.startsWith(spec.prefix + "/") || path.startsWith(spec.prefix + "/");
 }
 
+export function matchesPaths(paths, record) {
+  const specs = (paths || []).map(pathSpec).filter(Boolean);
+  return specs.some(s => covered(s, record));
+}
+
 export function notesForPaths(paths, records) {
   const specs = (paths || []).map(pathSpec).filter(Boolean);
   const seen = new Set(), out = [];
@@ -99,6 +104,34 @@ export function notesForPaths(paths, records) {
     seen.add(r.id); out.push(r);
   }
   return out;
+}
+
+export function moduleIdsForRecord(modules, record) {
+  return (modules || []).filter(m => matchesPaths(m.paths, record)).map(m => m.id);
+}
+
+function uriMatchesRecord(uri, record) {
+  const s = String(uri || "").trim().replace(/^<|>$/g, "");
+  const m = s.match(/^(kb|life):\/\/([\s\S]+)$/);
+  if (!m) return false;
+  const body = m[2].replace(/[#?].*$/, "").replace(/\/+$/, "").replace(/\.md$/i, "");
+  const path = String(record?.origin?.source_path || "").replace(/\.md$/i, "");
+  return record?.root === m[1] && (path === body || path === `${body}/index`);
+}
+
+export function topicIdsForRecord(topics, record) {
+  const out = [];
+  for (const t of topics || []) {
+    const refs = [t.narrative, ...(t.links?.notes || []), ...(t.resources || []).map(r => r.ref)];
+    if (matchesPaths(t.paths, record) || refs.some(u => uriMatchesRecord(u, record))) out.push(t.id);
+  }
+  return out;
+}
+
+// Folder tabs of one section that this module or view owns. Null means "no scope, show the whole section".
+export function scopedFolderTabs(entry, sectionId) {
+  if (!entry) return null;
+  return (entry.resolved || []).filter(t => !t.missing && t.sectionId === sectionId);
 }
 
 export function moduleNoteStats(entry, records, today) {
