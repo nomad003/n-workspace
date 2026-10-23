@@ -3,6 +3,7 @@
 import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto"; import * as yaml from "js-yaml"; import { marked } from "marked"; import { loadV9, loadTopics, mask } from "./v9.mjs";
 import { fallbacks, setLegacyPaths, legacyPaths, choosePrefixes, noteFallback, drainFallbackWarnings, LIFE_INDEX } from "../app/src/life-paths.js";
 import { tabWarnings } from "../app/src/page-tabs.js";
+import { buildTimeline, timelineCounts } from "../app/src/timeline-model.js";
 import { toItems, normalize, isPublic, match, overview, known } from "../app/src/core.js";
 import { extractUris, linkContext, normalizeUriPath, resolveUri } from "../app/src/kb-uri.js";
 
@@ -283,7 +284,7 @@ for (const r of shown) {
   fs.writeFileSync(path.join(OUT, "notes", f + ".json"), JSON.stringify({ id: r.id, html: renderNote(r) }));
   r.file = f;
   (r.root === "life" ? lifeIndex : kbIndex).push({ id: r.id, slug: r.slug, f, title: r.title, root: r.root, path: r.origin.source_path, area: r.area ?? null, type: r.type ?? null, status: r.status ?? null,
-    maturity: r.maturity ?? null, tags: r.tags, updated: r.updated ?? null, links: r.links.filter(l => l.id).map(l => l.id), backlinks: r.backlinks, text: plain(r._text).slice(0, 30000) });
+    maturity: r.maturity ?? null, tags: r.tags, updated: r.updated ?? null, date: /^\d{4}-\d{2}-\d{2}/.test(String(r.date || "")) ? String(r.date).slice(0, 10) : (r.updated ?? null), links: r.links.filter(l => l.id).map(l => l.id), backlinks: r.backlinks, text: plain(r._text).slice(0, 30000) });
 }
 fs.writeFileSync(path.join(OUT, "kb-index.json"), JSON.stringify(kbIndex)); // KB only (知识)
 fs.writeFileSync(path.join(OUT, "life-index.json"), JSON.stringify(lifeIndex)); // life notes (生活 / 记录 / 计划)
@@ -324,14 +325,18 @@ for (const t of TOPICS) {
   if (/^kb:\/\//.test(t.narrative ?? "")) warnings.push(`topics: ${t.id}: narrative is a KB note (topics link to KB as resources only)`);
 }
 if (V9) bundle.v9 = { schema_version: 9, topics: TOPICS, groups: V9.groups, plans: V9.plans, reviews: V9.reviews, sections: V9.sections, modules: V9.modules, views: V9.views, missing_dirs: V9.missingDirs, files: V9.files, dirs: [...lifeDirs].sort(), updated: V9.updated };
+const timeline = buildTimeline({ records: shown, topics: TOPICS, tasks: V9?.tasks || [], reviews: V9?.reviews || [], modules: V9?.modules || [] });
+const timelineStat = timelineCounts(timeline);
 for (const w of drainFallbackWarnings()) if (!warnings.includes(w)) warnings.push(w);
 fs.writeFileSync(path.join(OUT, "bundle.json"), JSON.stringify(bundle));
+fs.writeFileSync(path.join(OUT, "timeline.json"), JSON.stringify(timeline));
 const size = f => (fs.statSync(path.join(OUT, f)).size / 1024).toFixed(0) + " KB";
 console.log(`roots: kb=${fs.existsSync(KB_ROOT)} (${sources[1].meta?.commit?.slice(0, 7) ?? "?"}) life=${hasLife} (${sources[0].meta?.commit?.slice(0, 7) ?? "?"}); links ${records.reduce((a, r) => a + r.links.length, 0)} (${broken} unresolved)`);
 console.log(`notes: ${records.length} (kb ${records.filter(r => r.root === "kb").length}, life ${records.filter(r => r.root === "life").length}); ${shown.length} included, private ${showPrivate ? "SHOWN" : "hidden"}`);
-console.log(`files: bundle.json ${size("bundle.json")}, kb-index.json ${size("kb-index.json")} (${kbIndex.length}), life-index.json ${size("life-index.json")} (${lifeIndex.length}), notes/ ${kbIndex.length + lifeIndex.length} files`);
+console.log(`files: bundle.json ${size("bundle.json")}, kb-index.json ${size("kb-index.json")} (${kbIndex.length}), life-index.json ${size("life-index.json")} (${lifeIndex.length}), timeline.json ${size("timeline.json")} (${timeline.length}), notes/ ${kbIndex.length + lifeIndex.length} files`);
 console.log(V9 ? `v9: ${V9.accounts.length} accounts · ${V9.groups.length} groups · ${V9.subscriptions.length} subs (${V9.subscriptions.filter(x => x.account_id).length} linked) · ${V9.tasks.length} tasks · ${V9.plans.length} plans · ${V9.reviews.length} reviews · ${V9.sections.length} sections · ${V9.modules ? `${V9.modules.length} modules` : "no modules"} · ${(V9.views || []).length} views` : "v8 data (schema_version != 9)");
 console.log(`data: ${dataFiles.map(d => `${d.name}=${d.root ?? "missing"}:${d.items}`).join(" ")}`);
 console.log(`attachments: ${served.size} resolved (${FILES.life.length} life / ${FILES.kb.length} kb files), ${attBroken.length} missing; boundary kb→life: ${boundary.length}`);
 console.log(`overview: ${bundle.overview.upcoming.length} upcoming, ${bundle.overview.alerts.length} alerts`);
+console.log(`timeline: ${timelineStat.total} events · ${Object.entries(timelineStat.byModule).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(" · ")}`);
 for (const w of warnings) console.warn("warn:", w);
