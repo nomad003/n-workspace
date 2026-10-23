@@ -1,7 +1,9 @@
 // 总览: one card per module, then the topic axis. Read-only. No amounts.
-import { records, topics, moduleList, loadRollups } from "../data.js";
+import { records, topics, moduleList, loadRollups, loadCoverage } from "../data.js";
 import { rollupCard } from "./rollup-card.js";
 import { moduleNoteStats, topicCounts, topicModuleIds, ageTone, routeOfModule, daysSince, todayStamp } from "../module-model.js";
+import { activityAgeText, structuralCue, structuralLabel } from "../analysis-model.js";
+import { latestStructuralDate } from "../timeline-model.js";
 import { esc, header } from "../ui.js";
 import { stale as topicStale } from "./topics.js";
 
@@ -35,24 +37,29 @@ function topicRow(t, mods, today) {
 export default async function overview() {
   const mods = moduleList();
   const today = todayStamp();
-  const roll = rollupCard(await loadRollups());
+  const [rollups, cov] = await Promise.all([loadRollups(), loadCoverage()]);
+  const roll = rollupCard(rollups);
+  const clock = cov?.today || today;
   if (!mods) return { html: header("总览", "", [], "这份数据还没有模块。", { actions: [["时间线", "#timeline"], ["分析", "#analysis"]] }) + (roll ? `<div class="body ov">${roll}</div>` : "") };
   const all = topics();
   const cards = mods.map(m => {
-    const stats = moduleNoteStats(m, records, today);
+    const stats = moduleNoteStats(m, records, clock);
+    const real = cov?.modules?.find(x => x.id === m.id);
     const counts = topicCounts(m.id, all);
-    const tone = ageTone(stats.days);
+    const tone = ageTone(real?.days);
     const owners = (m.owners || []).join(" · ");
+    const cue = structuralLabel(structuralCue(latestStructuralDate(m.paths, records), real?.last, clock));
     return `<a class="ov-card" href="#${routeOfModule(m.id)}">
       <div class="ov-kicker">模块</div>
       <h2>${esc(m.title)}</h2>
       <p class="ov-own">${owners ? esc(owners) : "未指定负责 bot"}</p>
       <dl class="ov-stats">
         <div><dt>笔记</dt><dd>${stats.count}</dd></div>
-        <div><dt>最近更新</dt><dd>${esc(stats.latest || "—")}</dd></div>
-        <div><dt>距上次更新</dt><dd class="age ${tone}">${ageText(stats.days)}</dd></div>
+        <div><dt>最近更新</dt><dd>${esc(real?.last || "—")}</dd></div>
+        <div><dt>距上次更新</dt><dd class="age ${tone}">${esc(real ? activityAgeText(real.days, real.status) : "—")}</dd></div>
         <div><dt>主题</dt><dd>${counts.active} 进行中 · ${counts.proposed} 提议</dd></div>
       </dl>
+      ${cue ? `<p class="ov-struct">${esc(cue)}</p>` : ""}
     </a>`;
   }).join("");
   const proposed = all.filter(t => t.status?.lifecycle === "proposed").sort((a, b) => String(b.last).localeCompare(String(a.last)));

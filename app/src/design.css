@@ -541,6 +541,13 @@ details.more>:not(summary){margin:0 14px 14px}
 .cov-head{color:var(--text-3);font-size:11px;letter-spacing:.04em}
 .cov-head .th.on{color:var(--text);font-weight:650}
 .st-stale,.st-stop{color:var(--accent)}
+.st-prop{color:var(--text-3)}
+.cov-prop a{color:var(--text-2)}
+.cov-split{color:var(--text-3);font-size:11px;letter-spacing:.04em}
+.ov-sec .toggle{margin-left:12px;font-weight:500;letter-spacing:0;color:var(--text-3);font-size:13px}
+.ov-struct{margin:0;color:var(--text-3);font-size:12px;font-weight:500}
+.lede.act{margin-top:6px;color:var(--text-2);font-size:14px}
+.lede.act .ov-struct{margin-left:8px}
 .miss{margin:12px 0 0;padding-left:18px;color:var(--text-2)}
 .miss li{margin:4px 0}
 .wkbar{display:flex;gap:6px;align-items:flex-end;height:78px}

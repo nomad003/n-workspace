@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { activityStatus, analysisStats, buildCoverage, buildRollups, planMonths, totalOf } from "../app/src/analysis-model.js";
-import { weekKey } from "../app/src/timeline-model.js";
+import { activityAgeText, activityStatus, analysisStats, buildCoverage, buildRollups, orderCoverage, planMonths, structuralCue, structuralLabel, totalOf } from "../app/src/analysis-model.js";
+import { latestStructuralDate, weekKey } from "../app/src/timeline-model.js";
 
 assert.deepEqual(planMonths("2026-10"), ["2026-10"]);
 assert.deepEqual(planMonths("2026-Q4"), ["2026-10", "2026-11", "2026-12"]);
@@ -82,11 +82,38 @@ assert.equal(running.missing.includes(weekKey("2026-10-13")), false);
 assert.equal(running.missing.includes(weekKey("2026-10-20")), false);
 assert.ok(running.missing.length >= 1);
 assert.ok(cov.topics.find(t => t.id === "money").missing.includes("2026-10"));
-assert.equal(cov.topics.find(t => t.id === "desk").missing.length, 0);
+const desk = cov.topics.find(t => t.id === "desk");
+assert.equal(desk.status, "提议");
+assert.equal(desk.lifecycle, "proposed");
+assert.equal(desk.missing.length, 0);
+assert.equal(cov.topics.find(t => t.id === "money").status, "停滞");
 assert.ok(cov.missingReviews.some(r => r.id === "w" && r.kind === "weekly" && r.period === weekKey("2026-10-23")));
 assert.equal(cov.missingReviews.some(r => r.period === "2026-Q4"), false);
+const ordered = orderCoverage(cov.modules, cov.topics, { sort: "days", dir: "desc" });
+assert.equal(ordered.at(-1).id, "desk");
+assert.notEqual(ordered[0].id, "desk");
+assert.equal(orderCoverage(cov.modules, cov.topics, { hideProposed: true }).some(r => r.id === "desk"), false);
+const periods = cov.topics.reduce((n, t) => n + t.missing.length, 0);
+assert.equal(periods, running.missing.length + cov.topics.find(t => t.id === "money").missing.length);
 const stats = analysisStats(roll, cov);
 assert.match(stats.line, /this month 4/);
+assert.match(stats.coverage, /modules 活跃 2 · 偏久 0 · 停滞 1/);
+assert.match(stats.coverage, /topics 活跃 1 · 偏久 0 · 停滞 1 · 提议 1/);
 assert.match(stats.coverage, /missing reviews 1/);
+assert.equal(activityAgeText(57, "停滞"), "57 天 · 停滞");
+assert.equal(activityAgeText(null, "停滞"), "停滞");
+assert.equal(activityAgeText(7, "活跃"), "7 天");
+assert.equal(structuralCue("2026-10-16", "2026-08-27", "2026-10-23"), 7);
+assert.equal(structuralCue("2026-08-01", "2026-08-27", "2026-10-23"), null);
+assert.equal(structuralCue("2026-08-27", "2026-08-27", "2026-10-23"), null);
+assert.equal(structuralLabel(7), "结构更新 7 天前");
+const recs = [
+  { root: "life", updated: "2026-10-16", origin: { source_path: "work/REORG.md" } },
+  { root: "life", updated: "2026-10-20", origin: { source_path: "work/note.md" } },
+  { root: "life", updated: "2026-10-22", origin: { source_path: "work/index.md" } },
+  { root: "life", updated: "2026-09-01", origin: { source_path: "life/health/sleep.md" } },
+];
+assert.equal(latestStructuralDate(["work"], recs), "2026-10-22");
+assert.equal(latestStructuralDate(["life/health"], recs), null);
 
 console.log("analysis: ok");

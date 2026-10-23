@@ -16,6 +16,30 @@ export function activityStatus(days) {
   return "活跃";
 }
 
+export function activityAgeText(days, status) {
+  if (status === "提议") return "提议";
+  if (days == null) return status === "停滞" ? "停滞" : "—";
+  const n = Math.max(0, days);
+  if (status === "停滞") return n === 0 ? "今天 · 停滞" : `${n} 天 · 停滞`;
+  if (status === "偏久") return n === 0 ? "今天 · 偏久" : `${n} 天 · 偏久`;
+  return n === 0 ? "今天" : `${n} 天`;
+}
+
+// Days since a structural touch that is newer than the last real activity. Null when there is nothing extra to show.
+export function structuralCue(structuralDate, realDate, today) {
+  const s = iso(structuralDate);
+  if (!s) return null;
+  const real = iso(realDate);
+  if (real && s <= real) return null;
+  const days = daysSince(s, iso(today) || today);
+  return days == null ? null : Math.max(0, days);
+}
+
+export function structuralLabel(days) {
+  if (days == null) return "";
+  return days <= 0 ? "结构更新今天" : `结构更新 ${days} 天前`;
+}
+
 const iso = v => /^\d{4}-\d{2}-\d{2}/.test(String(v || "")) ? String(v).slice(0, 10) : "";
 
 export function addDays(date, n) {
@@ -238,7 +262,13 @@ export function buildCoverage({ events = [], topics = [], modules = [], reviews 
       dates: real.filter(e => idsOf(e, "topic").includes(t.id)).map(e => e.date),
     });
     const mods = [...new Set([t.module, ...(t.modules || [])].filter(Boolean))];
-    return { ...row, modules: mods, lifecycle: t.status?.lifecycle || null, missing: missingLogs(t, day, weeks) };
+    const lifecycle = t.status?.lifecycle || null;
+    const proposed = lifecycle === "proposed";
+    return {
+      ...row, modules: mods, lifecycle,
+      status: proposed ? "提议" : row.status,
+      missing: proposed ? [] : missingLogs(t, day, weeks),
+    };
   });
   const wstart = weekStart(day), wend = addDays(wstart, 6);
   const missingReviews = [];
@@ -254,13 +284,39 @@ export function buildCoverage({ events = [], topics = [], modules = [], reviews 
   return { today: day, weeks: weeks.map(w => ({ key: w.key, start: w.start })), modules: moduleRows, topics: topicRows, missingReviews };
 }
 
+const isProposed = r => r?.lifecycle === "proposed" || r?.status === "提议";
+
+export function orderCoverage(modules = [], topics = [], { sort = "days", dir = "desc", hideProposed = false } = {}) {
+  const sign = dir === "asc" ? 1 : -1;
+  const val = r => {
+    if (sort === "name") return r.title || r.id || "";
+    if (sort === "weeks") return r.activeWeeks || 0;
+    if (sort === "gap") return r.longestGap ?? (dir === "desc" ? 99999 : -1);
+    return r.days ?? (dir === "desc" ? 99999 : -1);
+  };
+  const main = [
+    ...(modules || []).map(m => ({ ...m, kind: "模块" })),
+    ...(topics || []).filter(t => !isProposed(t)).map(t => ({ ...t, kind: "主题" })),
+  ];
+  main.sort((a, b) => {
+    const x = val(a), y = val(b);
+    if (typeof x === "string") return x.localeCompare(y) * sign;
+    return (x - y) * sign || String(a.title || "").localeCompare(String(b.title || ""));
+  });
+  if (hideProposed) return main;
+  const extra = (topics || []).filter(isProposed).map(t => ({ ...t, kind: "主题" }));
+  extra.sort((a, b) => String(a.title || "").localeCompare(String(b.title || "")));
+  return main.concat(extra);
+}
+
 export function analysisStats(rollups, coverage) {
   const week = rollups?.weeks?.find(w => w.key === rollups.current?.week);
   const month = rollups?.months?.find(m => m.key === rollups.current?.month);
   const tally = rows => {
-    const n = { 活跃: 0, 偏久: 0, 停滞: 0 };
-    for (const r of rows || []) n[r.status] = (n[r.status] || 0) + 1;
-    return `活跃 ${n.活跃} · 偏久 ${n.偏久} · 停滞 ${n.停滞}`;
+    const n = { 活跃: 0, 偏久: 0, 停滞: 0, 提议: 0 };
+    for (const r of rows || []) if (r?.status in n) n[r.status] += 1;
+    const base = `活跃 ${n.活跃} · 偏久 ${n.偏久} · 停滞 ${n.停滞}`;
+    return n.提议 ? `${base} · 提议 ${n.提议}` : base;
   };
   const missingPeriods = (coverage?.topics || []).reduce((n, t) => n + (t.missing?.length || 0), 0);
   return {
