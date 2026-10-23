@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { activityAgeText, activityStatus, analysisStats, buildCoverage, buildRollups, orderCoverage, planMonths, structuralCue, structuralLabel, totalOf } from "../app/src/analysis-model.js";
+import { activityAgeText, activityStatus, analysisStats, buildCoverage, buildRollups, comparePeriods, effortKind, effortMonths, instanceStatus, isoWeekBounds, orderCoverage, planMonths, quarterKey, reviewSnapshot, shiftMonth, shiftQuarter, structuralCue, structuralLabel, totalOf } from "../app/src/analysis-model.js";
 import { latestStructuralDate, weekKey } from "../app/src/timeline-model.js";
 
 assert.deepEqual(planMonths("2026-10"), ["2026-10"]);
@@ -115,5 +115,70 @@ const recs = [
 ];
 assert.equal(latestStructuralDate(["work"], recs), "2026-10-22");
 assert.equal(latestStructuralDate(["life/health"], recs), null);
+
+assert.equal(quarterKey("2026-10-23"), "2026-Q4");
+assert.equal(shiftMonth("2026-01", -1), "2025-12");
+assert.equal(shiftQuarter("2026-Q1", -1), "2025-Q4");
+const w41 = isoWeekBounds("2026-W41");
+assert.equal(w41.start, "2026-10-05");
+assert.equal(w41.end, "2026-10-11");
+assert.equal(weekKey(w41.start), "2026-W41");
+assert.equal(weekKey(w41.end), "2026-W41");
+
+const mods = [{ id: "life", title: "生活" }, { id: "work", title: "工作" }];
+const cmp = comparePeriods({ events, modules: mods, topics, today: "2026-10-23", kind: "month" });
+assert.equal(cmp.current.key, "2026-10");
+assert.equal(cmp.previous.key, "2026-09");
+assert.equal(cmp.yoy, null);
+const lifeRow = cmp.rows.find(r => r.id === "life");
+assert.equal(lifeRow.events, 2);
+assert.ok(lifeRow.deltaEvents >= 1);
+const withYear = comparePeriods({
+  events: [...events, { date: "2025-10-15", type: "note", touch: false, modules: ["life"], topics: [], module: "life" }],
+  modules: mods, topics, today: "2026-10-23", kind: "month",
+});
+assert.equal(withYear.yoy.key, "2025-10");
+assert.equal(withYear.rows.find(r => r.id === "life").yoyEvents, 1);
+assert.equal(comparePeriods({ events, modules: mods, topics, today: "2026-10-23", kind: "quarter" }).current.key, "2026-Q4");
+
+assert.equal(effortKind({ type: "topic", touch: false }), "primary");
+assert.equal(effortKind({ type: "note", touch: false, path: "life/journal/daily/2026-10-13.md" }), "primary");
+assert.equal(effortKind({ type: "kb", touch: false, path: "cs/哈希表.md" }), "note");
+assert.equal(effortKind({ type: "task", touch: false }), null);
+assert.equal(effortKind({ type: "note", touch: true, path: "life/journal/daily/x.md" }), null);
+const effort = effortMonths({
+  events: [...events, { date: "2026-10-14", type: "note", touch: false, path: "life/journal/daily/2026-10-14.md", modules: ["life"], module: "life" }],
+  modules: mods, today: "2026-10-23",
+});
+assert.equal(effort.months.length, 6);
+assert.equal(effort.months.at(-1).key, "2026-10");
+assert.equal(effort.months.at(-1).by.life.primary, 2);
+assert.match(effort.note, /不含 commit/);
+
+assert.equal(instanceStatus({ status: "open", due: "2026-10-04" }, "2026-10-23"), "overdue");
+assert.equal(instanceStatus({ status: "done", due: "2026-10-04" }, "2026-10-23"), "done");
+assert.equal(instanceStatus({ status: "open", due: "2026-12-31" }, "2026-10-23"), "open");
+const snap = reviewSnapshot({
+  events: [
+    { date: "2026-06-20", type: "topic", touch: false, topics: ["fade"], topic: "fade", modules: ["life"], module: "life" },
+    { date: "2026-01-02", type: "note", touch: false, topics: ["back"], topic: "back", modules: ["work"], module: "work" },
+    { date: "2026-09-20", type: "topic", touch: false, topics: ["back"], topic: "back", modules: ["work"], module: "work" },
+    { date: "2026-09-01", type: "note", touch: false, path: "life/health/a.md", topics: [], modules: ["life"], module: "life", title: "跑步", href: "#n" },
+  ],
+  topics: [
+    { id: "fade", title: "淡出", status: { lifecycle: "active" }, entries: [] },
+    { id: "back", title: "回来", status: { lifecycle: "active" }, entries: [{ date: "2026-09-01", kind: "milestone", title: "Chirp 账号建立" }] },
+    { id: "desk", title: "书桌", status: { lifecycle: "proposed" }, entries: [{ date: "2026-09-02", kind: "milestone", title: "忽略" }] },
+  ],
+  tasks, plans, period: "2026-Q3", today: "2026-10-23",
+});
+assert.equal(snap.movement.find(m => m.id === "fade").change, "stale");
+assert.equal(snap.movement.find(m => m.id === "back").change, "recovered");
+assert.equal(snap.movement.some(m => m.id === "desk"), false);
+assert.equal(snap.milestones[0].text, "Chirp 账号建立");
+assert.equal(snap.milestones.some(m => m.topic === "desk"), false);
+assert.equal(snap.notes[0].title, "跑步");
+assert.equal(snap.modules.life, 1);
+assert.equal("amount" in snap, false);
 
 console.log("analysis: ok");

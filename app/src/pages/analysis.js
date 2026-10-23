@@ -1,23 +1,26 @@
 // 分析: cross-module, read-only. Counts only — no amounts.
-import { loadCoverage, loadRollups, moduleList } from "../data.js";
-import { orderCoverage, totalOf } from "../analysis-model.js";
+import { loadCoverage, loadRollups, loadTimeline, moduleList, topics } from "../data.js";
+import { comparePeriods, effortMonths, orderCoverage } from "../analysis-model.js";
 import { routeOfModule } from "../module-model.js";
 import { esc, header } from "../ui.js";
 
 const ST = { 活跃: "live", 偏久: "stale", 停滞: "stop", 提议: "prop" };
 const level = n => n <= 0 ? "l0" : n === 1 ? "l1" : n < 4 ? "l2" : n < 8 ? "l3" : "l4";
 
-function href(sort, dir, hideProposed) {
+function href(sort, dir, hideProposed, cmp) {
   const n = new URLSearchParams();
+  if (cmp && cmp !== "month") n.set("cmp", cmp);
   if (sort && sort !== "days") n.set("sort", sort);
   if (dir === "asc") n.set("dir", "asc");
   if (hideProposed) n.set("prop", "0");
   const s = n.toString();
   return s ? `#analysis?${s}` : "#analysis";
 }
+const delta = n => n == null ? `<span class="muted">—</span>` : n > 0 ? `<span class="up">↑ ${n}</span>` : n < 0 ? `<span class="dn">↓ ${Math.abs(n)}</span>` : `<span class="muted">→ 0</span>`;
+const FILLS = ["#8A6232", "#3E5F86", "#3D6B52", "#B24538", "#5C564E", "#6E4C7A", "#3E6B6B", "#A35D3A", "#8A847C"];
 
 export default async function analysisPage(_sub, P = new URLSearchParams()) {
-  const [roll, cov] = await Promise.all([loadRollups(), loadCoverage()]);
+  const [roll, cov, events] = await Promise.all([loadRollups(), loadCoverage(), loadTimeline()]);
   if (!roll?.weeks || !cov?.modules) return { html: header("分析", "", [], "还没有 rollups.json / coverage.json。运行 npm run demo 或 npm start 后再打开。") };
   const mods = moduleList() || cov.modules.map(m => ({ id: m.id, title: m.title }));
   const name = id => mods.find(m => m.id === id)?.title || cov.modules.find(m => m.id === id)?.title || id;
@@ -28,13 +31,23 @@ export default async function analysisPage(_sub, P = new URLSearchParams()) {
   const heat = `<div class="heat-wrap"><div class="heat" style="grid-template-columns:88px repeat(${weeks.length || 12}, minmax(18px, 1fr))"><span></span>${headCells}${heatRows}</div></div>`;
 
   const cur = roll.months.find(m => m.key === roll.current.month);
-  const prevKey = (() => { const [y, m] = roll.current.month.split("-").map(Number); return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`; })();
-  const prev = roll.months.find(m => m.key === prevKey);
-  const curTotal = totalOf(cur?.total), prevTotal = totalOf(prev?.total);
-  const pct = (b, all) => all ? Math.round(totalOf(b) / all * 100) : 0;
-  const share = cov.modules.map(m => {
-    const a = pct(cur?.modules?.[m.id], curTotal), b = pct(prev?.modules?.[m.id], prevTotal);
-    return `<div class="share-row"><span>${esc(m.title || m.id)}</span><span class="bar" title="本月 ${a}%"><i style="width:${a}%"></i></span><b>${a}%</b><span class="bar dim" title="上月 ${b}%"><i style="width:${b}%"></i></span><span class="muted">${prev ? b + "%" : "—"}</span></div>`;
+  const cmpKind = P.get("cmp") === "quarter" ? "quarter" : "month";
+  const cmp = comparePeriods({ events, modules: mods, topics: topics(), today: roll.today, kind: cmpKind });
+  const yoy = !!cmp.yoy;
+  const cmpHead = `<div class="cmp-row cmp-head"><span>名称</span><span>次数</span><span>活跃周</span><span>次数 Δ</span><span>周 Δ</span>${yoy ? "<span>去年</span><span>去年 Δ</span>" : ""}</div>`;
+  const cmpBody = cmp.rows.map(r => `<div class="cmp-row"><span><b>${esc(r.title)}</b> <span class="muted">${r.kind}</span></span><span class="mono">${r.events}<small class="muted"> / ${r.prevEvents}</small></span><span class="mono">${r.weeks}<small class="muted"> / ${r.prevWeeks}</small></span><span>${delta(r.deltaEvents)}</span><span>${delta(r.deltaWeeks)}</span>${yoy ? `<span class="mono">${r.yoyEvents}</span><span>${delta(r.yoyDeltaEvents)}</span>` : ""}</div>`).join("");
+  const seg = `<div class="seg"><a class="${cmpKind === "month" ? "on" : ""}" href="${href(P.get("sort") || "days", P.get("dir") === "asc" ? "asc" : "desc", P.get("prop") === "0", "month")}">月</a><a class="${cmpKind === "quarter" ? "on" : ""}" href="${href(P.get("sort") || "days", P.get("dir") === "asc" ? "asc" : "desc", P.get("prop") === "0", "quarter")}">季度</a></div>`;
+  const effort = effortMonths({ events, modules: mods, today: roll.today });
+  const used = mods.filter(m => effort.months.some(row => (row.by[m.id]?.primary || 0) + (row.by[m.id]?.note || 0) > 0));
+  const legend = used.map((m, i) => `<span><i style="background:${FILLS[i % FILLS.length]}"></i>${esc(m.title)}</span>`).join("");
+  const bars = effort.months.map(row => {
+    const parts = used.map((m, i) => {
+      const b = row.by[m.id] || { primary: 0, note: 0 };
+      const n = b.primary + b.note;
+      const w = row.total ? n / row.total * 100 : 0;
+      return n ? `<i style="width:${w}%;background:${FILLS[i % FILLS.length]}" title="${esc(m.title)} ${n}（日常/主题 ${b.primary}，笔记 ${b.note}）"></i>` : "";
+    }).join("");
+    return `<div class="ef-row"><span class="mono">${esc(row.key.slice(5))}</span><span class="stack">${parts || ""}</span><span class="mono muted">${row.total}</span></div>`;
   }).join("");
 
   const sort = P.get("sort") || "days";
@@ -45,7 +58,7 @@ export default async function analysisPage(_sub, P = new URLSearchParams()) {
   const th = (key, label) => {
     const next = sort === key && dir === "desc" ? "asc" : "desc";
     const on = sort === key ? " on" : "";
-    return `<a class="th${on}" href="${href(key, next, hideProposed)}">${label}</a>`;
+    return `<a class="th${on}" href="${href(key, next, hideProposed, cmpKind)}">${label}</a>`;
   };
   let marked = false;
   const body = rows.map(r => {
@@ -54,7 +67,7 @@ export default async function analysisPage(_sub, P = new URLSearchParams()) {
     const split = status === "提议" && !marked ? (marked = true, `<div class="cov-row cov-split"><span>提议</span></div>`) : "";
     return `${split}<div class="cov-row${status === "提议" ? " cov-prop" : ""}"><a href="${dest}">${esc(r.title || r.id)}</a><span>${r.kind}</span><span class="mono">${r.days == null ? "—" : r.days}</span><span class="st st-${ST[status] || ""}">${esc(status)}</span><span class="mono">${r.activeWeeks}</span><span class="mono">${r.longestGap == null ? "—" : r.longestGap}</span><span class="mono">${esc(r.last || "—")}</span></div>`;
   }).join("");
-  const toggle = proposedN ? ` <a class="toggle" href="${href(sort, dir, !hideProposed)}">${hideProposed ? `显示 ${proposedN} 个提议` : `收起 ${proposedN} 个提议`}</a>` : "";
+  const toggle = proposedN ? ` <a class="toggle" href="${href(sort, dir, !hideProposed, cmpKind)}">${hideProposed ? `显示 ${proposedN} 个提议` : `收起 ${proposedN} 个提议`}</a>` : "";
   const table = `<div class="cov"><div class="cov-row cov-head">${th("name", "名称")}<span>类型</span>${th("days", "距今")}<span>状态</span>${th("weeks", "活跃周")}${th("gap", "最长间隔")}<span>最近</span></div>${body}</div>`;
 
   const week = roll.weeks.find(w => w.key === roll.current.week);
@@ -65,6 +78,6 @@ export default async function analysisPage(_sub, P = new URLSearchParams()) {
   ];
   const panel = `<div class="roll-g">${pair(`本周 ${esc(roll.current.week)}`, week)}${pair(`本月 ${esc(roll.current.month)}`, cur)}</div>${flags.length ? `<ul class="miss">${flags.map(f => `<li>${esc(f)}</li>`).join("")}</ul>` : `<p class="empty">这一周的复盘和主题节奏都在。</p>`}`;
 
-  return { html: header("分析", "", [`截至 ${esc(roll.today)}`, "只读"], "近 12 周的活动、这个月和上个月的占比、覆盖，以及计划与复盘。跨模块的一条记在每个模块里，占比加起来可以超过 100%。", { actions: [["时间线", "#timeline"], ["总览", "#overview"]] })
-    + `<div class="body an"><h2 class="ov-sec">模块 × 周</h2>${heat}<h2 class="ov-sec">本月 / 上月占比</h2><div class="share"><div class="share-row share-head"><span></span><span>本月</span><span></span><span>上月</span><span></span></div>${share}</div><h2 class="ov-sec">覆盖${toggle}</h2>${table}<h2 class="ov-sec">计划与复盘</h2>${panel}</div>` };
+  return { html: header("分析", "", [`截至 ${esc(roll.today)}`, "只读"], "近 12 周的活动、本期和上一期的对比、模块占比，以及计划与复盘。跨模块的一条记在每个模块里。", { actions: [["时间线", "#timeline"], ["总览", "#overview"]] })
+    + `<div class="body an"><h2 class="ov-sec">模块 × 周</h2>${heat}<h2 class="ov-sec">对比 ${seg}</h2><p class="ov-note">${esc(cmp.current.key)} 对 ${esc(cmp.previous.key)}${yoy ? `，并对照 ${esc(cmp.yoy.key)}` : "。没有去年同期的记录"}。次数旁的小字是上一期。</p><div class="cmp${yoy ? " yoy" : ""}">${cmpHead}${cmpBody}</div><h2 class="ov-sec">投入</h2><p class="ov-note">${esc(effort.note)}</p><div class="ef-leg">${legend}</div><div class="ef">${bars}</div><h2 class="ov-sec">覆盖${toggle}</h2>${table}<h2 class="ov-sec">计划与复盘</h2>${panel}</div>` };
 }

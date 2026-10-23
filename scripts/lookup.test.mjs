@@ -9,7 +9,7 @@ const doc = yaml.load(fs.readFileSync(new URL("../examples/life/data/sections.ya
 const layer = resolveLayer(doc);
 const learn = layer.modules.find(m => m.id === "learn");
 const lifeTabs = scopedFolderTabs(learn, "life").map(t => t.tabId);
-assert.deepEqual(lifeTabs, ["idea", "mind", "english"]);
+assert.deepEqual(lifeTabs, ["mind", "english"]);
 assert.equal(lifeTabs.includes("family"), false);
 assert.equal(scopedFolderTabs(null, "life"), null);
 assert.deepEqual(scopedFolderTabs(layer.modules.find(m => m.id === "work"), "journal").map(t => t.tabId), ["work", "cfwork", "server"]);
@@ -21,6 +21,9 @@ assert.deepEqual(moduleIdsForRecord(layer.modules, lifeNote), ["life"]);
 assert.deepEqual(moduleIdsForRecord(layer.modules, workNote), ["work"]);
 assert.equal(moduleIdsForRecord(layer.modules, workNote).includes("life"), false);
 assert.deepEqual(moduleIdsForRecord(layer.modules, kbNote), ["kb"]);
+assert.deepEqual(moduleIdsForRecord(layer.modules, { root: "life", origin: { source_path: "learn/idea/note.md" } }), ["life"]);
+assert.ok(moduleIdsForRecord(layer.modules, { root: "life", origin: { source_path: "life/journal/daily/2026/10/2026-10-13.md" } }).includes("review"));
+assert.equal(moduleIdsForRecord(layer.modules, { root: "life", origin: { source_path: "accounts/workspace/index.md" } }).includes("accounts"), false);
 
 const topics = [
   { id: "running", title: "跑步", module: "life", paths: ["life/health"], links: { tasks: ["t-run-plan"], notes: [] }, entries: [{ date: "2026-10-13", kind: "metric", title: "周跑量" }] },

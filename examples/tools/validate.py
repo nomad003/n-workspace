@@ -62,25 +62,34 @@ if A.data:
         for p in (D.get("plans") or {}).get("plans", []): x["plans.parent → plans"] += bool(p.get("parent") and p["parent"] not in plans)
         for t in (D.get("tasks") or {}).get("tasks", []):
             x["tasks.plan → plans"] += bool(t.get("plan") and t["plan"] not in plans); x["tasks.parent → tasks"] += bool(t.get("parent") and t["parent"] not in tasks)
-        # modules: six ids, every content tab in exactly one module. topics/* is the topic axis, not a module tab.
-        # views may point at a tab a module already owns.
+        # modules: the nine ids. A content tab sits in exactly one module, except topics/* and tabs absorbed_by another page.
+        # views may be empty or absent. nav items are module ids or built-in page ids.
         sec = D.get("sections") or {}
         mod_list = sec.get("modules") or []
         mod_ids = [m.get("id") for m in mod_list]
-        for i in ("life", "work", "learn", "content", "accounts", "kb"):
-            x["sections.modules: missing " + i] += i not in mod_ids
-        if len(mod_ids) != len(set(mod_ids)): x["sections.modules: duplicate id"] += 1
         defined = {f"{s.get('id')}/{t.get('id')}" for s in (sec.get("sections") or []) for t in (s.get("tabs") or [])}
-        owned = collections.Counter()
-        for m in mod_list:
-            for ref in m.get("tabs") or []:
-                owned[ref] += 1
-                x["sections.modules.tabs → sections"] += ref not in defined
-        for ref in defined:
-            if ref.startswith("topics/"):
-                x["sections: topic-axis tab placed in a module"] += bool(owned[ref])
-                continue
-            x["sections: tab not in exactly one module"] += owned[ref] != 1
+        if mod_list:
+            for i in ("plan", "review", "life", "work", "learn", "content", "accounts", "kb", "team"):
+                x["sections.modules: missing " + i] += i not in mod_ids
+            if len(mod_ids) != len(set(mod_ids)): x["sections.modules: duplicate id"] += 1
+            absorbed = {f"{s.get('id')}/{t.get('id')}" for s in (sec.get("sections") or []) for t in (s.get("tabs") or []) if t.get("absorbed_by")}
+            owned = collections.Counter()
+            for m in mod_list:
+                for ref in m.get("tabs") or []:
+                    owned[ref] += 1
+                    x["sections.modules.tabs → sections"] += ref not in defined
+            for ref in defined:
+                if ref.startswith("topics/"):
+                    x["sections: topic-axis tab placed in a module"] += bool(owned[ref])
+                    continue
+                if ref in absorbed:
+                    x["sections: absorbed tab placed in a module"] += bool(owned[ref])
+                    continue
+                x["sections: tab not in exactly one module"] += owned[ref] != 1
+            builtin = {"overview", "timeline", "analysis", "topics"}
+            for g in sec.get("nav") or []:
+                for item in g.get("items") or []:
+                    x["sections.nav → modules or pages"] += item not in mod_ids and item not in builtin
         for v in sec.get("views") or []:
             for ref in v.get("tabs") or []:
                 x["sections.views.tabs → sections"] += ref not in defined

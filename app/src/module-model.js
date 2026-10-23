@@ -1,8 +1,20 @@
 // Pure module / view model. Sections stay the source of tab labels and sources.
 // `modules` and `views` only name tabs as "sectionId/tabId". Absent modules → the old section nav.
 
-export const MODULE_IDS = ["life", "work", "learn", "content", "accounts", "kb"];
-export const MODULE_ROUTE = { life: "life", work: "work", learn: "learn", content: "content", accounts: "accounts", kb: "knowledge" };
+export const MODULE_IDS = ["plan", "review", "life", "work", "learn", "content", "accounts", "kb", "team"];
+export const MODULE_ROUTE = { life: "life", work: "work", learn: "learn", content: "content", accounts: "accounts", kb: "knowledge", plan: "plan", review: "review", team: "team" };
+export const BUILTIN_NAV = {
+  overview: { title: "总览", href: "#overview" },
+  timeline: { title: "时间线", href: "#timeline" },
+  analysis: { title: "分析", href: "#analysis" },
+  topics: { title: "主题", href: "#topics" },
+};
+export const DEFAULT_NAV = [
+  { id: "board", title: "看板", items: ["overview", "timeline", "analysis"] },
+  { id: "planning", title: "规划", items: ["plan", "review", "topics"] },
+  { id: "domains", title: "领域", items: ["work", "life", "learn", "content"] },
+  { id: "library", title: "资料", items: ["kb", "accounts", "team"] },
+];
 const LEGACY_DEFAULT = { today: "today", plan: "board", journal: "daily", agents: "agents" };
 const INDEX_RE = /(^|\/)(index|README)\.md$/i;
 
@@ -16,6 +28,36 @@ export function tabIndex(sections) {
     map.set(ref, { ref, sectionId: s.id, tabId: String(t.id), label: t.label || t.id, source: Array.isArray(t.source) ? t.source : [], sectionLabel: s.label || s.id });
   }
   return map;
+}
+
+export function absorbedMap(sections) {
+  const out = {};
+  for (const s of sections || []) for (const t of s.tabs || []) if (t?.absorbed_by) out[`${s.id}/${t.id}`] = String(t.absorbed_by);
+  return out;
+}
+
+export function absorbedTarget(raw, sub, sections) {
+  const key = `${raw}/${sub || raw}`;
+  const dest = absorbedMap(sections)[key];
+  if (!dest) return null;
+  return dest === "overview" ? "overview" : dest;
+}
+
+// Groups of module ids and built-in page ids. Null when there is no module layer (the section nav stays).
+export function resolveNav(nav, modules) {
+  if (!modules?.length) return null;
+  const groups = Array.isArray(nav) && nav.length ? nav : DEFAULT_NAV;
+  const byId = new Map(modules.map(m => [m.id, m]));
+  return groups.map(g => ({
+    id: g.id || "",
+    title: g.title || "",
+    items: (g.items || []).map(id => {
+      if (BUILTIN_NAV[id]) return { id, kind: "page", ...BUILTIN_NAV[id] };
+      const m = byId.get(id);
+      if (!m) return null;
+      return { id, kind: "module", title: m.title || id, href: `#${routeOfModule(m.id)}` };
+    }).filter(Boolean),
+  })).filter(g => g.items.length);
 }
 
 function resolveEntry(entry, index) {
@@ -34,10 +76,13 @@ export function resolveLayer(doc) {
   const sections = doc?.sections || [];
   const index = tabIndex(sections);
   const raw = doc?.modules;
-  if (!Array.isArray(raw) || !raw.length) return { modules: null, views: null };
+  if (!Array.isArray(raw) || !raw.length) return { modules: null, views: null, nav: null, absorbed: {} };
+  const modules = raw.map(m => resolveEntry(m, index));
   return {
-    modules: raw.map(m => resolveEntry(m, index)),
+    modules,
     views: (Array.isArray(doc?.views) ? doc.views : []).map(v => resolveEntry(v, index)),
+    nav: Array.isArray(doc?.nav) && doc.nav.length ? doc.nav : null,
+    absorbed: absorbedMap(sections),
   };
 }
 

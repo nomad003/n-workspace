@@ -7,6 +7,29 @@ import { esc, noteHref, header, tabs, box, mainSide, alertList } from "../ui.js"
 import { dueLabel, taskRow } from "./_tasks.js";
 const WD = ["日", "一", "二", "三", "四", "五", "六"];
 const md = d => { const m = String(d).match(/^\d{4}-(\d{2})-(\d{2})/); return m ? `${+m[1]}/${+m[2]}` : esc(d); };
+export function todayDigest() {
+  if (!v9) return "";
+  const now = new Date(), docs = [...(M.profile?.data?.documents || [])];
+  const T = deriveToday({ tasks: tasks(), plans: plansV9(), reviews: reviews(), subs: subs(), docs }, now);
+  const rows = [
+    ...T.overdue.map(t => ({ k: "逾期", c: "late", when: dueLabel(t), t })), ...T.dueToday.map(t => ({ k: "今天到期", c: "soon", when: "今天", t })),
+    ...T.scheduled.map(t => ({ k: "今天安排", c: "soon", when: "今天", t })), ...T.week_.map(t => ({ k: "本周", when: md(t.scheduled || t.due), t })),
+    ...T.thisMonth.map(t => ({ k: "本月", when: `${+String(t.due).slice(5)} 月底`, t })),
+    ...T.renewals.map(({ s }) => ({ k: "续费", when: md(s.renew_date), sub: { title: s.service, s: "即将续费", href: `#account/${encodeURIComponent(s.account_id ?? "")}` } })),
+    ...T.expiring.map(({ d, n }) => ({ k: "证件", c: n < 0 ? "late" : "", when: md(d.expires), sub: { title: d.name, s: n < 0 ? "已过期" : `${n} 天后到期`, href: "#life/profile" } }))];
+  const w2 = weak2fa(M.accounts?.items || []), verify = subs().filter(s => ["verify", "paused", "refund-requested"].includes(s.state));
+  const att = [w2.length && { n: w2.length, w: true, t: "重要账号 2FA 未确认", s: w2.slice(0, 4).map(a => a.service).join("、") + (w2.length > 4 ? " …" : ""), href: "#accounts/security" },
+    verify.length && { n: verify.length, t: "订阅待核实 / 暂停 / 退款", s: verify.map(s => s.service.replace(/\s*[（(].*$/, "")).join(" · "), href: "#accounts/subscriptions" },
+    ...(() => { const tp = topics(), st = tp.filter(topicStale), oi = tp.flatMap(t => (t.open_issues || []).map(i => ({ t, i })));
+      return [st.length && { n: st.length, w: true, t: "主题停滞（超过 2 个周期未记录）", s: st.map(t => t.title.replace(/[（(].*$/, "")).join(" · "), href: "#topics" },
+        oi.length && { n: oi.length, t: "主题中未解决的问题", s: oi.map(x => x.i.title).join(" · "), href: `#topics/${encodeURIComponent(oi[0].t.id)}` }]; })(),
+    T.inbox.length && { n: T.inbox.length, t: "任务没有日期", s: "给它们排一个 due 或 scheduled", href: "#plan/board" }].filter(Boolean);
+  const rowHtml = r => r.t ? `<a class="row" href="#plan/board"><span class="when ${r.c ?? ""}">${esc(r.when)}</span><span class="t">${esc(r.t.title)}</span><span class="tag">${esc(r.k)}</span></a>`
+    : `<a class="row" href="${r.sub.href}"><span class="when ${r.c ?? ""}">${esc(r.when)}</span><span class="t">${esc(r.sub.title)}<span class="s">${esc(r.sub.s)}</span></span><span class="tag">${esc(r.k)}</span></a>`;
+  return `<h2 class="ov-sec">接下来</h2>${rows.length ? `<div class="rows">${rows.slice(0, 8).map(rowHtml).join("")}</div>` : `<p class="empty">今天、本周和本月都没有到期事项。</p>`}
+    <h2 class="ov-sec">需要处理</h2>${att.length ? alertList(att) : `<p class="empty">没有待处理项。</p>`}`;
+}
+
 export default function (sub = "today") {
   if (!v9) return { html: header("今天", "", [], "需要 n-life-data schema_version 9（data/tasks.yaml + plans.yaml）。请设置 LIFE_REF 后重新 npm start。") };
   const now = new Date(), docs = [...(M.profile?.data?.documents || [])];
@@ -15,7 +38,7 @@ export default function (sub = "today") {
     ...T.overdue.map(t => ({ k: "逾期", c: "late", when: dueLabel(t), t })), ...T.dueToday.map(t => ({ k: "今天到期", c: "soon", when: "今天", t })),
     ...T.scheduled.map(t => ({ k: "今天安排", c: "soon", when: "今天", t })), ...T.week_.map(t => ({ k: "本周", when: md(t.scheduled || t.due), t })),
     ...T.thisMonth.map(t => ({ k: "本月", when: `${+t.due.slice(5)} 月底`, t })),
-    ...T.renewals.map(({ s, d }) => ({ k: "续费", when: md(s.renew_date), sub: { title: s.service, s: [s.amount, s.currency].filter(x => x && x !== "待补充").join(" "), href: `#account/${encodeURIComponent(s.account_id ?? "")}` } })),
+    ...T.renewals.map(({ s }) => ({ k: "续费", when: md(s.renew_date), sub: { title: s.service, s: "即将续费", href: `#account/${encodeURIComponent(s.account_id ?? "")}` } })),
     ...T.expiring.map(({ d, n }) => ({ k: "证件", c: n < 0 ? "late" : "", when: md(d.expires), sub: { title: d.name, s: n < 0 ? "已过期" : `${n} 天后到期`, href: "#life/profile" } }))];
   const w2 = weak2fa(M.accounts?.items || []), verify = subs().filter(s => ["verify", "paused", "refund-requested"].includes(s.state));
   const att = [w2.length && { n: w2.length, w: true, t: "重要账号 2FA 未确认", s: w2.slice(0, 4).map(a => a.service).join("、") + (w2.length > 4 ? " …" : ""), href: "#accounts/security" },

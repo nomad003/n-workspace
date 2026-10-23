@@ -91,6 +91,7 @@ export function buildTimeline({ records = [], topics = [], tasks = [], reviews =
       source: r.root,
       title: r.title || r.id,
       href: noteHref(r),
+      path: sourcePath(r),
       modules: kbMods,
       topics: topicsOf,
     });

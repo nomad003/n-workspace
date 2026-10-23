@@ -89,6 +89,182 @@ export function planMonths(period) {
   return [];
 }
 
+export function quarterKey(date) {
+  const d = iso(date);
+  if (!d) return "";
+  return `${d.slice(0, 4)}-Q${Math.ceil(+d.slice(5, 7) / 3)}`;
+}
+
+export function shiftMonth(key, n) {
+  let y = +String(key).slice(0, 4), m = +String(key).slice(5, 7) + n;
+  while (m < 1) { m += 12; y -= 1; }
+  while (m > 12) { m -= 12; y += 1; }
+  return `${y}-${String(m).padStart(2, "0")}`;
+}
+
+export function shiftQuarter(key, n) {
+  const m = String(key).match(/^(\d{4})-Q([1-4])$/);
+  if (!m) return "";
+  let y = +m[1], q = +m[2] + n;
+  while (q < 1) { q += 4; y -= 1; }
+  while (q > 4) { q -= 4; y += 1; }
+  return `${y}-Q${q}`;
+}
+
+export function isoWeekBounds(key) {
+  const m = String(key).match(/^(\d{4})-W(\d{2})$/);
+  if (!m) return null;
+  const jan4 = new Date(Date.UTC(+m[1], 0, 4));
+  const start0 = addDays(jan4.toISOString().slice(0, 10), -((jan4.getUTCDay() + 6) % 7));
+  const start = addDays(start0, (+m[2] - 1) * 7);
+  return start ? { start, end: addDays(start, 6) } : null;
+}
+
+export function periodBounds(period) {
+  const key = String(period || "");
+  if (/^\d{4}-\d{2}$/.test(key)) return { key, start: `${key}-01`, end: monthEnd(key) };
+  if (/^\d{4}-Q[1-4]$/.test(key) || /^\d{4}-H[12]$/.test(key)) {
+    const months = planMonths(key);
+    if (!months.length) return null;
+    return { key, start: `${months[0]}-01`, end: monthEnd(months.at(-1)) };
+  }
+  if (/^\d{4}$/.test(key)) return { key, start: `${key}-01-01`, end: `${key}-12-31` };
+  if (/^\d{4}-W\d{2}$/.test(key)) {
+    const w = isoWeekBounds(key);
+    return w ? { key, ...w } : null;
+  }
+  return null;
+}
+
+const realEvents = events => (events || []).filter(e => !e.touch && iso(e.date));
+const idsOfEvent = (e, key) => (e[key + "s"]?.length ? e[key + "s"] : (e[key] ? [e[key]] : []));
+
+export function comparePeriods({ events = [], modules = [], topics = [], today, kind = "month" } = {}) {
+  const day = iso(today) || new Date().toISOString().slice(0, 10);
+  const quarter = kind === "quarter";
+  const currentKey = quarter ? quarterKey(day) : day.slice(0, 7);
+  const prevKey = quarter ? shiftQuarter(currentKey, -1) : shiftMonth(currentKey, -1);
+  const yoyKey = quarter ? shiftQuarter(currentKey, -4) : shiftMonth(currentKey, -12);
+  const current = periodBounds(currentKey), previous = periodBounds(prevKey), yoyWin = periodBounds(yoyKey);
+  const real = realEvents(events);
+  const has = win => !!win && real.some(e => inRange(e.date, win.start, win.end));
+  const yoy = has(yoyWin) ? yoyWin : null;
+  const stat = (pred, win) => {
+    const xs = win ? real.filter(e => inRange(e.date, win.start, win.end) && pred(e)) : [];
+    return { events: xs.length, weeks: new Set(xs.map(e => weekKey(e.date)).filter(Boolean)).size };
+  };
+  const row = (id, title, rowKind, pred) => {
+    const cur = stat(pred, current), prev = stat(pred, previous), yy = yoy ? stat(pred, yoy) : null;
+    return {
+      id, title, kind: rowKind,
+      events: cur.events, weeks: cur.weeks,
+      prevEvents: prev.events, prevWeeks: prev.weeks,
+      deltaEvents: cur.events - prev.events, deltaWeeks: cur.weeks - prev.weeks,
+      yoyEvents: yy ? yy.events : null, yoyWeeks: yy ? yy.weeks : null,
+      yoyDeltaEvents: yy ? cur.events - yy.events : null, yoyDeltaWeeks: yy ? cur.weeks - yy.weeks : null,
+    };
+  };
+  return {
+    kind: quarter ? "quarter" : "month", today: day, current, previous, yoy,
+    rows: [
+      ...(modules || []).map(m => row(m.id, m.title || m.id, "模块", e => idsOfEvent(e, "module").includes(m.id))),
+      ...(topics || []).filter(t => t.status?.lifecycle !== "proposed").map(t => row(t.id, t.title || t.id, "主题", e => idsOfEvent(e, "topic").includes(t.id))),
+    ],
+  };
+}
+
+// Daily notes and topic logs count first. Other life notes and kb notes count second. Commits are not in the timeline.
+export function effortKind(event) {
+  if (!event || event.touch) return null;
+  if (event.type === "topic") return "primary";
+  const path = String(event.path || "");
+  if ((event.type === "note" || event.type === "kb") && /journal\/daily/.test(path)) return "primary";
+  if (event.type === "note" || event.type === "kb") return "note";
+  return null;
+}
+
+export const EFFORT_NOTE = "日常笔记和主题记录优先计入，其余生活笔记和知识库笔记其次。没有提交数据，所以不含 commit。";
+
+export function effortMonths({ events = [], modules = [], today, count = 6 } = {}) {
+  const day = iso(today) || new Date().toISOString().slice(0, 10);
+  const keys = [];
+  for (let i = count - 1; i >= 0; i--) keys.push(shiftMonth(day.slice(0, 7), -i));
+  const real = realEvents(events);
+  const months = keys.map(key => {
+    const win = periodBounds(key);
+    const by = {};
+    for (const m of modules || []) by[m.id] = { primary: 0, note: 0 };
+    for (const e of real) {
+      if (!inRange(e.date, win.start, win.end)) continue;
+      const kind = effortKind(e);
+      if (!kind) continue;
+      for (const id of idsOfEvent(e, "module")) if (by[id]) by[id][kind] += 1;
+    }
+    const total = Object.values(by).reduce((n, b) => n + b.primary + b.note, 0);
+    return { key, by, total };
+  });
+  return { months, note: EFFORT_NOTE };
+}
+
+export function completionInRange(tasks, plans, start, end) {
+  const hit = (plans || []).filter(p => planMonths(p?.period).some(m => {
+    const ms = `${m}-01`, me = monthEnd(m);
+    return me >= start && ms <= end;
+  }));
+  return {
+    tasks: taskStats(tasks, start, end),
+    plans: { done: hit.filter(p => p.status === "done").length, planned: hit.length },
+  };
+}
+
+function statusAsOf(dates, asOf) {
+  const last = dates.filter(d => d && d <= asOf).sort().at(-1) || null;
+  if (!last) return "停滞";
+  const days = daysSince(last, asOf);
+  return activityStatus(days == null ? null : Math.max(0, days));
+}
+
+export function instanceStatus(inst, today) {
+  if (inst?.status === "done") return "done";
+  if (inst?.status === "skipped") return "skipped";
+  const due = iso(inst?.due), day = iso(today);
+  if (inst?.status === "open" && due && day && due < day) return "overdue";
+  return inst?.status || "open";
+}
+
+export function reviewSnapshot({ events = [], topics = [], tasks = [], plans = [], period, today } = {}) {
+  const win = periodBounds(period);
+  if (!win) return null;
+  const day = iso(today) || win.end;
+  const asOf = win.end < day ? win.end : day;
+  const before = addDays(win.start, -1);
+  const real = realEvents(events);
+  const inWin = real.filter(e => inRange(e.date, win.start, win.end));
+  const modules = {}, topicCounts = {};
+  for (const e of inWin) {
+    for (const id of idsOfEvent(e, "module")) modules[id] = (modules[id] || 0) + 1;
+    for (const id of idsOfEvent(e, "topic")) topicCounts[id] = (topicCounts[id] || 0) + 1;
+  }
+  const movement = [];
+  for (const t of topics || []) {
+    if (t.status?.lifecycle === "proposed") continue;
+    const dates = real.filter(e => idsOfEvent(e, "topic").includes(t.id)).map(e => e.date);
+    if (!dates.some(d => d <= before)) continue;
+    const from = statusAsOf(dates, before), to = statusAsOf(dates, asOf);
+    if (from === "活跃" && (to === "偏久" || to === "停滞")) movement.push({ id: t.id, title: t.title || t.id, change: "stale", from, to });
+    else if ((from === "偏久" || from === "停滞") && to === "活跃") movement.push({ id: t.id, title: t.title || t.id, change: "recovered", from, to });
+  }
+  const milestones = [];
+  for (const t of topics || []) {
+    if (t.status?.lifecycle === "proposed") continue;
+    for (const e of t.entries || []) {
+      if (e.kind === "milestone" && inRange(e.date, win.start, win.end)) milestones.push({ topic: t.id, title: t.title || t.id, text: e.title || "里程碑", date: iso(e.date) });
+    }
+  }
+  const notes = inWin.filter(e => e.type === "note" || e.type === "kb").map(e => ({ title: e.title, href: e.href, date: e.date }));
+  return { period: win, asOf, modules, topics: topicCounts, movement, milestones, notes, ...completionInRange(tasks, plans, win.start, win.end) };
+}
+
 const blank = () => Object.fromEntries(TYPE_KEYS.map(k => [k, 0]));
 const inRange = (date, start, end) => { const d = iso(date); return !!(d && d >= start && d <= end); };
 const isWeekly = r => r?.kind === "weekly" || /FREQ=WEEKLY/.test(r?.rrule || "");
