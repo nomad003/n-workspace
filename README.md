@@ -2,7 +2,7 @@
 
 Personal life/work dashboard: Sections (v9, n-life-data data model v9): **今天** (derived from `data/tasks.yaml` + `plans.yaml` + `subscriptions.yaml`: overdue · due today · scheduled today · this week · this month · quarter progress · renewals · next review · agents) · **计划** (本周/本月 board, goal tree decade → year → half/quarter → tasks, review cadences + instances + `learn/mind/reviews/`, learning under `learn/ai/`) · **生活** and **记录** (tabs come from `data/sections.yaml` and mirror the life folders: life/profile, life/family, life/finance, life/health, life/house, life/travel, learn/idea, learn/mind, learn/english · life/journal, work/cfwork, work/server) · **账号** (身份 → 分类 = `account-groups.yaml` group → subcategory → account → 订阅 linked by `account_id`; plus 安全 and 关系图) · **知识** (n-knowledge-base only; `kb-index.json`) · **Agents** (tasks with `owner: agent:*`, notes in `content/x/` `content/blibli/` `learn/agent/pi/`). Plus **设置**. Hard-coded life paths go through `app/src/life-paths.js`: the path you ask for is used when it exists, otherwise the same note is looked up in the v3 layout, then the bot-domain layout, then the original folders. `data/` stays at the life-repo root.
 
-Data: `scripts/v9.mjs` loads schema_version 9 files (and masks any e-mail / phone it passes through); v8 data still builds (compat path). `kb://<id>` / `life://<id>` resolve by frontmatter `id` first, then path. Build a branch of either root with `KB_REF=… LIFE_REF=… npm start` (default `main`). Indexes: `data/kb-index.json` (KB) and `data/life-index.json` (life).
+Data: `scripts/v9.mjs` loads schema_version 9 files (and masks any e-mail / phone it passes through); v8 data still builds (compat path). `kb://` / `life://` resolve by path first, then frontmatter `id`. Build a branch of either root with `KB_REF=… LIFE_REF=… npm start` (default `main`). Indexes: `data/kb-index.json` (KB) and `data/life-index.json` (life).
 
 Design: calm neutrals, one indigo accent, light/dark; type-led lists instead of KPI strips, no charts on home, placeholders never shown inline (they are collected in 设置 → 数据补全). 2FA "needs attention" is defined once in `core.js` (`twoFaState`, `weak2fa`) and used everywhere. Code: `app/src/main.js` (shell, router, ⌘K) + `app/src/pages/*.js` + `ui.js` / `data.js` / `identity.js`.
 
@@ -24,8 +24,8 @@ Two content roots, fetched as plain folders (not submodules) into gitignored `kb
 * `*_LOCAL=/path/to/clone` copies a local checkout instead of fetching. `KB_ROOT` / `LIFE_ROOT` override the folders the build reads.
 * The life root is optional: if the repo/branch is missing, `npm start` warns and continues with the KB only.
 * Structured data (`data/*.yaml`) is read per file from `LIFE_ROOT/data/`, falling back to the KB's `data/` with a warning.
-* `kb://path` and `life://path` links in notes and data values become in-app links (`#notes?id=…`), with backlinks in the 知识库 detail panel.
-  Paths are relative to the repo root; `.md` is optional; a unique file name also resolves. Encode spaces as `%20`.
+* `kb://<path>` and `life://<path>` in notes and data values become in-app links (`#kb/note?id=…`), with backlinks on the note.
+  The path is relative to that repo's root, uses the real filename (Chinese is fine), omits `.md`, and is not percent-encoded. A path with spaces is wrapped in angle brackets: `[gRPC Args](<kb://backend/network/gRPC/gRPC Args>)`. Parentheses in a name are part of the path (`kb://backend/architecture/限流方案(参考)`). A trailing `/` is a folder (`kb://math/`, `kb://backend/`): open `index.md` in that folder when it exists, otherwise the filtered note list. `kb://<id>` / `life://<id>` still match a frontmatter id when no file has that path. A unique filename matches too.
 * `templates/` (in either root) and template notes are skipped. Life notes without frontmatter are included (area/type = top folder).
 
 | env | default | meaning |
@@ -47,7 +47,7 @@ Works the same on Windows, macOS and Linux (`scripts/demo.mjs` sets the roots it
 `examples/` is a **fully fictional** v9 dataset (Jane Doe, example.com, 138-0000-0000, made-up services and numbers):
 
 * `examples/life/` — fictional n-life-data v3 layout: `data/*.yaml` still at the repo root (schema_version 9: identities, account-groups, 15 accounts, 5 subscriptions linked by `account_id`, plans + reviews, tasks, sections, topics + `topic-logs/*.jsonl` with metric entries, profile, finance, content), notes under `life/` (`profile` `family` `journal` `plan` `records` `health` `finance`), `learn/` (`ai` `idea` `mind/reviews` `agent/pi`), `content/` (`x` `blibli`), `work/` (`cfwork` `server`), plus one image attachment. Frontmatter ids are unchanged.
-* `examples/kb/n-knowledge-base/` — fictional general notes in the current vault layout (`cs/`, `backend/{network,storage,architecture}`, `ai/llm/`, `math/`, `tools/`, `templates/`, `README.md`, `AGENTS.md`) with `kb://` links. Mindset lives in `examples/life/learn/mind/`.
+* `examples/kb/n-knowledge-base/` — fictional general notes in the current vault layout (`cs/`, `backend/{network,storage,architecture}`, `ai/llm/`, `math/`, `tools/`, `templates/`, `README.md`, `AGENTS.md`) with `kb://<path>` links, including a spaced path, a parenthesised name, and a folder link. Mindset lives in `examples/life/learn/mind/`.
 * `examples/schemas/` + `examples/tools/validate.py` — the v9 schemas and validator; `npm run validate-examples` (Python 3 + PyYAML) must report no errors.
 
 Demo mode writes the same `data/` build output as `npm start`; run `npm start` again to go back to your own data.

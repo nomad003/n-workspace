@@ -173,21 +173,72 @@ def scan(root, repo):
             if repo == "kb" and ty in ("task", "daily", "log", "review", "account", "subscription"): err["boundary"][f"kb holds life-type '{ty}'"] += 1
             if repo == "life" and fm.get("area") in ("ai-ml", "game-backend", "cs") and ty == "note": err["boundary"][f"life holds knowledge note area={fm['area']}"] += 1
             for w in re.findall(r"\[\[([^\]|#]+)", t): links.append((rel, w.strip()))
-            for u in re.findall(r"\b(kb|life)://([^\s)>\]'\"]+)", t): links.append((rel, f"{u[0]}://{u[1]}"))
+            for root_name, uri_path in iter_uris(t): links.append((rel, f"{root_name}://{uri_path}"))
     for k, n in ids.items():
         if n > 1: err[f"{repo}:frontmatter"]["duplicate id"] += 1
     return files, ids, stats, links
+def _trim_loose(s):
+    s = re.sub(r"[.,;:]+$", "", s)
+    while s.endswith("）") and s.count("）") > s.count("（"): s = s[:-1]
+    return s
+_URI_STOP = set("]\"'`<>|，。；")
+def iter_uris(t):
+    from urllib.parse import unquote
+    t = re.sub(r"```[\s\S]*?```", "", t); t = re.sub(r"`[^`\n]*`", "", t)
+    i, n = 0, len(t)
+    while i < n:
+        m = re.search(r"(?<![A-Za-z0-9_])(kb|life)://", t[i:])
+        if not m: break
+        at = i + m.start(); root = m.group(1); j = at + len(root) + 3
+        angled = at > 0 and t[at - 1] == "<" and ">" in t[j:]
+        if angled:
+            gt = t.find(">", j); raw = t[j:gt]; i = gt + 1
+        else:
+            depth, k = 0, j
+            while k < n:
+                c = t[k]
+                if c == "\\": k += 2; continue
+                if c == "(": depth += 1; k += 1; continue
+                if c == ")":
+                    if depth == 0: break
+                    depth -= 1; k += 1; continue
+                if c.isspace() or c in _URI_STOP: break
+                k += 1
+            raw = _trim_loose(t[j:k]); i = j + len(raw)
+        raw = unquote(raw).strip().lstrip("/")
+        if raw.startswith("./"): raw = raw[2:]
+        if root == "kb" and raw.startswith("n-knowledge-base/"): raw = raw[len("n-knowledge-base/"):]
+        raw = re.split(r"[?#]", raw, maxsplit=1)[0]
+        if raw: yield root, raw
 REPOS = {}
 for repo, root in (("kb", A.kb), ("life", A.life)):
     if root: REPOS[repo] = scan(root, repo)
 names = {r: {os.path.splitext(os.path.basename(f))[0].lower() for f in v[0]} | {f[:-3].lower() for f in v[0]} for r, v in REPOS.items()}
-allids = {r: set(v[1]) for r, v in REPOS.items()}
+allids = {r: {str(i).lower() for i in v[1]} for r, v in REPOS.items()}
+def _dirs_of(files):
+    out = set()
+    for f in files:
+        parent = os.path.dirname(f.replace("\\", "/"))
+        if not parent or parent == ".": continue
+        acc = ""
+        for seg in parent.split("/"):
+            acc = f"{acc}/{seg}" if acc else seg
+            out.add(acc.lower())
+    return out
+dirs = {r: _dirs_of(v[0]) for r, v in REPOS.items()}
 for repo, (files, _, stats, links) in REPOS.items():
     b = collections.Counter()
     for src, l in links:
         if "://" in l:
-            r, rest = l.split("://", 1); rest = rest.split("#")[0].rstrip("/").lower()
-            if r in names and not (rest in names[r] or rest in allids.get(r, set()) or any(n.startswith(rest) for n in names[r]) or rest.startswith(("data/", "n-knowledge-base/"))): b[f"{r}:// unresolved"] += 1
+            r, rest = l.split("://", 1)
+            if rest.startswith("data/"): continue
+            is_dir = rest.endswith("/")
+            stem = rest[:-1] if is_dir else (rest[:-3] if rest.lower().endswith(".md") else rest)
+            stem_l = stem.lower()
+            rels = names.get(r, set())
+            folder_ok = is_dir and (stem_l in dirs.get(r, set()) or any(n == stem_l or n.startswith(stem_l + "/") for n in rels))
+            file_ok = (not is_dir) and (stem_l in rels or stem_l in allids.get(r, set()))
+            if r in names and not (folder_ok or file_ok): b[f"{r}:// unresolved"] += 1
             if repo == "kb" and r == "life": err["boundary"]["kb note links to life://"] += 1
         else:
             w = l.lower().removesuffix(".md")

@@ -3,6 +3,7 @@
 import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto"; import * as yaml from "js-yaml"; import { marked } from "marked"; import { loadV9, loadTopics, mask } from "./v9.mjs";
 import { fallbacks } from "../app/src/life-paths.js";
 import { toItems, normalize, isPublic, match, overview, known } from "../app/src/core.js";
+import { extractUris, linkContext, normalizeUriPath, resolveUri } from "../app/src/kb-uri.js";
 
 // Two content roots (gitignored, fetched by scripts/fetch-root.sh):
 //   KB_ROOT   = n-knowledge-base (notes keep their frontmatter privacy)
@@ -31,13 +32,15 @@ function frontmatter(t) {
   const m = t.replace(/^\uFEFF/, "").match(/^---\r?\n([\s\S]*?)\r?\n---/); if (!m) return null;
   try { const o = yaml.load(m[1], { schema: yaml.JSON_SCHEMA }); return o && typeof o === "object" ? o : null; } catch { return undefined; }
 }
-// Links: kb://n-knowledge-base/<path> and life://<path> (cross-root, %20-encoded), plus [[wikilinks]] (same root).
-const LINK_RE = /\b(kb|life):\/\/([^\s)\]"'`<>|，。；]+)/g;
+// Links: kb://<path> and life://<path> (real filenames relative to that root, no %20).
+// Spaces use an angle destination, [label](<kb://dir/file name>). Folders end with / (kb://backend/).
+// A ")" inside the name is kept (方案(参考)). Legacy kb://<id> is resolved after the path.
+// A leading n-knowledge-base/ and %20 still parse. Plus [[wikilinks]] (same root).
 const WIKI_RE = /\[\[([^\]|#\n]+?)(?:#[^\]|\n]*)?(?:\|[^\]\n]*)?\]\]/g;
 const ATTACH_RE = /\.(png|jpe?g|gif|webp|svg|pdf|mp4|mov|zip|enc|bin|html?|mmd|canvas|excalidraw)$/i;
 function linksIn(t, root) {
   const body = String(t).replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, ""); // ignore code
-  const out = [...body.matchAll(LINK_RE)].map(m => ({ root: m[1], path: safeDecode(m[2]).replace(/[.,;:）]+$/, ""), kind: "uri" }));
+  const out = extractUris(body).map(m => ({ root: m.root, path: m.path, kind: "uri" }));
   for (const m of body.matchAll(WIKI_RE)) { const p = m[1].replace(/\\+$/, "").trim(); if (!p || ATTACH_RE.test(p)) continue; out.push({ root, path: p, kind: "wiki" }); }
   return out;
 }
@@ -45,10 +48,11 @@ function listMd(d) { try { return fs.readdirSync(d, { recursive: true }).filter(
 function safeDecode(x) { try { return decodeURIComponent(x); } catch { return x; } }
 const records = [];
 const lifeDirs = new Set();
+const noteDirs = { kb: new Set(), life: new Set() };
 function walk(root, d, rootName) {
   for (const e of fs.readdirSync(d, { withFileTypes: true })) {
     const p = path.join(d, e.name);
-    if (e.isDirectory()) { if (rootName === "life") { const rel = path.relative(root, p).split(path.sep).join("/"); if (rel) lifeDirs.add(rel + "/"); } if (SKIP_DIRS.has(e.name)) for (const t of listMd(p)) templateNames.add(t); if (!e.name.startsWith(".") && !SKIP_DIRS.has(e.name) && path.resolve(p) !== path.resolve(DATA_DIR)) walk(root, p, rootName); continue; }
+    if (e.isDirectory()) { const rel = path.relative(root, p).split(path.sep).join("/"); if (rel && !e.name.startsWith(".")) noteDirs[rootName].add(rel); if (rootName === "life" && rel) lifeDirs.add(rel + "/"); if (SKIP_DIRS.has(e.name)) for (const t of listMd(p)) templateNames.add(t); if (!e.name.startsWith(".") && !SKIP_DIRS.has(e.name) && path.resolve(p) !== path.resolve(DATA_DIR)) walk(root, p, rootName); continue; }
     if (/\.tar\.enc$|\.enc$/.test(e.name) || !e.name.endsWith(".md") || /^(README|AGENTS|CLAUDE)\.md$/.test(e.name) && d === root) continue;
     const text = mask(fs.readFileSync(p, "utf8")), rel = path.relative(root, p).split(path.sep).join("/");
     let f = frontmatter(text);
@@ -71,27 +75,36 @@ if (fs.existsSync(KB_ROOT)) walk(KB_ROOT, KB_ROOT, "kb"); else warnings.push(`KB
 if (hasLife) walk(LIFE_ROOT, LIFE_ROOT, "life");
 // resolve links: exact path, path + ".md", or unique basename match within the root.
 const byId = new Map(records.map(r => [r.id, r]));
-const bySlug = new Map(records.filter(r => r.slug).map(r => [`${r.root}|${r.slug.toLowerCase()}`, r.id])); // v9 frontmatter ids: kb://<id>, life://<id>
-// Obsidian-style resolution: exact vault path, path relative to the linking note, then basename (shortest path wins).
-function resolve({ root, path: p }, from) {
-  // kb:// links carry the vault folder ("n-knowledge-base/<path>"); records are relative to the vault.
-  const clean = p.replace(/^\/+/, "").replace(/^n-knowledge-base\//, "").replace(/#.*$/, "").replace(/\.md$/, "");
-  const sl = bySlug.get(`${root}|${clean.toLowerCase()}`); if (sl) return sl;
-  const dir = from && from.root === root ? path.posix.dirname(from.origin.source_path) : "";
-  for (const c of [clean, dir && dir !== "." ? path.posix.join(dir, clean) : null].filter(Boolean))
-    for (const x of [c, c + ".md"]) if (byId.has(`${root}:${x}`)) return `${root}:${x}`;
-  if (root === "life") for (const alt of fallbacks(clean)) {
-    const a = String(alt).replace(/\/$/, "").replace(/\.md$/i, "");
-    for (const x of [a, a + ".md"]) if (byId.has(`${root}:${x}`)) return `${root}:${x}`;
+// Path first, then frontmatter id (kb://<id> / life://<id>). Built after the walk so folder dirs are known.
+const linkCtx = {
+  kb: linkContext(records, "kb", { dirs: noteDirs.kb, allowFolder: true, shortestBasename: true }),
+  life: linkContext(records, "life", { dirs: noteDirs.life, allowFolder: false, shortestBasename: true }),
+};
+// Obsidian wikilinks: vault path, then the path relative to the linking note, then basename (shortest wins).
+// kb:// and life:// are vault-absolute: path, life-layout aliases, folder index or (kb) folder list, id, basename.
+function resolve(link, from) {
+  const root = link.root;
+  const norm = normalizeUriPath(link.path, { exact: true, stripVault: root === "kb" && link.kind !== "wiki" });
+  const extra = [];
+  if (link.kind === "wiki" && from && from.root === root) {
+    const dir = path.posix.dirname(from.origin.source_path);
+    const clean = norm.replace(/\.md$/i, "").replace(/\/+$/, "");
+    if (dir && dir !== "." && clean) extra.push(path.posix.join(dir, clean));
   }
-  const base = clean.split("/").pop();
-  const hits = records.filter(r => r.root === root && r.origin.source_path.replace(/\.md$/, "").split("/").pop() === base)
-    .sort((a, b) => a.origin.source_path.length - b.origin.source_path.length);
-  return hits.length ? hits[0].id : null;
+  if (root === "life") extra.push(...fallbacks(norm));
+  const hit = resolveUri(norm, linkCtx[root], { extraPaths: extra });
+  if (!hit) return null;
+  if (hit.file) return { id: `${root}:${hit.file}`, folder: null };
+  return { id: null, folder: hit.folder };
 }
+const resolvedOk = res => !!(res && (res.id || res.folder != null));
 let broken = 0; const brokenList = [];
-for (const r of records) r.links = r.links.map(l => { const id = resolve(l, r); const tpl = !id && templateNames.has(l.path.split("/").pop().replace(/\.md$/, "")); if (!id && !tpl) { broken++; brokenList.push(`${r.id} -> ${l.kind === "wiki" ? `[[${l.path}]]` : `${l.root}://${l.path}`}`); }
-  return { href: l.kind === "wiki" ? `[[${l.path}]]` : `${l.root}://${l.path}`, id, kind: tpl ? "template" : l.kind }; });
+for (const r of records) r.links = r.links.map(l => {
+  const res = resolve(l, r);
+  const tpl = !resolvedOk(res) && templateNames.has(String(l.path).split("/").pop().replace(/\.md$/, "").replace(/\/+$/, ""));
+  if (!resolvedOk(res) && !tpl) { broken++; brokenList.push(`${r.id} -> ${l.kind === "wiki" ? `[[${l.path}]]` : `${l.root}://${l.path}`}`); }
+  return { href: l.kind === "wiki" ? `[[${l.path}]]` : `${l.root}://${l.path}`, id: res?.id || null, folder: res?.folder ?? null, kind: tpl ? "template" : l.kind };
+});
 const backlinks = {};
 for (const r of records) for (const l of r.links) if (l.id) (backlinks[l.id] ||= []).push(r.id);
 for (const r of records) r.backlinks = backlinks[r.id] || [];
@@ -166,6 +179,8 @@ const views = Object.fromEntries(fs.readdirSync("views").filter(f => f.endsWith(
 const noteFile = id => crypto.createHash("sha1").update(id).digest("hex").slice(0, 16);
 const escH = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const href = id => `#kb/note?id=${encodeURIComponent(id)}`;
+const folderHref = folder => `#kb/tree?dir=${encodeURIComponent(folder ? `kb/${folder}` : "kb")}`;
+const linkHref = res => res?.id ? href(res.id) : res?.folder != null ? folderHref(res.folder) : null;
 // attachments: every non-markdown file under each root (no .enc, no data/); resolved per note (relative to the note, root-relative, then unique basename).
 // Resolved files go to data/attachments.json — the ONLY non-note files serve.mjs will hand out (/files/<root>/<path>, 127.0.0.1).
 const ROOT_DIR = { kb: KB_ROOT, life: LIFE_ROOT };
@@ -194,13 +209,17 @@ function renderNote(r) {
   md = md.replace(/\[\[([^\]|#\n]+?)\\?(#[^\]|\n]*)?(?:\\?\|([^\]\n]*))?\]\]/g, (m, t, h, alias) => {
     const target = t.replace(/\\+$/, "").trim(), label = escH((alias || target.split("/").pop()).replace(/\\$/, ""));
     if (ATTACH_RE.test(target)) return attHtml(r, target, alias);
-    const id = resolve({ root: r.root, path: target }, r);
-    return id ? `<a class="wl" href="${href(id)}">${label}</a>` : templateNames.has(target.split("/").pop()) ? `<span class="wl tpl">${label}</span>` : `<span class="wl broken" title="未解析">${label}</span>`;
+    const res = resolve({ root: r.root, path: target, kind: "wiki" }, r);
+    const url = linkHref(res);
+    return url ? `<a class="wl" href="${url}">${label}</a>` : templateNames.has(target.split("/").pop()) ? `<span class="wl tpl">${label}</span>` : `<span class="wl broken" title="未解析">${label}</span>`;
   });
-  md = md.replace(/(\]\()?\b(kb|life):\/\/([^\s)\]"'`<>|，。；]+)/g, (m, inLink, root, p) => {
-    const id = resolve({ root, path: safeDecode(p).replace(/[.,;:）]+$/, "") }, r); const url = id ? href(id) : "#kb";
-    return inLink ? `](${url}` : id ? `[${escH(byId.get(id).title)}](${url})` : `<span class="wl broken">${escH(m)}</span>`;
-  });
+  { const hits = extractUris(md); if (hits.length) { let out = "", c = 0; for (const u of hits) { if (u.from < c) continue; out += md.slice(c, u.from);
+    const res = resolve({ root: u.root, path: u.path, kind: "uri" }, r), url = linkHref(res);
+    const name = u.label != null ? u.label : res?.id ? (byId.get(res.id)?.title || u.path) : res?.folder != null ? (String(res.folder).split("/").pop() || "知识库") : u.raw;
+    if (url && u.inLink && u.label == null && md[u.from] === "]") out += `](${url})`;
+    else if (url) out += `<a class="uri" href="${url}">${escH(name)}</a>`;
+    else out += `<span class="wl broken uri">${escH(u.label || u.raw)}</span>`;
+    c = u.to; } md = out + md.slice(c); } }
   md = md.replace(/\u0000(\d+)\u0000/g, (m, i) => code[+i]);
   let html = marked.parse(md, { gfm: true, breaks: false });
   html = html.replace(/<(script|iframe|object|embed|style)[\s\S]*?<\/\1>/gi, "").replace(/\son\w+="[^"]*"/gi, "").replace(/href="javascript:[^"]*"/gi, 'href="#"')
@@ -254,8 +273,8 @@ bundle.overview = overview(bundle, views.today);
 const TOPICS = V9 ? loadTopics(LIFE_ROOT, w => warnings.push(w)) : [];
 // topic refs: every kb:// / life:// ref must resolve; KB notes may only appear as resources (a narrative is always life://).
 for (const t of TOPICS) {
-  const refs = [t.narrative, ...(t.resources || []).map(x => x.ref), ...Object.values(t.links || {}).flat(), ...t.entries.flatMap(e => [e.ref, e.source])].filter(u => /^(kb|life):\/\//.test(String(u ?? "")));
-  const bad = [...new Set(refs.filter(u => { const [, rt, p] = String(u).match(/^(kb|life):\/\/(.+)$/); return !resolve({ root: rt, path: safeDecode(p) }); }))];
+  const refs = [t.narrative, ...(t.resources || []).map(x => x.ref), ...Object.values(t.links || {}).flat(), ...t.entries.flatMap(e => [e.ref, e.source])].filter(u => /^<?(kb|life):\/\//.test(String(u ?? "").trim()));
+  const bad = [...new Set(refs.filter(u => { let s = String(u).trim(); if (s.startsWith("<") && s.endsWith(">")) s = s.slice(1, -1).trim(); const m = s.match(/^(kb|life):\/\/([\s\S]+)$/); return !(m && m[2] && resolvedOk(resolve({ root: m[1], path: m[2], kind: "uri" }))); }))];
   if (bad.length) warnings.push(`topics: ${t.id}: ${bad.length} unresolved ref(s): ${bad.slice(0, 4).join("; ")}`);
   if (/^kb:\/\//.test(t.narrative ?? "")) warnings.push(`topics: ${t.id}: narrative is a KB note (topics link to KB as resources only)`);
 }
