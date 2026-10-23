@@ -41,7 +41,7 @@ export function loadV9(LIFE_ROOT, warn) {
   const files = []; const walk = (d, rel) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (e.name.startsWith(".")) continue; const r = rel ? `${rel}/${e.name}` : e.name;
     if (e.isDirectory()) { if (!["data", "tools", "schemas", "templates"].includes(r)) walk(path.join(d, e.name), r); } else if (!/\.(md|enc)$/.test(e.name)) files.push({ path: r, size: fs.statSync(path.join(d, e.name)).size }); } };
   walk(LIFE_ROOT, "");
-  return { schema_version: 9, accounts, identities, subscriptions, tasks, plans, reviews, groups, sections, modules: layer.modules, views: layer.views, missingDirs, files,
+  return { schema_version: 9, accounts, identities, subscriptions, tasks, plans, reviews, groups, sections, modules: layer.modules, views: layer.views, nav: layer.nav, absorbed: layer.absorbed, missingDirs, files,
     updated: Object.fromEntries(Object.entries(D).map(([k, v]) => [k, v?.updated ? String(v.updated) : null])) };
 }
 

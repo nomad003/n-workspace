@@ -4,9 +4,9 @@ import fs from "node:fs"; import path from "node:path"; import crypto from "node
 import { fallbacks, setLegacyPaths, legacyPaths, choosePrefixes, noteFallback, drainFallbackWarnings, LIFE_INDEX } from "../app/src/life-paths.js";
 import { tabWarnings } from "../app/src/page-tabs.js";
 import { buildTimeline, noteDisplayTitle, timelineCounts } from "../app/src/timeline-model.js";
-import { analysisStats, buildCoverage, buildRollups } from "../app/src/analysis-model.js";
+import { analysisStats, buildCoverage, buildRollups, comparePeriods, effortMonths, instanceStatus } from "../app/src/analysis-model.js";
 import { todayStamp } from "../app/src/module-model.js";
-import { toItems, normalize, isPublic, match, overview, known } from "../app/src/core.js";
+import { toItems, normalize, isPublic, match, overview, known, dueEnd } from "../app/src/core.js";
 import { extractUris, linkContext, normalizeUriPath, resolveUri } from "../app/src/kb-uri.js";
 
 // Two content roots (gitignored, fetched by scripts/fetch-root.sh):
@@ -328,7 +328,7 @@ for (const t of TOPICS) {
   if (bad.length) warnings.push(`topics: ${t.id}: ${bad.length} unresolved ref(s): ${bad.slice(0, 4).join("; ")}`);
   if (/^kb:\/\//.test(t.narrative ?? "")) warnings.push(`topics: ${t.id}: narrative is a KB note (topics link to KB as resources only)`);
 }
-if (V9) bundle.v9 = { schema_version: 9, topics: TOPICS, groups: V9.groups, plans: V9.plans, reviews: V9.reviews, sections: V9.sections, modules: V9.modules, views: V9.views, missing_dirs: V9.missingDirs, files: V9.files, dirs: [...lifeDirs].sort(), updated: V9.updated };
+if (V9) bundle.v9 = { schema_version: 9, topics: TOPICS, groups: V9.groups, plans: V9.plans, reviews: V9.reviews, sections: V9.sections, modules: V9.modules, views: V9.views, nav: V9.nav, absorbed: V9.absorbed, missing_dirs: V9.missingDirs, files: V9.files, dirs: [...lifeDirs].sort(), updated: V9.updated };
 const timeline = buildTimeline({ records: shown, topics: TOPICS, tasks: V9?.tasks || [], reviews: V9?.reviews || [], modules: V9?.modules || [] });
 const timelineStat = timelineCounts(timeline);
 for (const w of drainFallbackWarnings()) if (!warnings.includes(w)) warnings.push(w);
@@ -351,4 +351,9 @@ console.log(`timeline: ${timelineStat.total} events · ${Object.entries(timeline
 const built = analysisStats(rollups, coverage);
 console.log(built.line);
 console.log(built.coverage);
+const cmp = comparePeriods({ events: timeline, modules: V9?.modules || [], topics: TOPICS, today, kind: "month" });
+const effort = effortMonths({ events: timeline, modules: V9?.modules || [], today });
+const instances = (V9?.reviews || []).flatMap(r => (r.instances || []).map(i => instanceStatus({ ...i, due: dueEnd(i.due) || i.due }, today)));
+console.log(`compare: ${cmp.current.key} vs ${cmp.previous.key} · yoy ${cmp.yoy ? cmp.yoy.key : "none"} · effort ${effort.months.length} months`);
+console.log(`reviews: ${instances.length} instances · done ${instances.filter(s => s === "done").length} · open ${instances.filter(s => s === "open").length} · overdue ${instances.filter(s => s === "overdue").length}`);
 for (const w of warnings) console.warn("warn:", w);

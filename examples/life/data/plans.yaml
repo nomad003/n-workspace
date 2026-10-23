@@ -24,4 +24,13 @@ reviews:
   checklist: [清空收件箱, 看下周日历, 写周记]
   template: null
   instances:
+  - {period: 2026-W40, due: '2026-10-04', status: open, done_at: null, note: null}
   - {period: 2026-W41, due: '2026-10-11', status: done, done_at: '2026-10-12', note: "见 life://life/journal/weekly/2026-W41"}
+- id: r-annual
+  kind: annual
+  rrule: FREQ=YEARLY;BYMONTH=12;BYMONTHDAY=-1
+  duration_min: 120
+  checklist: [回顾这一年的主题, 留下明年要继续的三件事, 归档已完成的计划]
+  template: null
+  instances:
+  - {period: '2026', due: '2026-12-31', status: open, done_at: null, note: null}

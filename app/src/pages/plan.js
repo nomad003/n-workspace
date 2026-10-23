@@ -2,10 +2,13 @@
 import { tasks, plansV9, reviews, records, v9, dirCovers, section, listedNotes, folderIntro } from "../data.js";
 import { pageTabs } from "../page-tabs.js";
 import { dueEnd, daysUntil, isOpenTask, quarterOf, ymdOf } from "../core.js";
+import { instanceStatus } from "../analysis-model.js";
+import { todayStamp } from "../module-model.js";
 import { esc, header, tabs, noteHref, noteList, box, mainSide, seeAlso } from "../ui.js";
 import { taskRow } from "./_tasks.js";
 const LVL = { decade: "十年", year: "年度", half: "半年", quarter: "季度", month: "月", week: "周" };
 const KIND = { quarterly: "季度轻复盘", annual: "年度大复盘", monthly: "月度复盘", weekly: "周复盘" };
+const IST = { done: "已完成", open: "待完成", overdue: "逾期", skipped: "跳过" };
 const rr = r => { const m = String(r).match(/BYMONTH=([\d,]+)/); return m ? `每年 ${m[1].split(",").join(" / ")} 月` : r; };
 const src = u => {
   const raw = String(u ?? "").trim(); if (!raw) return "";
@@ -47,7 +50,7 @@ export default async function (sub = "board") {
   if (sub === "reviews") {
     return { html: head + `<div class="body">${reviews().map(r => `<section class="blk"><h2>${esc(KIND[r.kind] ?? r.id)}<span class="more">${esc(rr(r.rrule))} · ${r.duration_min} 分钟</span>${src(r.template)}</h2>
       <div class="hz"><div class="h">清单</div><div class="rows">${(r.checklist || []).map(c => `<div class="prow"><span class="cb"></span><div class="t">${esc(c)}</div><span></span></div>`).join("")}</div></div>
-      <div class="hz"><div class="h">实例</div><div class="rows">${(r.instances || []).map(i => `<div class="prow ${i.status === "done" ? "done" : ""}"><span class="cb ${i.status === "done" ? "done" : ""}"></span><div><div class="t">${esc(i.period)}</div><div class="d">${esc(i.note ?? "")}${i.done_at ? ` · 完成于 ${esc(i.done_at)}` : ""}</div></div><span class="pill ${daysUntil(dueEnd(i.due)) < 0 && i.status === "open" ? "late" : "g"}">${esc(i.due)}</span></div>`).join("")}</div></div></section>`).join("") || `<p class="empty">plans.yaml 中没有 reviews。</p>`}
+      <div class="hz"><div class="h">实例</div><div class="rows">${(r.instances || []).map(i => { const st = instanceStatus({ ...i, due: dueEnd(i.due) || i.due }, todayStamp()); return `<a class="prow ${st === "done" ? "done" : ""}" href="#reviews/${encodeURIComponent(r.id)}/${encodeURIComponent(i.period)}"><span class="cb ${st === "done" ? "done" : ""}"></span><div><div class="t">${esc(i.period)}</div><div class="d">${esc(i.note ?? "")}${i.done_at ? ` · 完成于 ${esc(i.done_at)}` : ""}</div></div><span class="pill ${st === "overdue" ? "late" : "g"}">${esc(IST[st] || st)}</span></a>`; }).join("")}</div></div></section>`).join("") || `<p class="empty">plans.yaml 中没有 reviews。</p>`}
       ${await noteBlock("复盘记录", "reviews")}</div>` };
   }
   if (sub === "learning") {

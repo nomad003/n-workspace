@@ -6,6 +6,7 @@ import { activityAgeText, structuralCue, structuralLabel } from "../analysis-mod
 import { latestStructuralDate } from "../timeline-model.js";
 import { esc, header } from "../ui.js";
 import { stale as topicStale } from "./topics.js";
+import { todayDigest } from "./today.js";
 
 const LC = { active: "进行中", paused: "暂停", done: "完成", archived: "归档", proposed: "提议" };
 
@@ -67,5 +68,5 @@ export default async function overview() {
   const headRow = `<div class="ov-row ov-head"><span>主题</span><span>模块</span><span>状态</span><span>最近记录</span><span>距今</span></div>`;
   const strip = rest.length ? `<div class="ov-strip">${headRow}${rest.map(t => topicRow(t, mods, today)).join("")}</div>` : `<p class="empty">还没有进行中的主题。</p>`;
   const proposedBlock = proposed.length ? `<h2 class="ov-sec">提议</h2><p class="ov-note">这些主题还没开始，单独列在这里。</p><div class="ov-strip">${proposed.map(t => topicRow(t, mods, today)).join("")}</div>` : "";
-  return { html: header("总览", "", [`${mods.length} 个模块`, `${all.length} 个主题`], "按模块看笔记更新，按主题看做到哪一步。", { actions: [["时间线", "#timeline"], ["分析", "#analysis"]] }) + `<div class="body ov">${roll}<div class="ov-grid">${cards}</div><h2 class="ov-sec">主题</h2>${strip}${proposedBlock}</div>` };
+  return { html: header("总览", "", [`${mods.length} 个模块`, `${all.length} 个主题`], "按模块看笔记更新，按主题看做到哪一步。", { actions: [["时间线", "#timeline"], ["分析", "#analysis"]] }) + `<div class="body ov">${roll}${todayDigest()}<div class="ov-grid">${cards}</div><h2 class="ov-sec">主题</h2>${strip}${proposedBlock}</div>` };
 }

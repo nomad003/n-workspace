@@ -5,11 +5,11 @@ import pKnowledge from "./knowledge.js";
 import pMoney from "./money.js";
 import pAgents from "./agents.js";
 import { life as pLife, journal as pJournal } from "./folders.js";
-import { esc, tabs } from "../ui.js";
+import { esc, noteHref, tabs } from "../ui.js";
 import { routeOfModule, todayStamp } from "../module-model.js";
 import { activityAgeText, structuralCue, structuralLabel } from "../analysis-model.js";
 import { latestStructuralDate } from "../timeline-model.js";
-import { loadCoverage, loadRollups, records } from "../data.js";
+import { loadCoverage, loadRollups, noteBody, records } from "../data.js";
 import { rollupCard } from "./rollup-card.js";
 
 const RENDER = {
@@ -23,6 +23,21 @@ const RENDER = {
 };
 
 const stripTabs = html => String(html || "").replace(/<nav class="tabs">[\s\S]*?<\/nav>/, "");
+
+async function pinnedNotes(entry) {
+  const files = (entry?.paths || []).map(String).filter(p => /\.md$/i.test(p));
+  const bits = [];
+  for (const p of files) {
+    const bare = p.replace(/^life:\/\//, "").replace(/\.md$/i, "");
+    const rec = records.find(r => r.root === "life" && String(r.origin?.source_path || "").replace(/\.md$/i, "") === bare);
+    if (!rec) continue;
+    const body = rec.f ? await noteBody(rec) : null;
+    const plain = String(body?.html || rec.title || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const text = plain.slice(0, 240);
+    bits.push(`<p class="lede pin">${esc(text)}${plain.length > 240 ? "…" : ""} <a href="${noteHref(rec)}">打开</a></p>`);
+  }
+  return bits.join("");
+}
 
 export async function renderSurface(entry, kind, sub, P, rest) {
   const route = kind === "view" ? entry.id : routeOfModule(entry.id);
@@ -38,7 +53,8 @@ export async function renderSurface(entry, kind, sub, P, rest) {
   const clock = cov?.today || todayStamp();
   const cue = kind === "module" ? structuralLabel(structuralCue(latestStructuralDate(entry.paths, records), real?.last, clock)) : "";
   const activity = kind === "module" ? `<p class="lede act">最近活动 ${esc(real?.last || "—")} · ${esc(real ? activityAgeText(real.days, real.status) : "—")}${cue ? ` <span class="ov-struct">${esc(cue)}</span>` : ""}</p>` : "";
-  const mast = `<header class="ph modhead"><div class="ph-row"><div class="ph-main"><div class="ctx">${ctx}</div><h1>${esc(entry.title)}</h1>${paths.length ? `<p class="lede paths">${paths.map(esc).join(" · ")}</p>` : ""}${activity}</div><div class="ph-act"><a class="btn" href="${timeHref}">时间线</a><a class="btn" href="#analysis">分析</a></div></div></header>`;
+  const pins = await pinnedNotes(entry);
+  const mast = `<header class="ph modhead"><div class="ph-row"><div class="ph-main"><div class="ctx">${ctx}</div><h1>${esc(entry.title)}</h1>${paths.length ? `<p class="lede paths">${paths.map(esc).join(" · ")}</p>` : ""}${activity}${pins}</div><div class="ph-act"><a class="btn" href="${timeHref}">时间线</a><a class="btn" href="#analysis">分析</a></div></div></header>`;
   const nav = resolved.length ? tabs(route, resolved.map(t => [t.tabId, t.label]), tab?.tabId) : "";
   if (!tab) return { html: `<div class="surface">${mast}${roll}<div class="body"><p class="empty">这里还没有可显示的页。</p></div></div>` };
   const page = RENDER[tab.sectionId];

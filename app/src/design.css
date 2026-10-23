@@ -86,6 +86,14 @@ kbd{font:500 10.5px var(--mono);padding:1px 5px;border-radius:2px;border:1px sol
 .iconbtn:hover{color:var(--text);border-color:var(--border-2)}
 .iconbtn svg{width:16px;height:16px}
 .side .foot .theme{width:30px;height:30px}
+.side.grouped .navgrp{display:flex;flex-direction:column;gap:1px}
+.side.grouped .navgrp .navh{font-size:11px;font-weight:500;letter-spacing:.06em;color:var(--text-3);padding:12px 10px 3px}
+.side.grouped .navgrp:first-child .navh{padding-top:2px}
+.side.grouped a.ni{padding:5px 10px 5px 12px}
+.side.grouped a.ni::before{display:none!important}
+.side.grouped a.ni .dot{width:7px;height:7px;border-radius:50%;margin-left:auto;flex:none}
+.side.grouped a.ni .dot.stop{background:var(--tag-red)}
+.side.grouped a.ni .dot.stale{background:var(--tag-amber)}
 
 /* ---------- page template ---------- */
 main{min-width:0;padding:0 0 72px}
@@ -544,6 +552,27 @@ details.more>:not(summary){margin:0 14px 14px}
 .st-prop{color:var(--text-3)}
 .cov-prop a{color:var(--text-2)}
 .cov-split{color:var(--text-3);font-size:11px;letter-spacing:.04em}
+.cov.pair .cov-row{grid-template-columns:minmax(0,1fr) auto}
+.ov-sec .seg{display:inline-flex;margin-left:10px;border:1px solid var(--border);vertical-align:middle}
+.ov-sec .seg a{padding:1px 8px;font-size:12px;font-weight:500;letter-spacing:0;color:var(--text-3)}
+.ov-sec .seg a.on{color:var(--text);background:var(--n-50)}
+.cmp{border-top:1px solid var(--border)}
+.cmp-row{display:grid;grid-template-columns:minmax(120px,1.6fr) repeat(4,minmax(52px,78px));gap:8px;align-items:center;padding:7px 2px;border-bottom:1px solid var(--border);font-size:14px}
+.cmp.yoy .cmp-row{grid-template-columns:minmax(120px,1.6fr) repeat(6,minmax(48px,72px))}
+.cmp-head{color:var(--text-3);font-size:11px;letter-spacing:.04em}
+.cmp-row small{font-size:11px}
+.up{color:var(--ok)}
+.dn{color:var(--accent)}
+.ef{margin-top:8px}
+.ef-row{display:grid;grid-template-columns:42px minmax(0,1fr) 28px;gap:8px;align-items:center;padding:4px 0}
+.ef .stack{display:flex;height:10px;background:var(--n-100);overflow:hidden}
+.ef .stack i{display:block;height:100%}
+.ef-leg{display:flex;flex-wrap:wrap;gap:10px 14px;font-size:12px;color:var(--text-2);margin-top:6px}
+.ef-leg i{display:inline-block;width:8px;height:8px;margin-right:5px;vertical-align:baseline}
+.plain{margin:8px 0 0;padding-left:18px;color:var(--text-2)}
+.plain li{margin:4px 0}
+.lede.pin{margin-top:8px;color:var(--text-2);font-size:14px}
+.lede.pin a{margin-left:6px}
 .ov-sec .toggle{margin-left:12px;font-weight:500;letter-spacing:0;color:var(--text-3);font-size:13px}
 .ov-struct{margin:0;color:var(--text-3);font-size:12px;font-weight:500}
 .lede.act{margin-top:6px;color:var(--text-2);font-size:14px}

@@ -1,33 +1,33 @@
 # FICTIONAL example data for n-workspace demo mode. Every name, address, number and service here is made up.
-# Same section and tab ids as the life repo. modules and views point at those tabs by sectionId/tabId.
+# Section tab ids stay. modules point at those tabs by sectionId/tabId. views may be empty.
 schema_version: 9
+nav:
+- {id: board, title: 看板, items: [overview, timeline, analysis]}
+- {id: planning, title: 规划, items: [plan, review, topics]}
+- {id: domains, title: 领域, items: [work, life, learn, content]}
+- {id: library, title: 资料, items: [kb, accounts, team]}
 modules:
-- id: life
-  title: 生活
-  icon: home
-  owners: [Health, House, Travel]
+- id: plan
+  title: 计划
+  icon: calendar
+  owners: [Plan]
   paths:
-  - life/profile
-  - life/family
-  - life/finance
-  - life/health
-  - life/house
-  - life/travel
-  - life/reading
-  - life/records
-  - life/journal
   - life/plan
+  - data/plans.yaml
+  - data/tasks.yaml
   tabs:
-  - today/today
   - plan/board
   - plan/tree
-  - life/profile
-  - life/family
-  - life/finance
-  - life/health
-  - life/house
-  - life/travel
-  - life/reading
+- id: review
+  title: 复盘
+  icon: calendar
+  owners: [Review]
+  paths:
+  - life/journal
+  - life/records
+  - learn/mind/reviews
+  tabs:
+  - plan/reviews
   - journal/daily
   - journal/weekly
   - journal/records
@@ -41,50 +41,51 @@ modules:
   - journal/work
   - journal/cfwork
   - journal/server
+- id: life
+  title: 生活
+  icon: home
+  owners: [Health, House, Travel]
+  paths:
+  - life/profile
+  - life/family
+  - life/finance
+  - life/health
+  - life/house
+  - life/travel
+  - life/reading
+  - learn/idea
+  tabs:
+  - life/profile
+  - life/family
+  - life/finance
+  - life/health
+  - life/house
+  - life/travel
+  - life/reading
+  - life/idea
 - id: learn
   title: 学习
   icon: book
   owners: [Mind, English]
   paths:
   - learn/ai
-  - learn/english
   - learn/mind
-  - learn/idea
-  - learn/agent
+  - learn/english
   tabs:
-  - life/idea
+  - plan/learning
   - life/mind
   - life/english
-  - plan/reviews
-  - plan/learning
 - id: content
   title: 内容
   icon: radio
   owners: [X, Blibli]
   paths:
   - content
+  - learn/agent
   tabs:
   - agents/agents
-- id: accounts
-  title: 账号
-  icon: key
-  owners: [Register, Github]
-  paths:
-  - accounts
-  - data/identities.yaml
-  - data/account-groups.yaml
-  - data/accounts.yaml
-  - data/subscriptions.yaml
-  tabs:
-  - life/register
-  - life/workspace
-  - accounts/identities
-  - accounts/groups
-  - accounts/subscriptions
-  - accounts/security
-  - accounts/graph
 - id: kb
-  title: 知识
+  title: 知识库
   icon: library
   owners: [KB]
   paths:
@@ -99,37 +100,40 @@ modules:
   - knowledge/topics
   - knowledge/tree
   - knowledge/search
-views:
-- id: plan-review
-  title: 规划与复盘
-  icon: calendar
+- id: accounts
+  title: 账号
+  icon: key
+  owners: [Register, Github]
   paths:
-  - life/plan
-  - life/journal
-  - data/plans.yaml
-  - data/tasks.yaml
+  - accounts/register
+  - data/identities.yaml
+  - data/account-groups.yaml
+  - data/accounts.yaml
+  - data/subscriptions.yaml
   tabs:
-  - today/today
-  - plan/board
-  - plan/tree
-  - plan/reviews
-  - journal/daily
-  - journal/weekly
-  - journal/records
+  - life/register
+  - accounts/identities
+  - accounts/groups
+  - accounts/subscriptions
+  - accounts/security
+  - accounts/graph
 - id: team
   title: 团队
   icon: users
   owners: [Bot, X, KB, Pi, Github, Register, Blibli]
   paths:
+  - accounts/workspace
   - team.md
   tabs:
-  - agents/agents
+  - life/workspace
+views: []
 sections:
 - id: today
   label: 今天
   tabs:
   - id: today
     label: 今天
+    absorbed_by: overview
     source:
     - life://data/tasks.yaml
     - life://data/plans.yaml

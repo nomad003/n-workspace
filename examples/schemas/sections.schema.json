@@ -3,8 +3,7 @@
  "required": [
   "schema_version",
   "sections",
-  "modules",
-  "views"
+  "modules"
  ],
  "properties": {
   "schema_version": {
@@ -26,12 +25,15 @@
     "properties": {
      "id": {
       "enum": [
+       "plan",
+       "review",
        "life",
        "work",
        "learn",
        "content",
        "accounts",
-       "kb"
+       "kb",
+       "team"
       ]
      },
      "title": {
@@ -104,6 +106,30 @@
     }
    }
   },
+  "nav": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "required": [
+     "id",
+     "items"
+    ],
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "title": {
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     }
+    }
+   }
+  },
   "sections": {
    "type": "array",
    "items": {
@@ -133,6 +159,9 @@
          "type": "string"
         },
         "label": {
+         "type": "string"
+        },
+        "absorbed_by": {
          "type": "string"
         },
         "source": {
