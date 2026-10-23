@@ -33,7 +33,8 @@ export function loadV9(LIFE_ROOT, warn) {
   const tasks = (D.tasks?.tasks || []).map(t => ({ ...t, due: t.due ?? (t.due_event ? null : null) }));
   const plans = D.plans?.plans || [], reviews = D.plans?.reviews || [], sections = D.sections?.sections || [];
   // folders referenced by sections that do not exist (e.g. reviews/) are reported, never fatal
-  const missingDirs = [...new Set(sections.flatMap(s => s.tabs.flatMap(t => t.source)).filter(u => /^life:\/\/[^#?]+\/$/.test(u)).map(u => u.slice(7)).filter(d => !fs.existsSync(path.join(LIFE_ROOT, d))))];
+  const sourcesOf = t => Array.isArray(t?.source) ? t.source : [];
+  const missingDirs = [...new Set(sections.flatMap(s => (s.tabs || []).flatMap(sourcesOf)).filter(u => /^life:\/\/[^#?]+\/$/.test(String(u))).map(u => String(u).slice(7)).filter(d => !fs.existsSync(path.join(LIFE_ROOT, d))))];
   // non-markdown files (resume pdf/html, report html/pdf/assets) under section folders
   const files = []; const walk = (d, rel) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (e.name.startsWith(".")) continue; const r = rel ? `${rel}/${e.name}` : e.name;
     if (e.isDirectory()) { if (!["data", "tools", "schemas", "templates"].includes(r)) walk(path.join(d, e.name), r); } else if (!/\.(md|enc)$/.test(e.name)) files.push({ path: r, size: fs.statSync(path.join(d, e.name)).size }); } };

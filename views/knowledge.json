@@ -2,55 +2,12 @@
  "id": "knowledge",
  "name": "知识",
  "order": 5,
- "learning": {
-  "type": [
-   "note",
-   "course"
-  ],
-  "area": [
-   "cs",
-   "ai-ml",
-   "game-backend",
-   "reading",
-   "tools",
-   "math"
-  ],
-  "root": [
-   "kb"
-  ]
- },
  "topics": {
   "root": [
    "kb"
   ],
   "not_path": [
    "templates/"
-  ]
- },
- "logs": {
-  "daily": {
-   "root": [
-    "life"
-   ],
-   "path": [
-    "life/journal/daily/"
-   ]
-  },
-  "reports": {
-   "root": [
-    "life"
-   ],
-   "path": [
-    "work/cfwork/reports/"
-   ]
-  }
- },
- "domains": {
-  "root": [
-   "kb"
-  ],
-  "type": [
-   "moc"
   ]
  }
 }

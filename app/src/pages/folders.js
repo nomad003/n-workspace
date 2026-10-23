@@ -10,8 +10,9 @@ const last = xs => xs.map(r => r.updated).filter(Boolean).sort().at(-1);
 export function folderPage(secId, title, sub, P) {
   const S = section(secId);
   if (!v9 || !S) return { html: header(title, "", [], "需要 n-life-data schema_version 9 的 data/sections.yaml。") };
-  const T = S.tabs.map(t => { const pins = t.source.map(pinOf).filter(Boolean), dirs = t.source.filter(u => /^life:\/\/[^#?]+\/$/.test(u)).map(dirOf), notes = dirs.flatMap(notesIn), files = dirs.flatMap(filesIn);
+  const T = (S.tabs || []).map(t => { const sources = Array.isArray(t.source) ? t.source : [], pins = sources.map(pinOf).filter(Boolean), dirs = sources.filter(u => /^life:\/\/[^#?]+\/$/.test(String(u))).map(dirOf), notes = dirs.flatMap(notesIn), files = dirs.flatMap(filesIn);
     return { ...t, pins, dirs, notes, files, missing: dirs.filter(d => (v9.missing_dirs || []).includes(d)), last: last(notes) }; });
+  if (!T.length) return { html: header(title, "", [], "data/sections.yaml 里这个页面没有分页。") };
   const cur = T.find(t => t.id === sub) || T[0];
   const total = T.reduce((n, t) => n + t.notes.length, 0), allLast = T.map(t => t.last).filter(Boolean).sort().at(-1);
   const head = header(title, "", [`${T.length} 个目录`, "data/sections.yaml"], secId === "journal" ? "日记、周记与工作记录，按时间倒序。" : "生活各领域的笔记与附件，镜像 life:// 目录。", {

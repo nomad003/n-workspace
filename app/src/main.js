@@ -1,6 +1,7 @@
 // n-workspace v9 shell: 今天 · 计划 · 生活 · 记录 · 账号 · 知识 · Agents + 设置, ⌘K, hash router (#page/sub/…?params).
 import { weak2fa } from "./core.js";
 import { bundle, V, M, records, tasks, subs, known, accHref, catPages, groups, section, agentName, topics, notesIn } from "./data.js";
+import { pageTabs } from "./page-tabs.js";
 import { isOpenTask } from "./core.js";
 import { esc, noteHref } from "./ui.js";
 import pToday from "./pages/today.js";
@@ -50,9 +51,7 @@ document.addEventListener("click", e => {
 document.getElementById("menu")?.addEventListener("click", () => document.body.classList.toggle("nav-open"));
 
 /* ---------- ⌘K ---------- */
-const TABS = { topics: [["all", "全部"], ["project", "项目"], ["habit", "习惯"], ["skill", "技能"], ["area", "领域"]], plan: [["board", "本周 / 本月"], ["tree", "目标树"], ["reviews", "复盘"], ["learning", "学习路线"]], knowledge: [["home", "领域"], ["topics", "主题"], ["tree", "目录"], ["search", "全文搜索"]],
-  accounts: [["identities", "身份"], ["groups", "分类"], ["subscriptions", "订阅"], ["security", "安全"], ["graph", "关系图"]],
-  ...Object.fromEntries(["life", "journal"].map(id => [id, (section(id)?.tabs || []).map(t => [t.id, t.label])])) };
+const TABS = Object.fromEntries(["today", "plan", "topics", "life", "journal", "accounts", "knowledge", "agents"].map(id => [id, pageTabs(section(id), id)]));
 function searchIndex() {
   const idx = [...NAV, ["settings", "设置"]].map(([id, l]) => ({ kind: "页面", title: l, href: `#${id}` }));
   for (const [id, ts] of Object.entries(TABS)) for (const [t, l] of ts) idx.push({ kind: "页面", title: `${NAV.find(n => n[0] === id)[1]} · ${l}`, href: `#${id}/${t}`, low: 1 });

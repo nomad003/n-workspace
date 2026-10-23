@@ -51,10 +51,8 @@ export function match(r, f = {}, now = Date.now()) {
   for (const [k, vals] of Object.entries(f)) {
     if (k === "any") { if (!vals.some(s => match(r, s, now))) return false; continue; }
     const p = r.origin?.source_path || "";
-    // KB paths like "13-Life/..." also match their n-life-data location ("life/...") after the split.
-    const alt = x => r.root === "life" ? [x, x.replace(/^13-Life\//, "life/")] : [x];
-    if (k === "path") { if (!vals.some(x => alt(x).some(y => p.startsWith(y)))) return false; continue; }
-    if (k === "not_path") { if (vals.some(x => alt(x).some(y => p.startsWith(y)))) return false; continue; }
+    if (k === "path") { if (!vals.some(x => p.startsWith(x))) return false; continue; }
+    if (k === "not_path") { if (vals.some(x => p.startsWith(x))) return false; continue; }
     if (k.endsWith("!~")) { const f = String(r[k.slice(0, -2)] ?? ""); if (vals.some(x => f.includes(x))) return false; continue; }
     if (k.endsWith("~")) { const f = String(r[k.slice(0, -1)] ?? ""); if (!vals.some(x => f.includes(x))) return false; continue; } // substring
     if (k === "updated_within_days") { const t = Date.parse(r.updated); if (isNaN(t) || (now - t) / 864e5 > vals) return false; continue; }

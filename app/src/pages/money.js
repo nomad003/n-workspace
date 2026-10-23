@@ -5,7 +5,8 @@
 //   #accounts/security                   2FA (shared weak2fa → 29) / recovery / SPOF
 //   #accounts/graph                      relation graph (pages/graph.js)
 //   #account/<id>                        account detail (pages/account.js); old #accounts/cat/<slug> and #accounts/overview still work
-import { M, V, subs, liveSub, monthlyCNY, known, accHref, accById, catOf, catPages, groups, subsOf, v9 } from "../data.js";
+import { M, V, subs, liveSub, monthlyCNY, known, accHref, accById, catOf, catPages, groups, subsOf, v9, section } from "../data.js";
+import { pageTabs } from "../page-tabs.js";
 import { weak2fa, twoFaState, priorityOf, daysUntil } from "../core.js";
 import { buildModel, security, mask, prank } from "../identity.js";
 import { esc, header, tabs, more, box, treeDetail } from "../ui.js";
@@ -19,7 +20,8 @@ export default function (sub = "identities", P = new URLSearchParams(), rest = [
   if (sub === "cat") { sub = "groups"; rest = [rest[0]]; }
   const accs = M.accounts?.items || [], s = subs(), w2 = weak2fa(accs), live = accs.filter(a => !/closed/i.test(a.status ?? ""));
   const G = groups().length ? groups() : catPages().map(p => ({ id: p.slug, label: p.label, subcategories: [] }));
-  const T = tabs("accounts", [["identities", "身份", (M.identities?.items || []).length], ["groups", "分类", G.length], ["subscriptions", "订阅", s.length], ["security", "安全", w2.length || ""], ["graph", "关系图"]], sub);
+  const counts = { identities: (M.identities?.items || []).length, groups: G.length, subscriptions: s.length, security: w2.length || "" };
+  const T = tabs("accounts", pageTabs(section("accounts"), "accounts").map(([id, label]) => [id, label, counts[id] ?? ""]), sub);
   const IDS = M.identities?.items || [], liveSubs = s.filter(x => x.state === "active");
   const head = (lede, extra = []) => header("账号", "", [`${accs.length} 个账号`, `${IDS.length} 个身份`, `${G.length} 个分类`, `${s.length} 个订阅`, ...extra], lede, {
     actions: [["关系图", "#accounts/graph"], ["安全检查", "#accounts/security", true]],
@@ -37,6 +39,7 @@ export default function (sub = "identities", P = new URLSearchParams(), rest = [
   const fa = a => twoFaState(a.two_fa);
   const arow = a => { const ss = subsOf(a.id); return `<a class="row r4" href="${accHref(a)}"><span class="t">${esc(a.service)}<span class="s">${esc((a.identity_ids || []).map(i => (M.identities?.items || []).find(x => x.id === i)?.provider?.replace(/[（(].*$/, "") ?? i).join(" · ") || "未绑定身份")}</span></span>
     <span class="tag">${esc(priorityOf(a) ?? "")}</span><span class="tag ${fa(a) === "on" ? "ok" : /P[01]/.test(priorityOf(a) ?? "") && fa(a) !== "na" ? "warn" : ""}">2FA ${FA[fa(a)]}</span><span class="tag">${ss.length ? `${ss.length} 订阅` : ""}</span></a>`; };
+  if (!new Set(["identities", "groups", "subscriptions", "security", "graph"]).has(sub)) return { html: head("这个分页还没有对应的页面。") + T + `<div class="body"><p class="empty">「${esc(sub)}」还没有对应的页面。</p></div>` };
   if (sub === "graph") return { html: head("身份是枢纽，连线是登录 / OAuth / 恢复关系；点身份看它失守会波及哪些账号。") + T + `<div class="body">${renderGraph(P)}</div>`, mount: mountGraph };
   if (sub === "identities") {
     const sel = P.get("id") || IDS[0]?.id, cur = IDS.find(i => i.id === sel), xs = sel === "_none" ? live.filter(a => !idOf(a).length) : live.filter(a => idOf(a).includes(sel));

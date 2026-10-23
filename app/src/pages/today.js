@@ -1,12 +1,13 @@
 // 今天 (v9): every block is derived from data/tasks.yaml + plans.yaml + subscriptions.yaml (+ profile documents) via core.deriveToday.
 import { deriveToday, weak2fa, dueEnd } from "../core.js";
-import { V, M, records, tasks, subs, plansV9, reviews, agentName, v9, topics } from "../data.js";
+import { V, M, records, tasks, subs, plansV9, reviews, agentName, v9, topics, section } from "../data.js";
+import { pageTabs } from "../page-tabs.js";
 import { stale as topicStale } from "./topics.js";
-import { esc, noteHref, header, box, mainSide, alertList } from "../ui.js";
+import { esc, noteHref, header, tabs, box, mainSide, alertList } from "../ui.js";
 import { dueLabel, taskRow } from "./_tasks.js";
 const WD = ["日", "一", "二", "三", "四", "五", "六"];
 const md = d => { const m = String(d).match(/^\d{4}-(\d{2})-(\d{2})/); return m ? `${+m[1]}/${+m[2]}` : esc(d); };
-export default function () {
+export default function (sub = "today") {
   if (!v9) return { html: header("今天", "", [], "需要 n-life-data schema_version 9（data/tasks.yaml + plans.yaml）。请设置 LIFE_REF 后重新 npm start。") };
   const now = new Date(), docs = [...(M.profile?.data?.documents || [])];
   const T = deriveToday({ tasks: tasks(), plans: plansV9(), reviews: reviews(), subs: subs(), docs }, now);
@@ -50,6 +51,8 @@ export default function () {
     topics().length ? box({ title: "主题", link: ["全部", "#topics"], flush: true, body: `<div class="rows">${topics().filter(t => t.status?.lifecycle === "active").sort((a, b) => String(b.last).localeCompare(String(a.last))).map(t => `<a class="row r2" href="#topics/${encodeURIComponent(t.id)}"><span class="t">${esc(t.title.replace(/[（(].*$/, ""))}${t.status?.stage ? `<span class="s">${esc(t.status.stage)}</span>` : ""}</span><span class="tag ${topicStale(t) ? "warn" : ""}">${md(t.last)}</span></a>`).join("")}</div>` }) : "",
     box({ title: "Agents", link: ["全部", "#agents"], flush: true, body: ags.length ? `<div class="rows">${ags.map(([a, ts]) => `<a class="row r2" href="#agents"><span class="t">${esc(agentName(a))}</span><span class="tag">${ts.some(t => t.status === "in-progress") ? "进行中 · " : ""}${ts.length} 待办</span></a>`).join("")}</div>` : `<p class="empty" style="padding:16px">没有 agent 任务。</p>` }),
     box({ title: "最近记录", link: ["记录", "#journal"], flush: true, body: `<div class="rows">${recent.map(r => `<a class="row r2" href="${noteHref(r)}"><span class="t">${esc(r.title)}</span><span class="tag">${md(r.updated)}</span></a>`).join("")}</div>` })].join("");
-  return { html: header("今天", "", [`${now.getMonth() + 1}月${now.getDate()}日 周${WD[now.getDay()]}`, `第 ${wk} 周`, `本周 ${md(T.week[0])}–${md(T.week[1])}`], lede, { kpis, actions: [["⌘K 搜索", "cmdk"], ["打开计划", "#plan/board", true]] })
-    + `<div class="body">${mainSide(focus + plan, side)}</div>` };
+  const top = header("今天", "", [`${now.getMonth() + 1}月${now.getDate()}日 周${WD[now.getDay()]}`, `第 ${wk} 周`, `本周 ${md(T.week[0])}–${md(T.week[1])}`], lede, { kpis, actions: [["⌘K 搜索", "cmdk"], ["打开计划", "#plan/board", true]] })
+    + tabs("today", pageTabs(section("today"), "today"), sub);
+  if (sub !== "today") return { html: top + `<div class="body"><p class="empty">「${esc(sub)}」还没有对应的页面。</p></div>` };
+  return { html: top + `<div class="body">${mainSide(focus + plan, side)}</div>` };
 }
