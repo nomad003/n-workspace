@@ -70,3 +70,18 @@ export const tabs = (base, list, active) => `<nav class="tabs">${list.map(([id, 
 export const steps = rows => `<div class="steps">${rows.map(r => `<div class="step L-${r.c}"><div class="n">${r.n}</div><div class="k">${esc(r.k)}</div></div>`).join("")}</div>`;
 export const urow = (date, approx, title, meta, extra = "") => `<div class="urow L-${urg(daysUntil(date))}">${cd(date, approx)}<div><b>${title}</b><span class="m">${meta}</span></div><span class="m x">${extra}</span></div>`;
 export const noteList = (rs, n = 8) => rs.length ? `<div class="nlist">${rs.slice(0, n).map(r => `<a class="nrow" href="${noteHref(r)}"><span class="t">${esc(r.title)}</span>${r.root === "life" ? `<span class="rt">life</span>` : ""}<span class="m">${esc(r.origin?.source_path?.replace(/\/[^/]*$/, "") || "")}</span><span class="d">${esc(r.updated || "")}</span></a>`).join("")}</div>` : `<p class="empty">无笔记</p>`;
+// Folder index shown above a tab: the note body when it is short, otherwise the first block, plus a link to the note.
+export function folderBanner(note, body) {
+  if (!note) return "";
+  const html = String(body?.html || "");
+  const open = `<a class="more" href="${noteHref(note)}">打开索引</a>`;
+  const plain = html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+  let inner = "";
+  if (html && plain.length <= 700) inner = html.replace(/^\s*<h1\b[^>]*>[\s\S]*?<\/h1>/i, "").trim();
+  else if (html) {
+    const m = html.match(/<(p|ul|ol)\b[^>]*>[\s\S]*?<\/\1>/i);
+    inner = m ? m[0] : `<p>${esc(plain.slice(0, 240))}</p>`;
+  }
+  return `<div class="banner">${inner}${inner ? " " : ""}${open}</div>`;
+}
+export const seeAlso = (base, tabs) => tabs?.length ? `<p class="note">另见 ${tabs.map(t => `<a href="#${base}/${t.id}">${esc(t.label)}</a>`).join("、")}</p>` : "";

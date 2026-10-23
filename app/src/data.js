@@ -1,6 +1,7 @@
 // Loaded data + derived helpers shared by pages.
 import { match, nextRenewal, taskDue, known, isAgentTask, daysUntil, twoFaState, weak2fa } from "./core.js";
 import { choosePrefixes, fallbacks, matchesPath, LIFE_INDEX, setLegacyPaths, legacyPaths, noteFallback } from "./life-paths.js";
+import { folderBanner } from "./ui.js";
 export const bundle = await fetch("../data/bundle.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null);
 setLegacyPaths(!!bundle?.life_legacy_paths);
 const IDS = ["today", "plan", "life", "journal", "knowledge", "accounts", "agents", "settings"];
@@ -134,6 +135,42 @@ export const findLifeNote = path => {
   }
   return null;
 };
+const INDEX_RE = /(^|\/)(index|README)\.md$/i;
+export const isIndexNote = r => INDEX_RE.test(r?.origin?.source_path || "");
+export const folderIndex = dir => {
+  const base = String(dir || "").replace(/\/+$/, "");
+  return base ? findLifeNote(`${base}/index`) || findLifeNote(`${base}/README`) : null;
+};
+const tabDirs = tab => (Array.isArray(tab?.source) ? tab.source : []).filter(u => /^life:\/\/[^#?]+\/$/.test(String(u))).map(u => String(u).slice(7));
+// Notes shown in one sections.yaml tab. A folder's own index.md / README.md stays in ⌘K
+// and is rendered as the folder description, not as a row. A note that also sits in a
+// more specific tab of the same section is listed only on that tab.
+export function listedNotes(sectionId, tabId, fallbackDirs = []) {
+  const S = section(sectionId);
+  const tabs = S?.tabs || [];
+  const me = tabs.find(t => t.id === tabId);
+  const dirs = me ? tabDirs(me) : (S ? [] : fallbackDirs);
+  const nested = [];
+  for (const t of tabs) {
+    if (t.id === tabId) continue;
+    const ds = tabDirs(t).filter(d => dirs.some(mine => d.startsWith(mine) && d.length > mine.length));
+    if (ds.length) nested.push({ tab: t, dirs: ds });
+  }
+  const nestedDirs = nested.flatMap(n => n.dirs);
+  const owned = path => nestedDirs.some(d => String(path || "").startsWith(d));
+  const notes = dedupeNotes(dirs.flatMap(notesIn).filter(r => !isIndexNote(r) && !owned(r.origin.source_path)));
+  return { dirs, notes, see: nested.map(n => n.tab), nestedDirs };
+}
+export async function folderIntro(dirs) {
+  const notes = [];
+  const seen = new Set();
+  for (const d of dirs || []) {
+    const n = folderIndex(d);
+    if (n && !seen.has(n.id)) { seen.add(n.id); notes.push(n); }
+  }
+  const bodies = await Promise.all(notes.map(noteBody));
+  return notes.map((n, i) => folderBanner(n, bodies[i])).join("");
+}
 const dropRedundantIndex = xs => xs.filter(r => {
   if (!/\/index\.md$/i.test(r.origin.source_path)) return true;
   const dir = r.origin.source_path.replace(/index\.md$/i, "");

@@ -155,6 +155,9 @@ a.kpi:hover .kpi-k{color:var(--accent)}
 .blk>h2 .more~.more{margin-left:12px}
 .box-h>a.link{margin-left:auto}
 .box-h>.box-m~a.link{margin-left:14px}
+.banner p,.banner ul,.banner ol{margin:0 0 8px}
+.banner > :first-child{margin-top:0}
+.banner a.more{margin-left:8px;white-space:nowrap}
 .box-h a.link,a.more{color:var(--text-2)!important;font-size:13px;font-weight:500}
 .box-h a.link:hover,a.more:hover,.blk>h2 a.more:hover{color:var(--accent)!important}
 .box-b{padding:4px 16px 16px}

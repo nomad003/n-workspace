@@ -1,7 +1,7 @@
 ---
 id: learn/mind/index
 type: note
-area: mind
+area: learn
 status: active
 privacy: private
 created: 2026-08-01

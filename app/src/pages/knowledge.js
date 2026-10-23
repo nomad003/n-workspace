@@ -2,26 +2,31 @@
 // 领域 is one row per top-level folder (cs, backend, devtools, ai, math, tools). 主题 is the next level
 // (backend/network, ai/llm, …). 目录 · 搜索 (kb-index.json) · note page (any root).
 // Life notes live under 生活 / 记录 / 计划; the note page still renders them (with a link back to their section).
-import { V, records as ALL, byId, v9, kbIndex, noteBody, notesWhere, choosePrefixes, dirCovers, fallbacks, section } from "../data.js";
+import { V, records as ALL, byId, v9, kbIndex, noteBody, notesWhere, choosePrefixes, dirCovers, fallbacks, section, isIndexNote } from "../data.js";
 import { pageTabs } from "../page-tabs.js";
-import { esc, header, tabs, card, noteList, noteLink, more, box, mainSide } from "../ui.js";
+import { esc, header, tabs, card, noteList, noteLink, more, box, mainSide, folderBanner } from "../ui.js";
 const records = ALL.filter(r => r.root === "kb");
 const T = sub => tabs("knowledge", pageTabs(section("knowledge"), "knowledge"), sub);
 const searchBox = (q = "") => `<form class="kbsearch" onsubmit="location.hash='#knowledge/search?q='+encodeURIComponent(this.q.value);return false"><input name="q" value="${esc(q)}" placeholder="搜索标题、标签与正文…" autocomplete="off"></form>`;
 const md = d => String(d ?? "").slice(5).replace("-", "/");
 const DOMAIN_ORDER = ["cs", "backend", "devtools", "ai", "math", "tools"];
 const byOrder = (a, b) => { const rank = n => { const i = DOMAIN_ORDER.indexOf(String(n).split("/")[0]); return i < 0 ? 99 : i; }; return rank(a.k) - rank(b.k) || a.k.localeCompare(b.k); };
-const group = (rs, depth) => { const g = {}; for (const r of rs) { const k = r.origin.source_path.split("/").slice(0, depth).join("/"); (g[k] ||= []).push(r); }
+const group = (rs, depth) => { const g = {}; for (const r of rs) { if (isIndexNote(r)) continue; const k = r.origin.source_path.split("/").slice(0, depth).join("/"); (g[k] ||= []).push(r); }
   return Object.entries(g).filter(([k]) => k && !/\.md$/.test(k)).map(([k, xs]) => ({ k, name: k.split("/").pop(), xs, last: xs.map(x => x.updated).filter(Boolean).sort().at(-1) })).sort(byOrder); };
 const kbNotes = v => notesWhere(v.topics).filter(r => r.root === "kb");
 function topicGroups(v) {
   const g = {};
-  for (const r of kbNotes(v)) { const parts = r.origin.source_path.split("/"); const k = parts.length > 2 ? parts.slice(0, 2).join("/") : parts[0]; if (!k || /\.md$/i.test(k)) continue; (g[k] ||= []).push(r); }
+  for (const r of kbNotes(v)) { if (isIndexNote(r)) continue; const parts = r.origin.source_path.split("/"); const k = parts.length > 2 ? parts.slice(0, 2).join("/") : parts[0]; if (!k || /\.md$/i.test(k)) continue; (g[k] ||= []).push(r); }
   return Object.entries(g).map(([k, xs]) => ({ k, name: k.split("/").pop(), xs, last: xs.map(x => x.updated).filter(Boolean).sort().at(-1) })).sort(byOrder);
+}
+function kbFolderIndex(dir) {
+  const rel = String(dir || "").replace(/^kb\/?/, "").replace(/\/$/, "");
+  const re = rel ? new RegExp(`^${rel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/(index|README)\\.md$`, "i") : /^(index|README)\.md$/i;
+  return records.find(r => re.test(r.origin.source_path)) || null;
 }
 export default async function (sub = "home", P = new URLSearchParams()) {
   if (sub === "domains") sub = "home"; // sections.yaml tab id
-  const v = V.knowledge, kbN = records.filter(r => r.root === "kb").length;
+  const v = V.knowledge, kbN = records.filter(r => !isIndexNote(r)).length;
   const lastU = records.map(r => r.updated).filter(Boolean).sort().at(-1) ?? "";
   const head = (extra = [], lede = "通用知识库：按顶层目录与下一级主题组织。个人、工作与项目笔记在 生活 / 记录。") => header("知识", "", [`n-knowledge-base · ${kbN} 篇`, ...extra], lede, { actions: [["全文搜索", "#knowledge/search", true]],
     kpis: sub === "home" ? [[kbN, "笔记", { tone: "focus" }], [group(kbNotes(v), 1).length, "领域"], [topicGroups(v).length, "主题"], [lastU.slice(5).replace("-", "/") || "—", "最近更新", { sub: esc(lastU) }]] : [] });
@@ -43,22 +48,24 @@ export default async function (sub = "home", P = new URLSearchParams()) {
     + box({ title: "主题", meta: `${topics.length} 个`, link: ["主题页", "#knowledge/topics"], flush: true, body: topics.length ? `<div class="rows">${topics.map(row).join("")}</div>` : `<p class="empty">没有主题目录。</p>` }),
     box({ title: "最近更新", link: ["目录", "#knowledge/tree"], flush: true, body: noteList(recent, 12) }))}</div>` };
 }
-function treePage(P, head) {
+async function treePage(P, head) {
   const root = "kb", dir = P.get("dir") || "", area = P.get("area") || "", type = P.get("type") || "", status = P.get("status") || "";
   const pool = records.filter(r => (!root || r.root === root) && (!area || r.area === area) && (!type || r.type === type) && (!status || r.status === status));
   const q = o => "#knowledge/tree?" + new URLSearchParams(Object.entries({ root, dir, area, type, status, ...o }).filter(([, x]) => x)).toString();
-  // folder tree (depth ≤ 3) with counts
-  const tree = {}; for (const r of pool) { const parts = [r.root, ...r.origin.source_path.split("/").slice(0, -1)].slice(0, 4); let path = "";
-    parts.forEach(p => { path = path ? `${path}/${p}` : p; tree[path] = (tree[path] || 0) + 1; }); }
+  // folder tree (depth ≤ 3) with counts; index.md / README.md are the folder description, not a counted note
+  const tree = {}; for (const r of pool) { const parts = [r.root, ...r.origin.source_path.split("/").slice(0, -1)].slice(0, 4); let path = ""; const bump = !isIndexNote(r);
+    parts.forEach(p => { path = path ? `${path}/${p}` : p; tree[path] = (tree[path] || 0) + (bump ? 1 : 0); }); }
   const dirs = Object.keys(tree).sort();
   const treeHtml = dirs.map(d => { const depth = d.split("/").length - 1, name = d.split("/").pop();
     return `<a class="tn ${d === dir ? "on" : ""}" style="padding-left:${8 + depth * 14}px" href="${q({ dir: d })}">${depth === 0 ? `<b>${esc(name)}://</b>` : esc(name)}<span>${tree[d]}</span></a>`; }).join("");
-  const inDir = dir ? pool.filter(r => `${r.root}/${r.origin.source_path}`.startsWith(dir + "/")) : pool;
-  const facet = (key, label) => { const vals = Object.entries(records.reduce((a, r) => (r[key] && (a[r[key]] = (a[r[key]] || 0) + 1), a), {})).sort((a, b) => b[1] - a[1]).slice(0, 14);
+  const inDir = (dir ? pool.filter(r => `${r.root}/${r.origin.source_path}`.startsWith(dir + "/")) : pool).filter(r => !isIndexNote(r));
+  const idx = dir ? kbFolderIndex(dir) : null;
+  const banner = idx ? folderBanner(idx, await noteBody(idx)) : "";
+  const facet = (key, label) => { const vals = Object.entries(records.filter(r => !isIndexNote(r)).reduce((a, r) => (r[key] && (a[r[key]] = (a[r[key]] || 0) + 1), a), {})).sort((a, b) => b[1] - a[1]).slice(0, 14);
     const cur = { area, type, status }[key]; return `<div class="filters"><span class="fl">${label}</span><a class="fchip ${!cur ? "on" : ""}" href="${q({ [key]: "" })}">全部</a>${vals.map(([x, n]) => `<a class="fchip ${cur === x ? "on" : ""}" href="${q({ [key]: x })}">${esc(x)} <b>${n}</b></a>`).join("")}</div>`; };
   return { html: head() + T("tree") + `<div class="body">
     ${facet("area", "领域")}${facet("type", "类型")}${facet("status", "状态")}
-    <div class="treegrid"><nav class="tree">${treeHtml || `<p class="empty">无</p>`}</nav><div>${card(`${esc(dir || "全部")} · ${inDir.length} 篇`, noteList(inDir.sort((a, b) => String(b.updated).localeCompare(String(a.updated))), 60) + (inDir.length > 60 ? more(inDir.length - 60, noteList(inDir.slice(60), 9999), "展开其余") : ""), { span: "s12 solo" })}</div></div></div>` };
+    <div class="treegrid"><nav class="tree">${treeHtml || `<p class="empty">无</p>`}</nav><div>${banner}${card(`${esc(dir || "全部")} · ${inDir.length} 篇`, noteList(inDir.sort((a, b) => String(b.updated).localeCompare(String(a.updated))), 60) + (inDir.length > 60 ? more(inDir.length - 60, noteList(inDir.slice(60), 9999), "展开其余") : ""), { span: "s12 solo" })}</div></div></div>` };
 }
 async function notePage(id) {
   const r = byId.get(id);

@@ -3,7 +3,11 @@
   validate.py --data <dir with data/*.yaml> [--topics <dir with topics.yaml + topic-logs/>] [--life <n-life-data root>] [--kb <n-knowledge-base root>] [--json report.json]
 Checks: (1) structured YAML vs schemas/*.schema.json, (2) cross-references (identity/account/plan/parent/oauth ids),
 (3) markdown frontmatter in both repos vs the unified frontmatter schema + per-repo rules, id uniqueness,
-(4) links: kb:// / life:// URIs and [[wikilinks]] resolve; KB must never link into life (boundary error),
+(4) links: kb:// / life:// URIs and [[wikilinks]] resolve; KB must never link into life (boundary error).
+    kb:// canonical form = kb://<path from the n-knowledge-base repo root, no .md>, real filename, no %-encoding,
+    directories end with "/", paths with spaces as [t](<kb://a b>). Exact (case-sensitive) path first; kb://<frontmatter id>
+    is a legacy fallback (counted as kb_md/life_md "kb:// via legacy id", not an error). Code spans/blocks are not links.
+    AGENTS.md/CLAUDE.md are scanned for links only (no frontmatter rules).
 (5) topics: topics.yaml vs schema, xrefs (accounts/tasks/plans), every topic-logs/*.jsonl line vs schema + kind rules + metric types,
 status snapshot == last status entry, open issues, staleness. Prints counts only, never field values (private data)."""
 import os, re, sys, json, yaml, argparse, collections
@@ -148,14 +152,35 @@ if TD and os.path.exists(os.path.join(TD, "topics.yaml")):
         if not x[k]: del x[k]
     R["topics"] = {**dict(st), "data_quality": {k: v for k, v in q.items() if v}}
 # ---- 3+4: markdown in both repos
+def strip_code(t):  # code blocks (incl. indented fences in list items) / inline code hold examples, not links; keep offsets
+    t = re.sub(r"(?ms)^[ \t]*(```|~~~).*?^[ \t]*\1", lambda m: re.sub(r"[^\n]", " ", m.group(0)), t)
+    return re.sub(r"`[^`\n]*`", lambda m: " " * len(m.group(0)), t)
+def uri_links(t):
+    """kb:// and life:// URIs: [t](<scheme://a b>), [t](scheme://a(b)) with balanced parens, or bare scheme://x."""
+    out = []
+    for m in re.finditer(r"\b(kb|life)://", t):
+        k = m.start()
+        if t[k - 3:k] == "](<":
+            e = t.find(">", k); out.append(t[k:e if e > 0 else len(t)]); continue
+        if t[k - 2:k] == "](":
+            j, depth = k, 0
+            while j < len(t) and t[j] not in " \n" and not (t[j] == ")" and depth == 0):
+                depth += {"(": 1, ")": -1}.get(t[j], 0); j += 1
+            out.append(t[k:j]); continue
+        out.append(re.match(r"[^\s)>\]'\"`|，；。、]*", t[k:]).group(0))
+    return out
 FM = S["frontmatter"]; RULES = FM["x-repo-rules"]; EX = FM["x-type-extras"]
 def scan(root, repo):
     files, ids, stats, links = {}, collections.Counter(), collections.Counter(), []
     for d, ds, fs in os.walk(root):
         ds[:] = [x for x in ds if not x.startswith(".") and x not in ("node_modules",)]
         for f in fs:
-            if not f.endswith(".md") or f in ("AGENTS.md", "CLAUDE.md"): continue
-            p = os.path.join(d, f); rel = os.path.relpath(p, root); t = open(p, encoding="utf-8", errors="ignore").read(); stats["md"] += 1
+            if not f.endswith(".md"): continue
+            p = os.path.join(d, f); rel = os.path.relpath(p, root); t = open(p, encoding="utf-8", errors="ignore").read()
+            if f in ("AGENTS.md", "CLAUDE.md"):  # agent instructions: links only
+                for u in uri_links(strip_code(t)): links.append((rel, u))
+                continue
+            stats["md"] += 1
             m = re.match(r"^---\n(.*?)\n---", t, re.S); fm = None
             if m:
                 try: fm = yaml.safe_load(m.group(1)) or {}
@@ -173,78 +198,47 @@ def scan(root, repo):
             if repo == "kb" and ty in ("task", "daily", "log", "review", "account", "subscription"): err["boundary"][f"kb holds life-type '{ty}'"] += 1
             if repo == "life" and fm.get("area") in ("ai-ml", "game-backend", "cs") and ty == "note": err["boundary"][f"life holds knowledge note area={fm['area']}"] += 1
             for w in re.findall(r"\[\[([^\]|#]+)", t): links.append((rel, w.strip()))
-            for root_name, uri_path in iter_uris(t): links.append((rel, f"{root_name}://{uri_path}"))
+            for u in uri_links(strip_code(t)): links.append((rel, u))
     for k, n in ids.items():
         if n > 1: err[f"{repo}:frontmatter"]["duplicate id"] += 1
     return files, ids, stats, links
-def _trim_loose(s):
-    s = re.sub(r"[.,;:]+$", "", s)
-    while s.endswith("）") and s.count("）") > s.count("（"): s = s[:-1]
-    return s
-_URI_STOP = set("]\"'`<>|，。；")
-def iter_uris(t):
-    from urllib.parse import unquote
-    t = re.sub(r"```[\s\S]*?```", "", t); t = re.sub(r"`[^`\n]*`", "", t)
-    i, n = 0, len(t)
-    while i < n:
-        m = re.search(r"(?<![A-Za-z0-9_])(kb|life)://", t[i:])
-        if not m: break
-        at = i + m.start(); root = m.group(1); j = at + len(root) + 3
-        angled = at > 0 and t[at - 1] == "<" and ">" in t[j:]
-        if angled:
-            gt = t.find(">", j); raw = t[j:gt]; i = gt + 1
-        else:
-            depth, k = 0, j
-            while k < n:
-                c = t[k]
-                if c == "\\": k += 2; continue
-                if c == "(": depth += 1; k += 1; continue
-                if c == ")":
-                    if depth == 0: break
-                    depth -= 1; k += 1; continue
-                if c.isspace() or c in _URI_STOP: break
-                k += 1
-            raw = _trim_loose(t[j:k]); i = j + len(raw)
-        raw = unquote(raw).strip().lstrip("/")
-        if raw.startswith("./"): raw = raw[2:]
-        if root == "kb" and raw.startswith("n-knowledge-base/"): raw = raw[len("n-knowledge-base/"):]
-        raw = re.split(r"[?#]", raw, maxsplit=1)[0]
-        if raw: yield root, raw
 REPOS = {}
 for repo, root in (("kb", A.kb), ("life", A.life)):
     if root: REPOS[repo] = scan(root, repo)
 names = {r: {os.path.splitext(os.path.basename(f))[0].lower() for f in v[0]} | {f[:-3].lower() for f in v[0]} for r, v in REPOS.items()}
-allids = {r: {str(i).lower() for i in v[1]} for r, v in REPOS.items()}
-def _dirs_of(files):
-    out = set()
-    for f in files:
-        parent = os.path.dirname(f.replace("\\", "/"))
-        if not parent or parent == ".": continue
-        acc = ""
-        for seg in parent.split("/"):
-            acc = f"{acc}/{seg}" if acc else seg
-            out.add(acc.lower())
-    return out
-dirs = {r: _dirs_of(v[0]) for r, v in REPOS.items()}
+allids = {r: set(v[1]) for r, v in REPOS.items()}
+if "kb" in REPOS:
+    KBF = {f[:-3] for f in REPOS["kb"][0]}; KBD = {""} | {"/".join(f.split("/")[:i]) for f in KBF for i in range(1, f.count("/") + 1)}
+    KBID = {i for i in REPOS["kb"][1]}
+def kb_resolve(rest):
+    """-> 'path' | 'dir' | 'id' (legacy) | 'encoded' | None"""
+    rest = rest.split("#")[0]
+    if rest.endswith("/") or rest == "": return "dir" if rest.rstrip("/") in KBD else None
+    if rest in KBF: return "path"
+    if rest in KBD: return "dir"
+    if rest in KBID: return "id"
+    from urllib.parse import unquote
+    if "%" in rest and (unquote(rest) in KBF or unquote(rest).rstrip("/") in KBD): return "encoded"
+    return None
 for repo, (files, _, stats, links) in REPOS.items():
     b = collections.Counter()
     for src, l in links:
         if "://" in l:
             r, rest = l.split("://", 1)
-            if rest.startswith("data/"): continue
-            is_dir = rest.endswith("/")
-            stem = rest[:-1] if is_dir else (rest[:-3] if rest.lower().endswith(".md") else rest)
-            stem_l = stem.lower()
-            rels = names.get(r, set())
-            folder_ok = is_dir and (stem_l in dirs.get(r, set()) or any(n == stem_l or n.startswith(stem_l + "/") for n in rels))
-            file_ok = (not is_dir) and (stem_l in rels or stem_l in allids.get(r, set()))
-            if r in names and not (folder_ok or file_ok): b[f"{r}:// unresolved"] += 1
+            if r == "kb" and "kb" in REPOS:
+                how = kb_resolve(rest)
+                if how is None: b["kb:// unresolved"] += 1
+                elif how == "encoded": b["kb:// percent-encoded (write the real filename)"] += 1
+                elif how == "id": b["kb:// via legacy id"] += 1
+                continue
+            rest = rest.split("#")[0].rstrip("/").lower()
+            if r in names and not (rest in names[r] or rest in allids.get(r, set()) or any(n.startswith(rest) for n in names[r]) or rest.startswith(("data/", "n-knowledge-base/"))): b[f"{r}:// unresolved"] += 1
             if repo == "kb" and r == "life": err["boundary"]["kb note links to life://"] += 1
         else:
             w = l.lower().removesuffix(".md")
             if not any(w in names[r] or w.split("/")[-1] in names[r] for r in names): b["[[wikilink]] unresolved"] += 1
             elif repo == "kb" and "life" in names and not (w in names["kb"] or w.split("/")[-1] in names["kb"]): err["boundary"]["kb [[wikilink]] resolves only in life"] += 1
-    for k in ("kb:// unresolved", "life:// unresolved"):
+    for k in ("kb:// unresolved", "kb:// percent-encoded (write the real filename)", "life:// unresolved"):
         if b[k]: err["links"][f"{repo}: {k}"] += b[k]
     R[f"{repo}_md"] = {"files": stats["md"], "with_id": sum(1 for f in files.values() if f.get("id")), "links": len(links), **dict(b)}
 R["errors"] = {k: dict(v.most_common(30)) for k, v in err.items() if v}

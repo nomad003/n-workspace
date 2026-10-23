@@ -1,6 +1,6 @@
 // n-workspace v9 shell: 今天 · 计划 · 生活 · 记录 · 账号 · 知识 · Agents + 设置, ⌘K, hash router (#page/sub/…?params).
 import { weak2fa } from "./core.js";
-import { bundle, V, M, records, tasks, subs, known, accHref, catPages, groups, section, agentName, topics, notesIn } from "./data.js";
+import { bundle, V, M, records, tasks, subs, known, accHref, catPages, groups, section, agentName, topics, listedNotes, isIndexNote } from "./data.js";
 import { pageTabs } from "./page-tabs.js";
 import { isOpenTask } from "./core.js";
 import { esc, noteHref } from "./ui.js";
@@ -29,11 +29,12 @@ const setTheme = t => { document.documentElement.dataset.theme = t; localStorage
 function sidebar() {
   const open = tasks().filter(t => isOpenTask(t) && t.owner === "user").length, w2 = weak2fa(M.accounts?.items || []).length;
   const tw = topics().filter(t => topicStale(t) || t.open_issues?.length).length;
-  const countSec = id => { const S = section(id); if (!S) return null; const seen = new Set(); for (const t of S.tabs || []) for (const u of t.source || []) { if (!/^life:\/\/[^#?]+\/$/.test(String(u))) continue; for (const r of notesIn(String(u).slice(7))) seen.add(r.id); } return seen.size || ""; };
+  const countSec = id => { const S = section(id); if (!S) return null; const seen = new Set(); for (const t of S.tabs || []) for (const r of listedNotes(id, t.id).notes) seen.add(r.id); return seen.size || ""; };
   const lifeN = countSec("life"), journalN = countSec("journal");
   const journalRe = /^(journal|bot\/journal|life\/journal|work|cfwork|server)\//;
   const lifeSkip = /^(journal|work|plan|learning|agent-ops|moc|bot\/journal|bot\/plan|cfwork|server|life\/journal|life\/plan|content|learn|accounts)\//;
-  const cnt = { topics: tw ? `<span class="w">${tw}</span>` : (topics().length || ""), plan: open || "", life: lifeN ?? (records.filter(r => r.root === "life" && r.origin.source_path.includes("/") && !lifeSkip.test(r.origin.source_path)).length || ""), journal: journalN ?? (records.filter(r => r.root === "life" && journalRe.test(r.origin.source_path)).length || ""), knowledge: records.filter(r => r.root === "kb").length, accounts: w2 ? `<span class="w">${w2}</span>` : "" };
+  const noteCount = pred => records.filter(r => pred(r) && !isIndexNote(r)).length;
+  const cnt = { topics: tw ? `<span class="w">${tw}</span>` : (topics().length || ""), plan: open || "", life: lifeN ?? (noteCount(r => r.root === "life" && r.origin.source_path.includes("/") && !lifeSkip.test(r.origin.source_path)) || ""), journal: journalN ?? (noteCount(r => r.root === "life" && journalRe.test(r.origin.source_path)) || ""), knowledge: noteCount(r => r.root === "kb"), accounts: w2 ? `<span class="w">${w2}</span>` : "" };
   const src = (bundle?.sources || []).filter(s => s.meta);
   document.getElementById("side").innerHTML = `
    <div class="me"><span class="av">n</span><b>n-workspace</b></div>

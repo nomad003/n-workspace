@@ -1,7 +1,7 @@
 ---
 id: accounts/register/example-mail
 type: note
-area: register
+area: accounts
 status: active
 privacy: private
 created: 2026-09-12
