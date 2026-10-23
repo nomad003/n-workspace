@@ -1,9 +1,10 @@
 // Agents (v9): tasks with owner agent:<name> (tasks.yaml), channels (content.yaml owner_agent; numbers from the topic log via channelStats), notes under content/x/ content/blibli/ learn/agent/pi/ (x/ blibli/ pi/, then agent-ops/, until the move).
-import { M, tasks, agentNotes, agentName, known, channelStats } from "../data.js";
+import { M, tasks, agentNotes, agentName, known, channelStats, section } from "../data.js";
+import { pageTabs } from "../page-tabs.js";
 import { isOpenTask } from "../core.js";
-import { esc, header, noteList, box, mainSide } from "../ui.js";
+import { esc, header, tabs, noteList, box, mainSide } from "../ui.js";
 import { taskRow } from "./_tasks.js";
-export default function () {
+export default function (sub = "agents") {
   const ts = tasks().filter(t => /^agent:/.test(t.owner)), ch = M.content?.items || [];
   const names = [...new Set([...ts.map(t => t.owner.slice(6)), ...ch.map(c => String(c.owner_agent ?? "").replace(/^agent:/, "").toLowerCase()).filter(Boolean)])];
   const ag = names.map(n => { const mine = ts.filter(t => t.owner === `agent:${n}`), open = mine.filter(isOpenTask), chans = ch.filter(c => String(c.owner_agent ?? "").replace(/^agent:/, "").toLowerCase() === n);
@@ -15,7 +16,9 @@ export default function () {
     footer: [`${a.open.length} 待办 / ${a.mine.length} 总计`, ...a.chans.map(c => { const s = channelStats(c); return `${esc(c.platform)} ${esc(c.handle ?? "")} · ${esc(c.stage ?? "")}${s ? ` · 关注 ${esc(s.following ?? "—")} / 粉丝 ${esc(s.followers ?? "—")}${s.date ? ` <span class="s" title="${esc(s.source)}">${esc(String(s.date).slice(5))}${s.topic ? ` · <a href="#topics/${esc(s.topic)}">主题</a>` : ""}</span>` : ""}` : ""}${known(c.next) ? ` · 下一步：${esc(Array.isArray(c.next) ? c.next[0] : c.next)}` : ""}`; })].join("<br>") })).join("");
   const side = box({ title: "概况", body: `<dl class="mini-kv">${ag.map(a => `<dt>${esc(agentName(a.n))}</dt><dd>${a.open.length}</dd>`).join("")}</dl>` })
     + box({ title: "笔记", meta: noteLabel, flush: true, body: noteList(notes, 99) });
-  return { html: header("Agents", "", [`${ag.length} 个 agent`, "owner: agent:*"], `${ag.filter(a => a.run).length} 个运行中，${ag.filter(a => a.wait).length} 个在等你确认。`,
+  const top = header("Agents", "", [`${ag.length} 个 agent`, "owner: agent:*"], `${ag.filter(a => a.run).length} 个运行中，${ag.filter(a => a.wait).length} 个在等你确认。`,
     { kpis: [[ag.length, "Agents"], [openN, "未完成任务", { tone: "focus" }], [ag.filter(a => a.run).length, "运行中"], [ag.filter(a => a.wait).length, "等你确认", { tone: ag.some(a => a.wait) ? "warn" : "" }]] })
-    + `<div class="body">${mainSide(cards, side)}</div>` };
+    + tabs("agents", pageTabs(section("agents"), "agents"), sub);
+  if (sub !== "agents") return { html: top + `<div class="body"><p class="empty">「${esc(sub)}」还没有对应的页面。</p></div>` };
+  return { html: top + `<div class="body">${mainSide(cards, side)}</div>` };
 }

@@ -1,7 +1,8 @@
 // Loaded data + derived helpers shared by pages.
 import { match, nextRenewal, taskDue, known, isAgentTask, daysUntil, twoFaState, weak2fa } from "./core.js";
-import { choosePrefixes, fallbacks, matchesPath, LIFE_INDEX } from "./life-paths.js";
+import { choosePrefixes, fallbacks, matchesPath, LIFE_INDEX, setLegacyPaths, legacyPaths, noteFallback } from "./life-paths.js";
 export const bundle = await fetch("../data/bundle.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).catch(() => null);
+setLegacyPaths(!!bundle?.life_legacy_paths);
 const IDS = ["today", "plan", "life", "journal", "knowledge", "accounts", "agents", "settings"];
 export const views = (await Promise.all(IDS.map(id => fetch(`../views/${id}.json`).then(r => r.json())))).sort((a, b) => a.order - b.order);
 export const V = Object.fromEntries(views.map(v => [v.id, v]));
@@ -61,9 +62,11 @@ const hit = (txt, a) => { const t = tok(a); if (t.length < 2 || (/^[\x00-\x7f]+$
 export const relatedSubs = a => subs().some(s => s.account_id) ? subs().filter(s => s.account_id === accId(a)) : subs().filter(s => hit(s.service, a) || hit(a.service, { service: s.service }) || hit(s.notes, a));
 export const relatedTasks = a => tasks().filter(t => hit(t.title, a) || hit(t.notes, a));
 export async function relatedNotes(a) {
-  const ix = await kbIndex(), t = tok(a).toLowerCase();
+  const [kb, life] = await Promise.all([kbIndex(), lifeIndex()]);
+  const ix = [...(Array.isArray(kb) ? kb : []), ...(Array.isArray(life) ? life : [])];
+  const t = tok(a).toLowerCase();
   const byTitle = ix.filter(n => hit(n.title, a)), byText = ix.filter(n => !byTitle.includes(n) && hit(n.text, a));
-  return { byTitle, byText: byText.sort((x, y) => (y.text.toLowerCase().split(t).length) - (x.text.toLowerCase().split(t).length)) };
+  return { byTitle, byText: byText.sort((x, y) => (String(y.text ?? "").toLowerCase().split(t).length) - (String(x.text ?? "").toLowerCase().split(t).length)) };
 }
 
 export const noteByPath = (root, p) => byId.get(`${root}:${p}`);
@@ -74,6 +77,13 @@ export const groups = () => v9?.groups || [];
 export const plansV9 = () => v9?.plans || [];
 export const reviews = () => v9?.reviews || [];
 export const section = id => (v9?.sections || []).find(s => s.id === id) || null;
+// Directory sources on one sections.yaml tab. `fallback` is used only when that page has no section.
+export function dirSources(pageId, tabId, fallback = []) {
+  const S = section(pageId);
+  if (!S) return fallback;
+  const t = (S.tabs || []).find(x => x.id === tabId);
+  return (Array.isArray(t?.source) ? t.source : []).filter(u => /^life:\/\/[^#?]+\/$/.test(String(u))).map(u => String(u).slice(7));
+}
 export const lifeFiles = () => v9?.files || [];
 export const subsOf = id => subs().filter(s => s.account_id === id);
 export const paidBy = id => subs().filter(s => s.paid_via === id);
@@ -88,19 +98,20 @@ export const dirCovers = prefix => {
 };
 const rawNotes = prefix => records.filter(r => r.root === "life" && pathHit(r.origin.source_path, prefix));
 const dedupeNotes = xs => { const seen = new Set(), out = []; for (const r of xs) if (r && !seen.has(r.id)) { seen.add(r.id); out.push(r); } return out; };
-// Directory queries try the given path, then the v3, bot-domain, and original names when it is absent.
+// Directory queries use the given path. Older names are tried only when LIFE_LEGACY_PATHS=1.
 export const notesIn = dir => {
   const q = dir.endsWith("/") || !dir.includes("/") ? (dir.endsWith("/") ? dir : dir + "/") : dir;
   const prefs = choosePrefixes(q, dirCovers);
   const out = dedupeNotes(prefs.flatMap(rawNotes));
   const seen = new Set(out.map(r => r.id));
-  for (const [folder, ...indexes] of LIFE_INDEX) {
+  if (legacyPaths()) for (const [folder, ...indexes] of LIFE_INDEX) {
     if (!prefs.some(p => p === folder || (folder.endsWith("/") && p.startsWith(folder)))) continue;
     const newest = indexes[0];
     if (records.some(r => r.root === "life" && barePath(r.origin.source_path) === barePath(newest))) continue;
     for (const legacy of indexes.slice(1)) {
       const hit = records.find(r => r.root === "life" && barePath(r.origin.source_path) === barePath(legacy));
       if (!hit) continue;
+      noteFallback(newest, legacy);
       if (!seen.has(hit.id)) { seen.add(hit.id); out.push(hit); }
       break;
     }
@@ -115,7 +126,12 @@ export const filesIn = dir => {
 };
 export const findLifeNote = path => {
   const want = [barePath(path), ...fallbacks(path).map(barePath)];
-  for (const b of want) { const hit = records.find(r => r.root === "life" && barePath(r.origin.source_path) === b); if (hit) return hit; }
+  for (const b of want) {
+    const hit = records.find(r => r.root === "life" && barePath(r.origin.source_path) === b);
+    if (!hit) continue;
+    if (b !== want[0]) noteFallback(path, b);
+    return hit;
+  }
   return null;
 };
 const dropRedundantIndex = xs => xs.filter(r => {
@@ -123,17 +139,28 @@ const dropRedundantIndex = xs => xs.filter(r => {
   const dir = r.origin.source_path.replace(/index\.md$/i, "");
   return !xs.some(o => o.id !== r.id && o.origin.source_path.startsWith(dir));
 });
-// Agents notes: content/x/, content/blibli/, learn/agent/pi/ (and team.md). Falls back through x/ blibli/ pi/, then the whole agent-ops/ tree.
+// Agents notes follow the agents section sources (directories plus file pins such as life://team).
+// views/agents.json is the fallback when that section is absent. The agent-ops/ tree is a LIFE_LEGACY_PATHS fallback.
 export function agentNotes() {
-  const specs = (V.agents?.agent_notes?.path || ["content/x/", "content/blibli/", "learn/agent/pi/"]).map(p => p.endsWith("/") ? p : p + "/");
-  let notes = dedupeNotes(specs.flatMap(notesIn));
-  const team = findLifeNote("team");
-  if (team) notes = dedupeNotes([...notes, team]);
-  const used = specs.map(s => choosePrefixes(s, dirCovers)[0]);
-  let label = used.map(s => `life://${s}`).join(" · ");
-  if (!notes.length && !used.some(dirCovers) && dirCovers("agent-ops/")) {
+  const sec = section("agents");
+  const raw = sec?.tabs?.length
+    ? sec.tabs.flatMap(t => Array.isArray(t.source) ? t.source : [])
+    : (V.agents?.agent_notes?.path || ["content/x/", "content/blibli/", "learn/agent/pi/"]).map(p => `life://${p}`);
+  const dirs = [], files = [];
+  for (const u of raw) {
+    const body = String(u).replace(/^life:\/\//, "").replace(/[#?].*$/, "");
+    if (!body || body.startsWith("data/")) continue;
+    if (body.endsWith("/")) dirs.push(body);
+    else files.push(body);
+  }
+  let notes = dedupeNotes(dirs.flatMap(notesIn));
+  for (const f of files) { const n = findLifeNote(f); if (n) notes = dedupeNotes([...notes, n]); }
+  const used = dirs.map(s => choosePrefixes(s, dirCovers)[0]);
+  let label = [...used.map(s => `life://${s}`), ...files.map(f => `life://${f}`)].join(" · ");
+  if (legacyPaths() && !notes.length && !used.some(dirCovers) && dirCovers("agent-ops/")) {
     notes = rawNotes("agent-ops/");
     label = "life://agent-ops/";
+    noteFallback(dirs.join(" ") || "agents", "agent-ops/");
   }
   return { notes: dropRedundantIndex(notes), label };
 }

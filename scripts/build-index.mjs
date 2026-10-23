@@ -1,7 +1,8 @@
-// Build data/bundle.json (gitignored) from the KB: notes frontmatter + n-knowledge-base/data/*.yaml.
+// Build data/bundle.json (gitignored) from the life repo (data/*.yaml + notes) and the KB (notes).
 // Local builds include private records by default (personal tool). Opt out with SHOW_PRIVATE=0.
 import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto"; import * as yaml from "js-yaml"; import { marked } from "marked"; import { loadV9, loadTopics, mask } from "./v9.mjs";
-import { fallbacks } from "../app/src/life-paths.js";
+import { fallbacks, setLegacyPaths, legacyPaths, choosePrefixes, noteFallback, drainFallbackWarnings, LIFE_INDEX } from "../app/src/life-paths.js";
+import { tabWarnings } from "../app/src/page-tabs.js";
 import { toItems, normalize, isPublic, match, overview, known } from "../app/src/core.js";
 import { extractUris, linkContext, normalizeUriPath, resolveUri } from "../app/src/kb-uri.js";
 
@@ -13,6 +14,7 @@ const KB_REPO_ROOT = fs.existsSync(path.join(KB_ROOT, "..", ".")) && path.basena
 const LIFE_ROOT = process.env.LIFE_ROOT || "life";
 const SRC = KB_ROOT;
 const warnings = [];
+setLegacyPaths(process.env.LIFE_LEGACY_PATHS === "1");
 const hasLife = fs.existsSync(LIFE_ROOT);
 if (!hasLife) warnings.push(`life root not found: ${LIFE_ROOT} (set LIFE_REPO/LIFE_LOCAL; using KB only)`);
 // data/*.yaml: LIFE_ROOT/data first; fall back to KB data/ with a warning.
@@ -37,7 +39,7 @@ function frontmatter(t) {
 // A ")" inside the name is kept (方案(参考)). Legacy kb://<id> is resolved after the path.
 // A leading n-knowledge-base/ and %20 still parse. Plus [[wikilinks]] (same root).
 const WIKI_RE = /\[\[([^\]|#\n]+?)(?:#[^\]|\n]*)?(?:\|[^\]\n]*)?\]\]/g;
-const ATTACH_RE = /\.(png|jpe?g|gif|webp|svg|pdf|mp4|mov|zip|enc|bin|html?|mmd|canvas|excalidraw)$/i;
+const ATTACH_RE = /\.(png|jpe?g|gif|webp|svg|pdf|mp4|mov|zip|enc|bin|html?|mmd|canvas|excalidraw|py|pyw|ps1|psm1|sh|bash|zsh|fish|bat|cmd|js|mjs|cjs|jsx|ts|tsx|rb|go|rs|pl|pm|lua|sql|txt|csv|tsv|toml|ini|cfg|conf|xml|css|scss|jsonl?|ya?ml|env|log|r|php|swift|kt|kts|java|c|cc|cpp|h|hpp|cs)$/i;
 function linksIn(t, root) {
   const body = String(t).replace(/```[\s\S]*?```/g, "").replace(/`[^`\n]*`/g, ""); // ignore code
   const out = extractUris(body).map(m => ({ root: m.root, path: m.path, kind: "uri" }));
@@ -91,8 +93,16 @@ function resolve(link, from) {
     const clean = norm.replace(/\.md$/i, "").replace(/\/+$/, "");
     if (dir && dir !== "." && clean) extra.push(path.posix.join(dir, clean));
   }
-  if (root === "life") extra.push(...fallbacks(norm));
+  if (root === "life" && legacyPaths()) extra.push(...fallbacks(norm));
   const hit = resolveUri(norm, linkCtx[root], { extraPaths: extra });
+  if (hit?.file && root === "life" && legacyPaths()) {
+    const stem = hit.file.replace(/\.md$/i, "");
+    const primary = norm.replace(/\.md$/i, "").replace(/\/+$/, "");
+    if (stem !== primary && stem !== `${primary}/index`) {
+      const alts = fallbacks(norm).map(a => String(a).replace(/\.md$/i, "").replace(/\/+$/, ""));
+      if (alts.some(a => stem === a || stem === `${a}/index`)) noteFallback(norm, hit.file);
+    }
+  }
   if (!hit) return null;
   if (hit.file) return { id: `${root}:${hit.file}`, folder: null };
   return { id: null, folder: hit.folder };
@@ -166,8 +176,41 @@ if (hasLife && !process.env.DATA_DIR) {
     for (const [n, items] of [["accounts", V9.accounts], ["identities", V9.identities], ["subscriptions", V9.subscriptions], ["tasks", V9.tasks]])
       modules[n] = { ...modules[n], items: showPrivate ? items : [], hidden: showPrivate ? 0 : items.length, source: src(n), root: "life", updated: V9.updated[n] ?? modules[n]?.updated ?? null, schema_version: 9 };
     for (const w of V9.missingDirs) {
-      const alt = fallbacks(w).find(p => fs.existsSync(path.join(LIFE_ROOT, String(p).replace(/\/$/, ""))));
-      warnings.push(alt ? `sections.yaml: life://${w} is not there yet; showing ${alt}` : `sections.yaml: life://${w} does not exist yet (tab shows empty)`);
+      if (legacyPaths()) {
+        const here = p => fs.existsSync(path.join(LIFE_ROOT, String(p).replace(/\/$/, "")));
+        const chosen = choosePrefixes(w, here);
+        if (chosen.some(p => p.replace(/\/$/, "") !== String(w).replace(/\/$/, "") && here(p))) continue;
+      }
+      warnings.push(`sections.yaml: life://${w} does not exist yet (tab shows empty)`);
+    }
+    for (const w of tabWarnings(V9.sections)) warnings.push(w);
+    if (legacyPaths()) {
+      const bare = p => String(p).replace(/\.md$/i, "").replace(/\/+$/, "");
+      const has = p => records.some(r => r.root === "life" && bare(r.origin.source_path) === bare(p));
+      const dirs = new Set();
+      for (const s of V9.sections) for (const t of s.tabs || []) for (const u of (Array.isArray(t.source) ? t.source : [])) {
+        const p = String(u).replace(/^life:\/\//, "").replace(/[#?].*$/, "");
+        if (p.endsWith("/")) dirs.add(p);
+      }
+      for (const [folder, newest, ...older] of LIFE_INDEX) {
+        if (![...dirs].some(d => d === folder || folder.startsWith(d) || d.startsWith(folder))) continue;
+        if (has(newest)) continue;
+        const hit = older.find(has);
+        if (hit) noteFallback(newest, hit);
+      }
+      const pins = [];
+      for (const s of V9.sections) for (const t of s.tabs || []) for (const u of (Array.isArray(t.source) ? t.source : [])) {
+        const p = String(u).replace(/^life:\/\//, "").replace(/[#?].*$/, "");
+        if (p && !p.startsWith("data/") && !p.endsWith("/")) pins.push(p);
+      }
+      for (const p of pins) {
+        if (has(p)) continue;
+        const alt = fallbacks(p).find(has);
+        if (alt) noteFallback(p, alt);
+      }
+      const agentDirs = dirs.size ? [...dirs].filter(d => /^(content\/x|content\/blibli|learn\/agent\/pi)\//.test(d)) : ["content/x/", "content/blibli/", "learn/agent/pi/"];
+      const covered = p => lifeDirs.has(p) || [...lifeDirs].some(d => d.startsWith(p)) || has(p);
+      if (agentDirs.length && agentDirs.every(d => !covered(d)) && covered("agent-ops/")) noteFallback(agentDirs.join(" "), "agent-ops/");
     }
   }
 }
@@ -257,7 +300,7 @@ function missingFields(m) {
 const dataFiles = MODULE_FILES.map(n => ({ name: `${n}.yaml`, root: modules[n].root || null, source: modules[n].source, items: modules[n].items?.length || Object.keys(modules[n].data || {}).length, updated: modules[n].updated || null, missing_fields: modules[n].source ? missingFields(modules[n]) : [] }));
 const sources = [
   { id: "life", name: "n-life-data", role: "primary", kind: "git", present: hasLife, meta: readMeta(LIFE_ROOT), notes: records.filter(r => r.root === "life").length, privacy: "全部私密",
-    data_files: dataFiles.filter(d => d.root === "life"), expects: V9 ? V9.sections.flatMap(x => x.tabs.flatMap(t => t.source)).filter(u => /\/$/.test(u)).map(u => u.slice(7)).filter((x, i, a) => a.indexOf(x) === i) : ["data/*.yaml"], schema_version: V9 ? 9 : 8 },
+    data_files: dataFiles.filter(d => d.root === "life"), expects: V9 ? [...new Set(V9.sections.flatMap(x => (x.tabs || []).flatMap(t => Array.isArray(t.source) ? t.source : [])).filter(u => /\/$/.test(String(u))).map(u => String(u).slice(7)))] : ["data/*.yaml"], schema_version: V9 ? 9 : 8 },
   { id: "kb", name: "n-knowledge-base", role: "secondary", kind: "git", present: fs.existsSync(KB_ROOT), meta: readMeta(KB_REPO_ROOT) || readMeta(KB_ROOT), notes: records.filter(r => r.root === "kb").length, privacy: "按 frontmatter privacy",
     data_files: dataFiles.filter(d => d.root === "kb"), expects: ["n-knowledge-base/**.md"] },
   { id: "x", name: "X (@handle)", role: "reserved", kind: "api", present: false, meta: null, notes: 0, privacy: "—", data_files: [], expects: ["posts / followers 快照（未接入）"] },
@@ -267,6 +310,7 @@ const sources = [
 const lite = shown.map(r => ({ id: r.id, slug: r.slug, f: r.file, title: r.title, root: r.root, area: r.area ?? null, type: r.type ?? null, status: r.status ?? null, maturity: r.maturity ?? null,
   tags: r.tags, updated: r.updated ?? null, origin: { source_path: r.origin.source_path }, privacy: r.privacy }));
 const bundle = { generated: new Date().toISOString(), show_private: showPrivate, kb_ref: sources[1].meta?.ref || process.env.KB_REF || null, life_ref: hasLife ? (sources[0].meta?.ref || process.env.LIFE_REF || "main") : null,
+  life_legacy_paths: legacyPaths(),
   roots: { kb: fs.existsSync(KB_ROOT), life: hasLife }, broken_links: broken, broken_list: brokenList.slice(0, 200),
   missing, warnings, boundary, attachments: { served: served.size, broken: [...new Set(attBroken)].slice(0, 100), files: { kb: FILES.kb.length, life: FILES.life.length } }, records: lite, private_hidden: records.length - shown.length, modules, sources };
 bundle.overview = overview(bundle, views.today);
@@ -279,6 +323,7 @@ for (const t of TOPICS) {
   if (/^kb:\/\//.test(t.narrative ?? "")) warnings.push(`topics: ${t.id}: narrative is a KB note (topics link to KB as resources only)`);
 }
 if (V9) bundle.v9 = { schema_version: 9, topics: TOPICS, groups: V9.groups, plans: V9.plans, reviews: V9.reviews, sections: V9.sections, missing_dirs: V9.missingDirs, files: V9.files, dirs: [...lifeDirs].sort(), updated: V9.updated };
+for (const w of drainFallbackWarnings()) if (!warnings.includes(w)) warnings.push(w);
 fs.writeFileSync(path.join(OUT, "bundle.json"), JSON.stringify(bundle));
 const size = f => (fs.statSync(path.join(OUT, f)).size / 1024).toFixed(0) + " KB";
 console.log(`roots: kb=${fs.existsSync(KB_ROOT)} (${sources[1].meta?.commit?.slice(0, 7) ?? "?"}) life=${hasLife} (${sources[0].meta?.commit?.slice(0, 7) ?? "?"}); links ${records.reduce((a, r) => a + r.links.length, 0)} (${broken} unresolved)`);

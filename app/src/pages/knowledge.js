@@ -2,10 +2,11 @@
 // 领域 is one row per top-level folder (cs, backend, devtools, ai, math, tools). 主题 is the next level
 // (backend/network, ai/llm, …). 目录 · 搜索 (kb-index.json) · note page (any root).
 // Life notes live under 生活 / 记录 / 计划; the note page still renders them (with a link back to their section).
-import { V, records as ALL, byId, v9, kbIndex, noteBody, notesWhere, choosePrefixes, dirCovers, fallbacks } from "../data.js";
+import { V, records as ALL, byId, v9, kbIndex, noteBody, notesWhere, choosePrefixes, dirCovers, fallbacks, section } from "../data.js";
+import { pageTabs } from "../page-tabs.js";
 import { esc, header, tabs, card, noteList, noteLink, more, box, mainSide } from "../ui.js";
 const records = ALL.filter(r => r.root === "kb");
-const T = sub => tabs("knowledge", [["home", "领域"], ["topics", "主题"], ["tree", "目录"], ["search", "搜索"]], sub);
+const T = sub => tabs("knowledge", pageTabs(section("knowledge"), "knowledge"), sub);
 const searchBox = (q = "") => `<form class="kbsearch" onsubmit="location.hash='#knowledge/search?q='+encodeURIComponent(this.q.value);return false"><input name="q" value="${esc(q)}" placeholder="搜索标题、标签与正文…" autocomplete="off"></form>`;
 const md = d => String(d ?? "").slice(5).replace("-", "/");
 const DOMAIN_ORDER = ["cs", "backend", "devtools", "ai", "math", "tools"];
@@ -25,13 +26,14 @@ export default async function (sub = "home", P = new URLSearchParams()) {
   const head = (extra = [], lede = "通用知识库：按顶层目录与下一级主题组织。个人、工作与项目笔记在 生活 / 记录。") => header("知识", "", [`n-knowledge-base · ${kbN} 篇`, ...extra], lede, { actions: [["全文搜索", "#knowledge/search", true]],
     kpis: sub === "home" ? [[kbN, "笔记", { tone: "focus" }], [group(kbNotes(v), 1).length, "领域"], [topicGroups(v).length, "主题"], [lastU.slice(5).replace("-", "/") || "—", "最近更新", { sub: esc(lastU) }]] : [] });
   if (sub === "note") return notePage(P.get("id"));
+  if (sub === "logs") { location.hash = "#journal"; return { html: "" }; }
+  if (!new Set(["home", "topics", "tree", "search"]).has(sub || "home")) return { html: head() + T(sub) + `<div class="body"><p class="empty">「${esc(sub)}」还没有对应的页面。</p></div>` };
   if (sub === "search") return searchPage(P.get("q") || "", head);
   if (sub === "tree") return treePage(P, head);
   if (sub === "topics") {
     const topics = topicGroups(v), mocs = records.filter(r => r.type === "moc" && !/^(README|index)\.md$/i.test(r.origin.source_path));
     return { html: head() + T(sub) + `<div class="body">${mocs.length ? `<section class="blk"><h2>MOC<span class="more">${mocs.length}</span></h2>${noteList(mocs, 99)}</section>` : ""}${topics.map(g => `<section class="blk"><h2><a href="#knowledge/tree?root=kb&dir=${encodeURIComponent("kb/" + g.k)}">${esc(g.k)}</a><span class="more">${g.xs.length} 篇 · ${md(g.last)}</span></h2>${noteList(g.xs.sort((a, b) => String(b.updated).localeCompare(String(a.updated))), 8)}</section>`).join("")}</div>` };
   }
-  if (sub === "logs") { location.hash = "#journal"; return { html: "" }; }
   // home (领域): one row per top-level folder. Nested folders (backend/network, ai/llm) are 主题.
   const topics = topicGroups(v), doms = group(kbNotes(v), 1);
   const recent = [...records].filter(r => !/(^|\/)(index|README)\.md$/i.test(r.origin.source_path) && r.type !== "moc").sort((a, b) => String(b.updated).localeCompare(String(a.updated)));
@@ -87,7 +89,7 @@ async function searchPage(q, head) {
 // which 生活 / 记录 / 计划 tab owns a life note (via data/sections.yaml)
 function lifeSec(r) {
   const path = r.origin.source_path, bare = path.replace(/\.md$/i, "");
-  for (const s of v9?.sections || []) for (const t of s.tabs) for (const u of t.source) {
+  for (const s of v9?.sections || []) for (const t of s.tabs || []) for (const u of (Array.isArray(t.source) ? t.source : [])) {
     const d = String(u).replace(/^life:\/\//, "").replace(/[#?].*$/, "");
     if (!d || d.startsWith("data/")) continue;
     const prefs = d.endsWith("/") ? choosePrefixes(d, dirCovers) : [d, ...fallbacks(d)];

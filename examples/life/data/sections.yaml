@@ -1,46 +1,182 @@
 # FICTIONAL example data for n-workspace demo mode. Every name, address, number and service here is made up.
+# Same sections and tab ids as n-life-data data/sections.yaml. Sources point at the example v3 folders.
 schema_version: 9
 sections:
 - id: today
   label: 今天
   tabs:
-  - {id: today, label: 今天, source: [life://data/tasks.yaml, life://data/plans.yaml, life://data/subscriptions.yaml, life://life/journal/daily/]}
+  - id: today
+    label: 今天
+    source:
+    - life://data/tasks.yaml
+    - life://data/plans.yaml
+    - life://data/subscriptions.yaml
+    - life://life/journal/daily/
 - id: plan
   label: 计划
   tabs:
-  - {id: board, label: 本周 / 本月, source: [life://data/tasks.yaml]}
-  - {id: tree, label: 目标树, source: [life://data/plans.yaml, life://life/plan/]}
-  - {id: reviews, label: 复盘, source: ['life://data/plans.yaml#reviews', life://learn/mind/reviews/]}
-  - {id: learning, label: 学习路线, source: [life://learn/ai/]}
+  - id: board
+    label: 本周 / 本月
+    source:
+    - life://data/tasks.yaml
+  - id: tree
+    label: 目标树
+    source:
+    - life://data/plans.yaml
+    - life://life/plan/
+  - id: reviews
+    label: 复盘
+    source:
+    - life://data/plans.yaml#reviews
+    - life://learn/mind/reviews/
+  - id: learning
+    label: 学习路线
+    source:
+    - life://learn/ai/
+- id: topics
+  label: 主题
+  tabs:
+  - id: all
+    label: 全部
+    source: []
+  - id: project
+    label: 项目
+    source: []
+  - id: habit
+    label: 习惯
+    source: []
+  - id: skill
+    label: 技能
+    source: []
+  - id: area
+    label: 领域
+    source: []
 - id: life
   label: 生活
   tabs:
-  - {id: profile, label: 我, source: [life://life/profile/]}
-  - {id: family, label: 家庭, source: [life://life/family/]}
-  - {id: finance, label: 财务, source: [life://life/finance/]}
-  - {id: health, label: 健康, source: [life://life/health/]}
-  - {id: records, label: 时间线, source: [life://life/records/]}
-  - {id: idea, label: 想法, source: [life://learn/idea/]}
-  - {id: mind, label: 心智, source: [life://learn/mind/]}
+  - id: profile
+    label: 我
+    source:
+    - life://life/profile/
+  - id: family
+    label: 家庭
+    source:
+    - life://life/family/
+  - id: finance
+    label: 财务
+    source:
+    - life://life/finance/
+  - id: health
+    label: 健康
+    source:
+    - life://life/health/
+  - id: house
+    label: 住房
+    source:
+    - life://life/house/
+  - id: travel
+    label: 旅行
+    source:
+    - life://life/travel/
+  - id: reading
+    label: 读书
+    source:
+    - life://life/reading/
+  - id: idea
+    label: 想法
+    source:
+    - life://learn/idea/
+  - id: mind
+    label: 心智
+    source:
+    - life://learn/mind/
+  - id: english
+    label: 英语
+    source:
+    - life://learn/english/
+  - id: register
+    label: 账号底稿
+    source:
+    - life://accounts/register/
+  - id: workspace
+    label: 看板说明
+    source:
+    - life://accounts/workspace/
 - id: journal
   label: 记录
   tabs:
-  - {id: daily, label: 日记, source: [life://life/journal/daily/]}
-  - {id: weekly, label: 周记, source: [life://life/journal/weekly/]}
-  - {id: work, label: 工作汇报, source: [life://work/cfwork/reports/]}
-  - {id: server, label: 服务器, source: [life://work/server/]}
+  - id: daily
+    label: 日记
+    source:
+    - life://life/journal/daily/
+  - id: weekly
+    label: 周记
+    source:
+    - life://life/journal/weekly/
+  - id: records
+    label: 时间线
+    source:
+    - life://life/records/
+  - id: work
+    label: 工作汇报
+    source:
+    - life://work/cfwork/reports/
+  - id: cfwork
+    label: 乘风
+    source:
+    - life://work/cfwork/
+  - id: server
+    label: 服务器
+    source:
+    - life://work/server/
 - id: accounts
   label: 账号
   tabs:
-  - {id: identities, label: 身份, source: [life://data/identities.yaml]}
-  - {id: groups, label: 分类, source: [life://data/account-groups.yaml, life://data/accounts.yaml]}
-  - {id: subscriptions, label: 订阅, source: [life://data/subscriptions.yaml]}
+  - id: identities
+    label: 身份
+    source:
+    - life://data/identities.yaml
+  - id: groups
+    label: 分类
+    source:
+    - life://data/account-groups.yaml
+    - life://data/accounts.yaml
+  - id: subscriptions
+    label: 订阅
+    source:
+    - life://data/subscriptions.yaml
+  - id: security
+    label: 安全
+    source:
+    - life://data/accounts.yaml
+  - id: graph
+    label: 关系图
+    source:
+    - life://data/accounts.yaml
 - id: knowledge
   label: 知识
   tabs:
-  - {id: domains, label: 领域, source: [kb://cs/, kb://backend/, kb://devtools/, kb://ai/, kb://math/, kb://tools/]}
-  - {id: search, label: 搜索, source: ['kb://']}
+  - id: home
+    label: 领域
+    source: []
+  - id: topics
+    label: 主题
+    source: []
+  - id: tree
+    label: 目录
+    source: []
+  - id: search
+    label: 搜索
+    source: []
 - id: agents
   label: Agents
   tabs:
-  - {id: agents, label: Agents, source: [life://content/x/, life://content/blibli/, life://learn/agent/pi/, life://data/content.yaml, 'life://data/tasks.yaml?owner=agent:*']}
+  - id: agents
+    label: Agents
+    source:
+    - life://content/x/
+    - life://content/blibli/
+    - life://learn/agent/pi/
+    - life://team
+    - life://data/content.yaml
+    - life://data/tasks.yaml?owner=agent:*

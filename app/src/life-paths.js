@@ -1,9 +1,25 @@
-// Life-note locations across three layouts. A lookup tries the path it was given.
-// If that path is absent, older and newer names are tried newest-first:
+// Life-note locations across three layouts. A lookup uses the path it was given.
+// Older names are off unless the build was started with LIFE_LEGACY_PATHS=1.
+// With that flag, a missing path is tried newest-first:
 //   v3 (life/, learn/, content/, work/, accounts/) → v2 (bot-domain) → v1 (original folders).
 // Fan-out is grouped by layout. The first group that exists is used, so two layouts on disk do not both list.
+// Each fallback that actually resolves is recorded for a build warning.
 // archive/, data/, schemas/, tools/, and templates/ stay at the life-repo root and are not listed.
 // data/ is read by filename in v9.mjs.
+
+let legacyOn = false;
+const fallbackHits = [];
+export function setLegacyPaths(on) { legacyOn = !!on; }
+export function legacyPaths() { return legacyOn; }
+export function noteFallback(from, to) {
+  const msg = `life path fallback: ${from} → ${Array.isArray(to) ? to.join(", ") : to}`;
+  if (!fallbackHits.includes(msg)) fallbackHits.push(msg);
+}
+export function drainFallbackWarnings() {
+  const xs = fallbackHits.slice();
+  fallbackHits.length = 0;
+  return xs;
+}
 
 const bare = p => String(p ?? "").replace(/\\/g, "/").replace(/^\.\//, "").replace(/\.md$/i, "").replace(/\/+$/, "");
 const isDir = p => /\/$/.test(String(p));
@@ -149,7 +165,9 @@ function rewriteRest(targets, rest, dir) {
 }
 
 // Other paths that mean the same note or folder. Does not include `query`. Newest first.
+// Empty unless LIFE_LEGACY_PATHS=1.
 export function fallbacks(query) {
+  if (!legacyOn) return [];
   const q = bare(query);
   const dir = isDir(query);
   const qPath = dir ? q + "/" : q;
@@ -173,14 +191,15 @@ export function fallbacks(query) {
 // The requested path wins. Otherwise the first fan-out group that is present, then the first present alias.
 export function choosePrefixes(query, covers) {
   const primary = isDir(query) ? asDir(query) : query;
-  if (covers(primary)) return [primary];
+  if (covers(primary) || !legacyOn) return [primary];
   const fan = LIFE_FANOUT.find(([from]) => bare(from) === bare(primary) && isDir(from) === isDir(primary));
   if (fan) {
     for (const group of fan[1]) {
       const hit = group.filter(covers);
-      if (hit.length) return hit;
+      if (hit.length) { noteFallback(primary, hit); return hit; }
     }
   }
   const alt = fallbacks(primary).find(covers);
-  return alt ? [alt] : [primary];
+  if (alt) { noteFallback(primary, alt); return [alt]; }
+  return [primary];
 }

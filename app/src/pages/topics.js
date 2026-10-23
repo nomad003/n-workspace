@@ -1,7 +1,8 @@
 // 主题 (topics): long-running dossiers from data/topics.yaml + data/topic-logs/<id>.jsonl.
 //   #topics[/<kind>]                 overview grid (all | project | habit | skill | area)
 //   #topics/<id>[/overview|log|metrics|resources][?kind=…]   detail: status strip, KPIs, tabs, side rail (next steps, issues, links)
-import { topics, topicById, tasks, plansV9, reviews, records, accById, accHref, v9 } from "../data.js";
+import { topics, topicById, tasks, plansV9, reviews, records, accById, accHref, v9, section } from "../data.js";
+import { pageTabs } from "../page-tabs.js";
 import { esc, header, tabs, box, mainSide, noteHref } from "../ui.js";
 import { linkContext, normalizeUriPath, resolveUri } from "../kb-uri.js";
 import { fallbacks } from "../life-paths.js";
@@ -82,7 +83,7 @@ export default function (sub, P = new URLSearchParams(), rest = []) {
   const head = header("主题", "", [`${all.length} 个主题`, "data/topics.yaml + topic-logs"], all.length ? `长期在推进的事：每个主题有档案、当前状态、信息登记和指标。${stl.length ? `<b class="w">${stl.length} 个停滞</b>，` : ""}${issues ? `${issues} 个未解决问题。` : "没有未解决问题。"}` : "", {
     kpis: all.length ? [[all.filter(x => x.status?.lifecycle === "active").length, "进行中", { tone: "focus", sub: `${all.filter(x => x.status?.lifecycle !== "active").length} 个暂停 / 完成` }], [week, "近 7 天新记录"],
       [stl.length, "停滞", { tone: stl.length ? "warn" : "", sub: "超过 2 个周期未记录" }], [issues, "未解决问题", { tone: issues ? "warn" : "" }], [goals.length, "有期限的目标", { sub: goals.length ? `最近：${esc(goals.sort((a, b) => String(a.g.deadline).localeCompare(String(b.g.deadline)))[0].g.deadline)}` : "" }]] : [] })
-    + tabs("topics", [["all", "全部", all.length], ...Object.entries(KIND).map(([k, l]) => [k, l, all.filter(x => x.kind === k).length || ""])], kind);
+    + tabs("topics", pageTabs(section("topics"), "topics").map(([id, label]) => [id, label, id === "all" ? all.length : all.filter(x => x.kind === id).length || ""]), kind);
   if (!all.length) return { html: head + `<div class="body">${box({ title: "还没有主题", body: `<p class="empty">n-life-data 中没有 data/topics.yaml。按 topics 提案添加 data/topics.yaml 与 data/topic-logs/&lt;id&gt;.jsonl 后重新 npm start。</p>` })}</div>` };
   return { html: head + `<div class="body"><div class="tgrid">${xs.map(card).join("")}</div></div>` };
 }
