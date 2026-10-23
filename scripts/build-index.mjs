@@ -3,7 +3,7 @@
 import fs from "node:fs"; import path from "node:path"; import crypto from "node:crypto"; import * as yaml from "js-yaml"; import { marked } from "marked"; import { loadV9, loadTopics, mask } from "./v9.mjs";
 import { fallbacks, setLegacyPaths, legacyPaths, choosePrefixes, noteFallback, drainFallbackWarnings, LIFE_INDEX } from "../app/src/life-paths.js";
 import { tabWarnings } from "../app/src/page-tabs.js";
-import { buildTimeline, timelineCounts } from "../app/src/timeline-model.js";
+import { buildTimeline, noteDisplayTitle, timelineCounts } from "../app/src/timeline-model.js";
 import { toItems, normalize, isPublic, match, overview, known } from "../app/src/core.js";
 import { extractUris, linkContext, normalizeUriPath, resolveUri } from "../app/src/kb-uri.js";
 
@@ -62,15 +62,17 @@ function walk(root, d, rootName) {
     if (f === undefined) { warnings.push(`unparseable frontmatter: ${rootName}://${rel}`); continue; }
     if (!f) { if (rootName !== "life") continue; f = {}; } // life notes may lack frontmatter
     if (f.type === "template" || f.status === "template") { templateNames.add(path.basename(p, ".md")); continue; }
-    for (const k of ["created", "updated"]) if (f[k] != null) f[k] = String(f[k]);
+    const asDay = v => { if (v instanceof Date && !Number.isNaN(v.getTime())) return v.toISOString().slice(0, 10); const s = String(v ?? ""); return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : s; };
+    for (const k of ["created", "updated", "date"]) if (f[k] != null) f[k] = asDay(f[k]);
     if (rootName === "life") { f.privacy = "private"; f.area ??= rel.split("/")[0]; f.status ??= "active"; f.type ??= rel.split("/")[0]; f.updated ??= fs.statSync(p).mtime.toISOString().slice(0, 10); }
     else f.privacy = f.privacy === "public" ? "public" : "private";
     f.tags = as(f.tags).map(String);
-    f.title = f.title || path.basename(p, ".md");
+    const body = text.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
+    f.title = noteDisplayTitle({ title: f.title, path: rel, text: body });
     f.slug = f.id != null ? String(f.id) : null; f.root = rootName; f.id = `${rootName}:${rel}`;
     f.origin = { source: rootName === "life" ? "n-life-data" : "n-knowledge-base", ...(f.origin || {}), source_path: rel };
     f.links = linksIn(text, rootName);
-    Object.defineProperty(f, "_text", { value: text.replace(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---\r?\n?/, ""), enumerable: false });
+    Object.defineProperty(f, "_text", { value: body, enumerable: false });
     records.push(f);
   }
 }
@@ -338,5 +340,5 @@ console.log(V9 ? `v9: ${V9.accounts.length} accounts · ${V9.groups.length} grou
 console.log(`data: ${dataFiles.map(d => `${d.name}=${d.root ?? "missing"}:${d.items}`).join(" ")}`);
 console.log(`attachments: ${served.size} resolved (${FILES.life.length} life / ${FILES.kb.length} kb files), ${attBroken.length} missing; boundary kb→life: ${boundary.length}`);
 console.log(`overview: ${bundle.overview.upcoming.length} upcoming, ${bundle.overview.alerts.length} alerts`);
-console.log(`timeline: ${timelineStat.total} events · ${Object.entries(timelineStat.byModule).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(" · ")}`);
+console.log(`timeline: ${timelineStat.total} events · ${Object.entries(timelineStat.byModule).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} ${n}`).join(" · ")} · touch ${timelineStat.touch}`);
 for (const w of warnings) console.warn("warn:", w);

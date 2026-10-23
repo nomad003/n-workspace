@@ -1,8 +1,43 @@
 // Dated events for 时间线. Pure: build-index and tests both call this.
 import { moduleIdsForRecord, topicIdsForRecord, topicModuleIds } from "./module-model.js";
 
-const iso = v => /^\d{4}-\d{2}-\d{2}/.test(String(v || "")) ? String(v).slice(0, 10) : "";
+// Left out of timeline.json for both life and kb. A reorg touches these in bulk.
+export const TIMELINE_EXCLUDE = {
+  files: ["index.md", "readme.md", "reorg.md", "agents.md", "moc.md"],
+  moc: /moc\.md$/i,
+  dirs: ["templates", "archive"],
+};
+
+const iso = v => {
+  if (v instanceof Date && !Number.isNaN(v.getTime())) return v.toISOString().slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}/.test(String(v || "")) ? String(v).slice(0, 10) : "";
+};
 const noteHref = r => `#knowledge/note?id=${encodeURIComponent(r.id)}`;
+const sourcePath = r => String(r?.origin?.source_path || r?.path || "").replace(/\\/g, "/");
+
+export function isStructuralNote(record) {
+  const rel = sourcePath(record);
+  if (!rel) return false;
+  const parts = rel.split("/");
+  const base = parts.pop().toLowerCase();
+  if (TIMELINE_EXCLUDE.files.includes(base) || TIMELINE_EXCLUDE.moc.test(base)) return true;
+  return parts.some(seg => TIMELINE_EXCLUDE.dirs.includes(seg.toLowerCase()));
+}
+
+const GENERIC_BASE = /^(index|readme|reorg|agents|moc)$/i;
+
+export function noteDisplayTitle({ title, path, text } = {}) {
+  const given = String(title ?? "").trim();
+  if (given) return given;
+  const rel = String(path || "").replace(/\\/g, "/");
+  const base = rel.split("/").pop().replace(/\.md$/i, "");
+  const generic = GENERIC_BASE.test(base) || /moc$/i.test(base);
+  if (!generic) return base;
+  const h1 = String(text || "").match(/^#\s+(.+)$/m);
+  if (h1) return h1[1].replace(/\s+#+\s*$/, "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").trim();
+  const parent = rel.split("/").slice(0, -1).filter(Boolean).pop();
+  return parent || base;
+}
 
 function fakeNote(uri) {
   const m = String(uri || "").match(/life:\/\/([^\s#?]+)/);
@@ -33,12 +68,15 @@ export function buildTimeline({ records = [], topics = [], tasks = [], reviews =
   const push = e => { if (!iso(e.date)) return; events.push({ ...e, date: iso(e.date), module: e.modules?.[0] || null, topic: e.topics?.[0] || null }); };
   for (const r of records) {
     if (r.root !== "life" && r.root !== "kb") continue;
+    if (isStructuralNote(r)) continue;
     const modulesOf = moduleIdsForRecord(modules, r);
     const topicsOf = topicIdsForRecord(topics, r);
     const kbMods = r.root === "kb" && !modulesOf.length ? ["kb"] : modulesOf;
+    const dated = iso(r.date);
     push({
       id: `${r.root === "kb" ? "kb" : "note"}:${r.id}`,
-      date: r.root === "life" ? (iso(r.date) || iso(r.updated)) : iso(r.updated),
+      date: dated || iso(r.updated),
+      touch: !dated,
       type: r.root === "kb" ? "kb" : "note",
       source: r.root,
       title: r.title || r.id,
@@ -105,7 +143,7 @@ export function timelineCounts(events) {
     const ids = e.modules?.length ? e.modules : ["(none)"];
     for (const id of ids) byModule[id] = (byModule[id] || 0) + 1;
   }
-  return { total: (events || []).length, byModule, byType };
+  return { total: (events || []).length, byModule, byType, touch: (events || []).filter(e => e.touch).length };
 }
 
 export function groupEvents(events, group) {

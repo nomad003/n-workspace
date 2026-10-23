@@ -8,7 +8,7 @@ const TYPE = { note: "笔记", topic: "主题", task: "任务", review: "复盘"
 
 function href(P, over) {
   const n = new URLSearchParams();
-  const base = { module: P.get("module") || "", topic: P.get("topic") || "", type: P.get("type") || "", group: P.get("group") || "", ...over };
+  const base = { module: P.get("module") || "", topic: P.get("topic") || "", type: P.get("type") || "", group: P.get("group") || "", touch: P.get("touch") || "", ...over };
   for (const [k, v] of Object.entries(base)) if (v) n.set(k, v);
   const s = n.toString();
   return s ? `#timeline?${s}` : "#timeline";
@@ -23,7 +23,8 @@ export default async function timelinePage(_sub, P = new URLSearchParams()) {
   const mods = moduleList() || [];
   const tops = topics();
   const module = P.get("module") || "", topic = P.get("topic") || "", type = P.get("type") || "", group = P.get("group") === "week" ? "week" : "month";
-  const events = all.filter(e => (!module || (e.modules || []).includes(module) || e.module === module) && (!topic || (e.topics || []).includes(topic) || e.topic === topic) && (!type || e.type === type));
+  const hideTouch = P.get("touch") !== "show";
+  const events = all.filter(e => (!module || (e.modules || []).includes(module) || e.module === module) && (!topic || (e.topics || []).includes(topic) || e.topic === topic) && (!type || e.type === type) && (!hideTouch || !e.touch));
   const title = module ? (mods.find(m => m.id === module)?.title || module) : topic ? (tops.find(t => t.id === topic)?.title || topic) : "";
   const groups = [];
   const seen = new Map();
@@ -43,6 +44,7 @@ export default async function timelinePage(_sub, P = new URLSearchParams()) {
   const modOpts = mods.map(m => [m.id, m.title]);
   const topicOpts = tops.map(t => [t.id, t.title]);
   const typeOpts = Object.entries(TYPE);
-  return { html: header("时间线", "", [title || "全部", `${events.length} 条`], "笔记、主题记录、完成的任务、复盘，和知识库更新。", { actions: [[group === "week" ? "按月" : "按周", href(P, { group: group === "week" ? "" : "week" })]] })
-    + `<div class="body">${chips("模块", module, modOpts, P, "module")}${chips("主题", topic, topicOpts, P, "topic")}${chips("类型", type, typeOpts, P, "type")}${body}</div>` };
+  const touchChip = `<div class="filters"><span class="fl">结构</span><a class="fchip ${hideTouch ? "on" : ""}" href="${href(P, { touch: hideTouch ? "show" : "" })}">隐藏仅结构更新</a></div>`;
+  return { html: header("时间线", "", [title || "全部", `${events.length} 条`], "笔记、主题记录、完成的任务、复盘，和知识库更新。有写作日期的笔记按那个日期排，只改过 updated 的排在开关后面。", { actions: [[group === "week" ? "按月" : "按周", href(P, { group: group === "week" ? "" : "week" })]] })
+    + `<div class="body">${chips("模块", module, modOpts, P, "module")}${chips("主题", topic, topicOpts, P, "topic")}${chips("类型", type, typeOpts, P, "type")}${touchChip}${body}</div>` };
 }
