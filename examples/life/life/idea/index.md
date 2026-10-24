@@ -10,4 +10,4 @@ title: 想法
 ---
 # 想法
 
-选题和写作计划。博客计划在 life://learn/idea/blog-plan 。
+选题和写作计划。博客计划在 life://life/idea/blog-plan 。

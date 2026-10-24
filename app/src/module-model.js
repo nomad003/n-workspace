@@ -30,8 +30,12 @@ export function tabIndex(sections) {
   return map;
 }
 
-export function absorbedMap(sections) {
+// Tab absorbed_by and a top-level absorbed map are the same table. The tab value wins when both set one key.
+export function absorbedMap(sections, extra) {
   const out = {};
+  if (extra && typeof extra === "object" && !Array.isArray(extra)) {
+    for (const [k, v] of Object.entries(extra)) if (v != null && v !== "") out[String(k)] = String(v);
+  }
   for (const s of sections || []) for (const t of s.tabs || []) if (t?.absorbed_by) out[`${s.id}/${t.id}`] = String(t.absorbed_by);
   return out;
 }
@@ -82,7 +86,7 @@ export function resolveLayer(doc) {
     modules,
     views: (Array.isArray(doc?.views) ? doc.views : []).map(v => resolveEntry(v, index)),
     nav: Array.isArray(doc?.nav) && doc.nav.length ? doc.nav : null,
-    absorbed: absorbedMap(sections),
+    absorbed: absorbedMap(sections, doc?.absorbed),
   };
 }
 

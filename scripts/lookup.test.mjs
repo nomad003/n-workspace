@@ -21,9 +21,11 @@ assert.deepEqual(moduleIdsForRecord(layer.modules, lifeNote), ["life"]);
 assert.deepEqual(moduleIdsForRecord(layer.modules, workNote), ["work"]);
 assert.equal(moduleIdsForRecord(layer.modules, workNote).includes("life"), false);
 assert.deepEqual(moduleIdsForRecord(layer.modules, kbNote), ["kb"]);
-assert.deepEqual(moduleIdsForRecord(layer.modules, { root: "life", origin: { source_path: "learn/idea/note.md" } }), ["life"]);
-assert.ok(moduleIdsForRecord(layer.modules, { root: "life", origin: { source_path: "life/journal/daily/2026/10/2026-10-13.md" } }).includes("review"));
-assert.equal(moduleIdsForRecord(layer.modules, { root: "life", origin: { source_path: "accounts/workspace/index.md" } }).includes("accounts"), false);
+assert.deepEqual(moduleIdsForRecord(layer.modules, { root: "life", origin: { source_path: "life/idea/note.md" } }), ["life"]);
+assert.deepEqual(moduleIdsForRecord(layer.modules, { root: "life", origin: { source_path: "learn/idea/note.md" } }), []);
+assert.ok(moduleIdsForRecord(layer.modules, { root: "life", origin: { source_path: "review/daily/2026/10/2026-10-13.md" } }).includes("review"));
+assert.deepEqual(moduleIdsForRecord(layer.modules, { root: "life", origin: { source_path: "team/team.md" } }), ["team"]);
+assert.equal(moduleIdsForRecord(layer.modules, { root: "life", origin: { source_path: "team/index.md" } }).includes("accounts"), false);
 
 const topics = [
   { id: "running", title: "跑步", module: "life", paths: ["life/health"], links: { tasks: ["t-run-plan"], notes: [] }, entries: [{ date: "2026-10-13", kind: "metric", title: "周跑量" }] },

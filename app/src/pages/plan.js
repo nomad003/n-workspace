@@ -1,4 +1,4 @@
-// 计划 (v9): 本周/本月 board · 目标树 (decade → year → half/quarter → tasks) · 复盘 (cadences + instances + learn/mind/reviews/) · 学习路线 (learn/ai/).
+// 计划 (v9): 本周/本月 board · 目标树 (decade → year → half/quarter → tasks) · 复盘 (cadences + instances + review/reviews/, formerly learn/mind/reviews/) · 学习路线 (learn/ai/).
 import { tasks, plansV9, reviews, records, v9, dirCovers, section, listedNotes, folderIntro } from "../data.js";
 import { pageTabs } from "../page-tabs.js";
 import { dueEnd, daysUntil, isOpenTask, quarterOf, ymdOf } from "../core.js";
@@ -18,7 +18,7 @@ const src = u => {
   const r = records.find(x => x.root === "life" && (x.slug === m[1] || x.origin.source_path.replace(/\.md$/, "") === m[1]));
   return r ? `<a class="more" href="${noteHref(r)}">原文 →</a>` : "";
 };
-const PLAN_DIRS = { tree: ["life/plan/"], reviews: ["learn/mind/reviews/"], learning: ["learn/ai/"] };
+const PLAN_DIRS = { tree: ["plan/", "life/plan/"], reviews: ["review/reviews/", "learn/mind/reviews/"], learning: ["learn/ai/"] };
 const noteBlock = async (title, id) => {
   const { dirs, notes, see } = listedNotes("plan", id, PLAN_DIRS[id] || []), label = dirs.map(d => `life://${d}`).join(" · ");
   const intro = await folderIntro(dirs);

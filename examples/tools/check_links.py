@@ -13,7 +13,7 @@ import os, re, sys, collections
 from urllib.parse import unquote
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-OWNERS = {"life", "work", "learn", "content", "accounts", "archive"}
+OWNERS = {"life", "work", "learn", "content", "accounts", "archive", "plan", "review", "kb", "team"}
 ROOT_DIRS = {"data", "schemas", "tools", "templates"}
 ROOT_FILES = {"index.md", "AGENTS.md", "README.md", "REORG.md", "team.md", "private-notes.tar.enc"}
 SCAN_EXT = {".md", ".html", ".yaml", ".yml", ".jsonl"}

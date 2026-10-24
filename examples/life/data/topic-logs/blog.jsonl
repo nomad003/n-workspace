@@ -1,11 +1,11 @@
-{"date": "2026-09-01", "kind": "status", "title": "开始", "stage": "搭建期", "lifecycle": "active", "health": "on-track", "by": "user", "source": "life://learn/idea/blog-plan"}
-{"date": "2026-09-01", "kind": "milestone", "title": "Chirp 账号建立", "by": "user", "source": "life://learn/idea/blog-plan"}
-{"date": "2026-09-05", "kind": "metric", "title": "周数据", "values": {"followers": 0, "following": 50, "posts": 1}, "by": "agent:social", "source": "life://learn/idea/blog-plan"}
-{"date": "2026-09-14", "kind": "metric", "title": "周数据", "values": {"followers": 3, "following": 60, "posts": 3}, "by": "agent:social", "source": "life://learn/idea/blog-plan"}
-{"date": "2026-09-21", "kind": "metric", "title": "周数据", "values": {"followers": 8, "following": 70, "posts": 5}, "by": "agent:social", "source": "life://learn/idea/blog-plan"}
-{"date": "2026-09-21", "kind": "decision", "title": "博客迁到自己的主机", "body": "便宜且可控", "by": "user", "source": "life://learn/idea/blog-plan"}
-{"date": "2026-09-28", "kind": "metric", "title": "周数据", "values": {"followers": 12, "following": 80, "posts": 7}, "by": "agent:social", "source": "life://learn/idea/blog-plan"}
-{"date": "2026-10-05", "kind": "metric", "title": "周数据", "values": {"followers": 15, "following": 90, "posts": 8}, "by": "agent:social", "source": "life://learn/idea/blog-plan"}
-{"date": "2026-10-13", "kind": "metric", "title": "周数据", "values": {"followers": 20, "following": 100, "posts": 10}, "by": "agent:social", "source": "life://learn/idea/blog-plan"}
+{"date": "2026-09-01", "kind": "status", "title": "开始", "stage": "搭建期", "lifecycle": "active", "health": "on-track", "by": "user", "source": "life://life/idea/blog-plan"}
+{"date": "2026-09-01", "kind": "milestone", "title": "Chirp 账号建立", "by": "user", "source": "life://life/idea/blog-plan"}
+{"date": "2026-09-05", "kind": "metric", "title": "周数据", "values": {"followers": 0, "following": 50, "posts": 1}, "by": "agent:social", "source": "life://life/idea/blog-plan"}
+{"date": "2026-09-14", "kind": "metric", "title": "周数据", "values": {"followers": 3, "following": 60, "posts": 3}, "by": "agent:social", "source": "life://life/idea/blog-plan"}
+{"date": "2026-09-21", "kind": "metric", "title": "周数据", "values": {"followers": 8, "following": 70, "posts": 5}, "by": "agent:social", "source": "life://life/idea/blog-plan"}
+{"date": "2026-09-21", "kind": "decision", "title": "博客迁到自己的主机", "body": "便宜且可控", "by": "user", "source": "life://life/idea/blog-plan"}
+{"date": "2026-09-28", "kind": "metric", "title": "周数据", "values": {"followers": 12, "following": 80, "posts": 7}, "by": "agent:social", "source": "life://life/idea/blog-plan"}
+{"date": "2026-10-05", "kind": "metric", "title": "周数据", "values": {"followers": 15, "following": 90, "posts": 8}, "by": "agent:social", "source": "life://life/idea/blog-plan"}
+{"date": "2026-10-13", "kind": "metric", "title": "周数据", "values": {"followers": 20, "following": 100, "posts": 10}, "by": "agent:social", "source": "life://life/idea/blog-plan"}
 {"date": "2026-10-13", "kind": "status", "title": "迁移拖延", "health": "at-risk", "by": "user", "source": "用户 2026-10-13"}
-{"date": "2026-10-13", "kind": "issue", "title": "迁移未完成", "by": "user", "source": "life://learn/idea/blog-plan"}
+{"date": "2026-10-13", "kind": "issue", "title": "迁移未完成", "by": "user", "source": "life://life/idea/blog-plan"}

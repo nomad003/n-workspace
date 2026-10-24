@@ -3,7 +3,7 @@ schema_version: 9
 privacy: private
 updated: '2026-10-15'
 plans:
-- {id: p-jane-2026, level: year, period: '2026', parent: null, title: 2026：健康、写作与一门新语言, area: plan, status: active, measure: 跑完一次半马；发 12 篇博客；用 Rust 写完一个小工具, source: "life://life/plan/2026-goals"}
+- {id: p-jane-2026, level: year, period: '2026', parent: null, title: 2026：健康、写作与一门新语言, area: plan, status: active, measure: 跑完一次半马；发 12 篇博客；用 Rust 写完一个小工具, source: "life://plan/2026-goals"}
 - {id: p-jane-h2, level: half, period: 2026-H2, parent: p-jane-2026, title: 下半年：把习惯固定下来, area: plan, status: active, measure: 每周跑 3 次；每月 1 篇博客, source: null}
 - {id: p-jane-q4, level: quarter, period: 2026-Q4, parent: p-jane-h2, title: Q4：半马备赛 + Rust 入门, area: plan, status: active, measure: 周跑量 30km；完成 Rust 入门书前 10 章, source: null}
 - {id: p-jane-oct, level: month, period: 2026-10, parent: p-jane-q4, title: 10 月：账号整理与博客迁移, area: digital, status: active, measure: 关闭 2 个旧账号；博客迁到新主机, source: null}
@@ -15,7 +15,7 @@ reviews:
   checklist: [回顾目标完成度, 检查订阅与账号, 定下季度三件事]
   template: templates/季度复盘-Template
   instances:
-  - {period: 2026-Q3, due: '2026-09-30', status: done, done_at: '2026-10-02', note: "见 life://learn/mind/reviews/2026-Q3"}
+  - {period: 2026-Q3, due: '2026-09-30', status: done, done_at: '2026-10-02', note: "见 life://review/reviews/2026-Q3"}
   - {period: 2026-Q4, due: '2026-12-31', status: open, done_at: null, note: null}
 - id: r-weekly
   kind: weekly
@@ -25,7 +25,7 @@ reviews:
   template: null
   instances:
   - {period: 2026-W40, due: '2026-10-04', status: open, done_at: null, note: null}
-  - {period: 2026-W41, due: '2026-10-11', status: done, done_at: '2026-10-12', note: "见 life://life/journal/weekly/2026-W41"}
+  - {period: 2026-W41, due: '2026-10-11', status: done, done_at: '2026-10-12', note: "见 life://review/weekly/2026-W41"}
 - id: r-annual
   kind: annual
   rrule: FREQ=YEARLY;BYMONTH=12;BYMONTHDAY=-1

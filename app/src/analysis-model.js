@@ -178,7 +178,7 @@ export function effortKind(event) {
   if (!event || event.touch) return null;
   if (event.type === "topic") return "primary";
   const path = String(event.path || "");
-  if ((event.type === "note" || event.type === "kb") && /journal\/daily/.test(path)) return "primary";
+  if ((event.type === "note" || event.type === "kb") && /(?:^|\/)(?:journal\/daily|review\/daily)(?:\/|$)/.test(path)) return "primary";
   if (event.type === "note" || event.type === "kb") return "note";
   return null;
 }

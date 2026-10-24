@@ -12,7 +12,7 @@ modules:
   icon: calendar
   owners: [Plan]
   paths:
-  - life/plan
+  - plan
   - data/plans.yaml
   - data/tasks.yaml
   tabs:
@@ -23,9 +23,7 @@ modules:
   icon: calendar
   owners: [Review]
   paths:
-  - life/journal
-  - life/records
-  - learn/mind/reviews
+  - review
   tabs:
   - plan/reviews
   - journal/daily
@@ -53,7 +51,7 @@ modules:
   - life/house
   - life/travel
   - life/reading
-  - learn/idea
+  - life/idea
   tabs:
   - life/profile
   - life/family
@@ -122,11 +120,13 @@ modules:
   icon: users
   owners: [Bot, X, KB, Pi, Github, Register, Blibli]
   paths:
-  - accounts/workspace
-  - team.md
+  - team
+  - team/team.md
   tabs:
   - life/workspace
 views: []
+absorbed:
+  today/today: overview
 sections:
 - id: today
   label: 今天
@@ -138,7 +138,7 @@ sections:
     - life://data/tasks.yaml
     - life://data/plans.yaml
     - life://data/subscriptions.yaml
-    - life://life/journal/daily/
+    - life://review/daily/
 - id: plan
   label: 计划
   tabs:
@@ -150,12 +150,12 @@ sections:
     label: 目标树
     source:
     - life://data/plans.yaml
-    - life://life/plan/
+    - life://plan/
   - id: reviews
     label: 复盘
     source:
     - life://data/plans.yaml#reviews
-    - life://learn/mind/reviews/
+    - life://review/reviews/
   - id: learning
     label: 学习路线
     source:
@@ -212,7 +212,7 @@ sections:
   - id: idea
     label: 想法
     source:
-    - life://learn/idea/
+    - life://life/idea/
   - id: mind
     label: 心智
     source:
@@ -228,22 +228,22 @@ sections:
   - id: workspace
     label: 看板说明
     source:
-    - life://accounts/workspace/
+    - life://team/
 - id: journal
   label: 记录
   tabs:
   - id: daily
     label: 日记
     source:
-    - life://life/journal/daily/
+    - life://review/daily/
   - id: weekly
     label: 周记
     source:
-    - life://life/journal/weekly/
+    - life://review/weekly/
   - id: records
     label: 时间线
     source:
-    - life://life/records/
+    - life://review/records/
   - id: work
     label: 工作汇报
     source:
@@ -304,6 +304,6 @@ sections:
     - life://content/x/
     - life://content/blibli/
     - life://learn/agent/pi/
-    - life://team
+    - life://team/team
     - life://data/content.yaml
     - life://data/tasks.yaml?owner=agent:*
