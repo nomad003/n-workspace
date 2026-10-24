@@ -77,8 +77,8 @@ function sidebar(cov) {
   const tw = topics().filter(t => topicStale(t) || t.open_issues?.length).length;
   const countSec = id => { const S = section(id); if (!S) return null; const seen = new Set(); for (const t of S.tabs || []) for (const r of listedNotes(id, t.id).notes) seen.add(r.id); return seen.size || ""; };
   const lifeN = countSec("life"), journalN = countSec("journal");
-  const journalRe = /^(journal|bot\/journal|life\/journal|work|cfwork|server)\//;
-  const lifeSkip = /^(journal|work|plan|learning|agent-ops|moc|bot\/journal|bot\/plan|cfwork|server|life\/journal|life\/plan|content|learn|accounts)\//;
+  const journalRe = /^(journal|bot\/journal|life\/journal|review\/daily|review\/weekly|review\/records|review\/index|work|cfwork|server)(\/|$)/;
+  const lifeSkip = /^(journal|work|plan|learning|agent-ops|moc|bot\/journal|bot\/plan|cfwork|server|life\/journal|life\/plan|review|team|kb|content|learn|accounts)\//;
   const noteCount = pred => records.filter(r => pred(r) && !isIndexNote(r)).length;
   const cnt = { topics: tw ? `<span class="w">${tw}</span>` : (topics().length || ""), plan: open || "", life: lifeN ?? (noteCount(r => r.root === "life" && r.origin.source_path.includes("/") && !lifeSkip.test(r.origin.source_path)) || ""), journal: journalN ?? (noteCount(r => r.root === "life" && journalRe.test(r.origin.source_path)) || ""), knowledge: noteCount(r => r.root === "kb"), accounts: w2 ? `<span class="w">${w2}</span>` : "" };
   side.classList.remove("grouped");

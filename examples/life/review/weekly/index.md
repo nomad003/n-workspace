@@ -10,4 +10,4 @@ title: 周记
 ---
 # 周记
 
-每周一篇。这一周是 life://life/journal/weekly/2026-W41 。
+每周一篇。这一周是 life://review/weekly/2026-W41 。

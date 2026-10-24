@@ -72,7 +72,8 @@ if A.data:
             for i in ("plan", "review", "life", "work", "learn", "content", "accounts", "kb", "team"):
                 x["sections.modules: missing " + i] += i not in mod_ids
             if len(mod_ids) != len(set(mod_ids)): x["sections.modules: duplicate id"] += 1
-            absorbed = {f"{s.get('id')}/{t.get('id')}" for s in (sec.get("sections") or []) for t in (s.get("tabs") or []) if t.get("absorbed_by")}
+            absorbed = set((sec.get("absorbed") or {}) if isinstance(sec.get("absorbed"), dict) else ())
+            absorbed |= {f"{s.get('id')}/{t.get('id')}" for s in (sec.get("sections") or []) for t in (s.get("tabs") or []) if t.get("absorbed_by")}
             owned = collections.Counter()
             for m in mod_list:
                 for ref in m.get("tabs") or []:

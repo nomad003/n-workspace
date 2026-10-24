@@ -185,7 +185,7 @@ const dropRedundantIndex = xs => xs.filter(r => {
   const dir = r.origin.source_path.replace(/index\.md$/i, "");
   return !xs.some(o => o.id !== r.id && o.origin.source_path.startsWith(dir));
 });
-// Agents notes follow the agents section sources (directories plus file pins such as life://team).
+// Agents notes follow the agents section sources (directories plus file pins such as life://team/team).
 // views/agents.json is the fallback when that section is absent. The agent-ops/ tree is a LIFE_LEGACY_PATHS fallback.
 export function agentNotes() {
   const sec = section("agents");

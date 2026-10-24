@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import * as yaml from "js-yaml";
 import { loadV9 } from "./v9.mjs";
+import { fallbacks, setLegacyPaths } from "../app/src/life-paths.js";
 import {
   absorbedTarget, ageTone, daysSince, legacyTarget, moduleNoteStats, notesForPaths, resolveLayer, resolveNav, tabIndex, topicCounts, topicModuleIds,
 } from "../app/src/module-model.js";
@@ -99,5 +100,26 @@ assert.equal(loaded.nav.length, 4);
 assert.equal(loaded.absorbed["today/today"], "overview");
 assert.equal(loaded.modules.some(m => m.resolved.some(t => t.missing)), false);
 assert.equal(warnings.filter(w => /missing tab/.test(w)).length, 0);
+assert.equal(warnings.some(w => /sections\.absorbed/.test(w)), false);
+
+const dropped = doc.sections.map(s => s.id === "today" ? { ...s, tabs: s.tabs.map(t => ({ id: t.id, label: t.label, source: t.source })) } : s);
+const fromMap = resolveLayer({ ...doc, sections: dropped, absorbed: { "today/today": "overview" } });
+assert.equal(fromMap.absorbed["today/today"], "overview");
+assert.equal(fromMap.modules.flatMap(m => m.resolved).some(t => t.missing), false);
+
+setLegacyPaths(true);
+assert.equal(fallbacks("review/daily/")[0], "life/journal/daily/");
+assert.equal(fallbacks("review/weekly/")[0], "life/journal/weekly/");
+assert.equal(fallbacks("review/")[0], "life/journal/");
+assert.equal(fallbacks("plan/")[0], "life/plan/");
+assert.equal(fallbacks("plan/TODO")[0], "life/plan/TODO");
+assert.equal(fallbacks("review/records/")[0], "life/records/");
+assert.equal(fallbacks("team")[0], "team/team");
+assert.equal(fallbacks("team/team")[0], "team");
+assert.equal(fallbacks("review/reviews/")[0], "learn/mind/reviews/");
+assert.equal(fallbacks("life/idea/")[0], "learn/idea/");
+assert.equal(fallbacks("kb/")[0], "learn/kb/");
+assert.equal(fallbacks("team/")[0], "accounts/workspace/");
+setLegacyPaths(false);
 
 console.log("module-nav: ok");

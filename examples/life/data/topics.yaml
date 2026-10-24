@@ -2,7 +2,7 @@
 schema_version: 9
 privacy: private
 updated: '2026-10-15'
-sources: ["life://life/plan/2026-goals"]
+sources: ["life://plan/2026-goals"]
 policy:
   health: 只有本人可以修改 health
   numbers: 数值统一写入 topic-logs
@@ -67,9 +67,9 @@ topics:
   area: explore
   module: learn
   modules: [content]
-  paths: [learn/idea, content/x]
-  section: life://learn/idea/
-  narrative: life://learn/idea/blog-plan
+  paths: [life/idea, content/x]
+  section: life://life/idea/
+  narrative: life://life/idea/blog-plan
   why: 写作帮助整理思路
   scope: 每月 1 篇博客，Chirp 同步
   owner: user
@@ -78,7 +78,7 @@ topics:
   resources:
   - {title: 写作清单, ref: 'kb://tools/写作工作流'}
   rules: [未经本人确认不发帖]
-  status: {lifecycle: active, stage: 搭建期, health: at-risk, since: '2026-10-05', summary: 主机迁移拖慢了更新, blockers: [博客迁移未完成], next: [完成迁移, 写 10 月文章], updated: '2026-10-13', source: "life://learn/idea/blog-plan"}
+  status: {lifecycle: active, stage: 搭建期, health: at-risk, since: '2026-10-05', summary: 主机迁移拖慢了更新, blockers: [博客迁移未完成], next: [完成迁移, 写 10 月文章], updated: '2026-10-13', source: "life://life/idea/blog-plan"}
   tracking:
     cadence: FREQ=WEEKLY
     metrics:
@@ -87,7 +87,7 @@ topics:
     - {id: posts, label: 发帖, type: number, unit: 条, aggregation: last, period: week}
     goals:
     - {id: g-posts, title: 年底 12 篇博客, metric: null, target: null, deadline: 2026-12, task: t-blog-post}
-  links: {tasks: [t-blog-migrate, t-blog-post], plans: [p-jane-oct], notes: ["life://learn/idea/blog-plan"]}
+  links: {tasks: [t-blog-migrate, t-blog-post], plans: [p-jane-oct], notes: ["life://life/idea/blog-plan"]}
 - id: home-finance
   title: 家庭财务整理
   kind: area

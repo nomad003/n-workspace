@@ -1,7 +1,7 @@
 // Life-note locations across three layouts. A lookup uses the path it was given.
 // Older names are off unless the build was started with LIFE_LEGACY_PATHS=1.
 // With that flag, a missing path is tried newest-first:
-//   v3 (life/, learn/, content/, work/, accounts/) → v2 (bot-domain) → v1 (original folders).
+//   module folders (plan/, review/, life/idea/, kb/, team/) → v3 (life/, learn/, content/, work/, accounts/) → v2 (bot-domain) → v1.
 // Fan-out is grouped by layout. The first group that exists is used, so two layouts on disk do not both list.
 // Each fallback that actually resolves is recorded for a build warning.
 // archive/, data/, schemas/, tools/, and templates/ stay at the life-repo root and are not listed.
@@ -30,14 +30,14 @@ const uniq = xs => [...new Set(xs)];
 export const LIFE_CHAINS = [
   ["life/profile/", "bot/profile/", "profile/"],
   ["life/family/", "bot/family/", "family/"],
-  ["life/journal/daily/", "bot/journal/daily/", "journal/daily/"],
-  ["life/journal/weekly/", "bot/journal/weekly/", "journal/weekly/"],
-  ["life/journal/", "bot/journal/", "journal/"],
-  ["life/plan/", "bot/plan/", "plan/"],
-  ["life/plan/TODO", "bot/TODO", "work/projects/TODO"],
-  ["life/records/", "bot/records/", "records/"],
+  ["review/daily/", "life/journal/daily/", "bot/journal/daily/", "journal/daily/"],
+  ["review/weekly/", "life/journal/weekly/", "bot/journal/weekly/", "journal/weekly/"],
+  ["review/", "life/journal/", "bot/journal/", "journal/"],
+  ["plan/", "life/plan/", "bot/plan/"],
+  ["plan/TODO", "life/plan/TODO", "bot/TODO", "work/projects/TODO"],
+  ["review/records/", "life/records/", "bot/records/", "records/"],
   ["work/index", "bot/项目索引", "work/projects/index"],
-  ["team", "bot/团队", "agent-ops/Bot管理-Agent-Team"],
+  ["team/team", "team", "bot/团队", "agent-ops/Bot管理-Agent-Team"],
   ["life/health/", "health/"],
   ["life/finance/", "finance/"],
   ["life/house/", "house/"],
@@ -52,15 +52,15 @@ export const LIFE_CHAINS = [
   ["work/server/", "server/", "work/projects/comet-server/"],
   ["learn/ai/", "ai/", "learning/"],
   ["learn/english/", "english/"],
-  ["learn/mind/reviews/", "mind/reviews/", "reviews/"],
+  ["review/reviews/", "learn/mind/reviews/", "mind/reviews/", "reviews/"],
   ["learn/mind/", "mind/"],
-  ["learn/idea/", "idea/", "explore/"],
-  ["learn/kb/", "kb/"],
+  ["life/idea/", "learn/idea/", "idea/", "explore/"],
+  ["kb/", "learn/kb/"],
   ["learn/agent/pi/", "pi/", "agent-ops/X账号运营/图解Pi"],
   ["content/x/", "x/", "agent-ops/X账号运营/"],
   ["content/blibli/", "blibli/"],
   ["accounts/register/", "register/", "affairs/"],
-  ["accounts/workspace/", "workspace/", "digital/"],
+  ["team/", "accounts/workspace/", "workspace/", "digital/"],
   ["learn/mind/十年设计-2026-2036", "mind/十年设计-2026-2036", "plan/十年设计-2026-2036"],
   ["learn/mind/复盘节奏", "mind/复盘节奏", "plan/复盘节奏"],
   ["learn/mind/困难记录-2019-2026", "mind/困难记录-2019-2026", "records/困难记录-2019-2026"],
@@ -115,7 +115,8 @@ export const LIFE_INDEX = [
 const FILE_PREFIXES = new Set();
 {
   const files = LIFE_CHAINS.flat().filter(m => !isDir(m)).map(bare);
-  for (const a of files) for (const b of files) if (a !== b && b.startsWith(a)) FILE_PREFIXES.add(a);
+  // "team/team" starts with "team" but is a nested path, not a hyphenated filename.
+  for (const a of files) for (const b of files) if (a !== b && b.startsWith(a) && !b.startsWith(a + "/")) FILE_PREFIXES.add(a);
 }
 
 export function matchesPath(file, prefix) {
@@ -172,9 +173,11 @@ export function fallbacks(query) {
   const dir = isDir(query);
   const qPath = dir ? q + "/" : q;
   const exact = [];
+  // bare() drops a trailing slash, so "team/" must not join the file chain that contains "team".
+  const same = m => bare(m) === q && isDir(m) === dir;
   for (const chain of LIFE_CHAINS) {
-    if (!chain.some(m => bare(m) === q)) continue;
-    for (const m of chain) if (bare(m) !== q) exact.push(shaped(m));
+    if (!chain.some(same)) continue;
+    for (const m of chain) if (!same(m)) exact.push(shaped(m));
   }
   const fan = LIFE_FANOUT.find(([from]) => bare(from) === q && isDir(from) === dir);
   if (fan) for (const group of fan[1]) for (const to of group) exact.push(shaped(to));

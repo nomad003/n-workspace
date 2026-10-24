@@ -143,6 +143,7 @@ assert.equal(comparePeriods({ events, modules: mods, topics, today: "2026-10-23"
 
 assert.equal(effortKind({ type: "topic", touch: false }), "primary");
 assert.equal(effortKind({ type: "note", touch: false, path: "life/journal/daily/2026-10-13.md" }), "primary");
+assert.equal(effortKind({ type: "note", touch: false, path: "review/daily/2026-10-13.md" }), "primary");
 assert.equal(effortKind({ type: "kb", touch: false, path: "cs/哈希表.md" }), "note");
 assert.equal(effortKind({ type: "task", touch: false }), null);
 assert.equal(effortKind({ type: "note", touch: true, path: "life/journal/daily/x.md" }), null);
