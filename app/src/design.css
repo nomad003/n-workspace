@@ -584,6 +584,54 @@ details.more>:not(summary){margin:0 14px 14px}
 .wkbar i{display:block;width:100%;background:var(--n-100)}
 .wkbar i.on{background:var(--accent)}
 .wkbar span{font-size:10px;color:var(--text-3)}
+/* ---------- calendar ---------- */
+.cal{display:grid;gap:0;border-top:1px solid var(--border);border-left:1px solid var(--border)}
+.cal-dow,.cal-row{display:grid;grid-template-columns:72px repeat(7,minmax(0,1fr))}
+.cal-dow span,.cal-cell,.cal-wk{border-right:1px solid var(--border);border-bottom:1px solid var(--border);min-width:0}
+.cal-dow span{padding:8px 0;text-align:center;color:var(--text-3);font-size:12px;letter-spacing:.08em}
+.cal-wk{display:flex;flex-direction:column;justify-content:center;gap:2px;padding:8px 10px;color:var(--text);text-decoration:none;background:var(--surface)}
+.cal-wk b{font:600 13px var(--mono);font-weight:600}
+.cal-wk span{color:var(--text-3);font:12px var(--mono)}
+.cal-wk:hover{background:var(--bg-2)}
+.cal-cell{min-height:92px;padding:8px;background:var(--surface);display:flex;flex-direction:column;gap:8px}
+.cal-cell.out{background:transparent;color:var(--text-3)}
+.cal-cell.today{background:var(--accent-soft)}
+.cal-num{font:600 13px var(--mono)}
+.cal-bits{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.cal-bit{font-size:11px;line-height:1.4;color:var(--text-2)}
+.cal-bit.note{color:var(--accent-fg)}
+.cal-bit.done{color:var(--ok)}
+.cal-heat{width:8px;height:8px;background:var(--n-200)}
+.cal-heat.h2{background:var(--tag-amber)}
+.cal-heat.h3{background:var(--accent)}
+.cal-banner{display:flex;align-items:baseline;gap:16px;margin:0 0 28px;padding:14px 16px;border:1px solid var(--border);background:var(--surface);color:var(--text);text-decoration:none}
+.cal-banner strong{font-size:17px;font-weight:600}
+.cal-banner .link{margin-left:auto;color:var(--accent-fg)}
+.cal-week{display:grid;grid-template-columns:minmax(240px,320px) minmax(0,1fr);gap:28px;align-items:start}
+.cal-plan h2,.cal-plan h3{margin:0 0 8px}
+.cal-plan h3{margin-top:16px;font-size:14px;color:var(--text-2);font-weight:600}
+.cal-prog{display:flex;align-items:center;gap:12px;margin:4px 0 8px}
+.cal-prog .bar{flex:1;margin:0}
+.cal-checks{list-style:none;margin:0;padding:0}
+.cal-checks li{display:grid;grid-template-columns:14px minmax(0,1fr);gap:8px;align-items:start;padding:3px 0}
+.cal-checks i{width:12px;height:12px;margin-top:5px;border:1px solid var(--border-2);background:transparent}
+.cal-checks li.on i{background:var(--ok);border-color:var(--ok)}
+.cal-checks li.on span{color:var(--text-2)}
+.cal-checks li.none{display:block;color:var(--text-3);font-size:13px}
+.cal-retro{margin:0;color:var(--text-2);white-space:normal}
+.cal-src{margin:16px 0 0}
+.cal-src a{color:var(--accent-fg)}
+.cal-cols{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:0;border-top:1px solid var(--border);border-left:1px solid var(--border)}
+.cal-dcol{min-width:0;padding:10px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface)}
+.cal-dcol.today{background:var(--accent-soft)}
+.cal-dcol h3{display:flex;justify-content:space-between;margin:0 0 8px;font-size:12px;color:var(--text-3);font-weight:500}
+.cal-dcol h3 b{color:var(--text);font:600 14px var(--mono)}
+.cal-li{display:block;margin:0 0 6px;color:var(--text);text-decoration:none;font-size:13px;line-height:1.45}
+.cal-li:hover{color:var(--accent-fg)}
+.cal-k{display:block;color:var(--text-3);font-size:11px}
+.cal-more{display:block;color:var(--text-3);font-size:12px}
+.cal-dcol .empty{margin:0;font-size:13px}
+
 @media (max-width:760px){
   .roll-g,.share-row{grid-template-columns:1fr}
   .cov-row{grid-template-columns:minmax(0,1fr) auto}
@@ -592,4 +640,10 @@ details.more>:not(summary){margin:0 14px 14px}
   .ov-row,.ov-head{grid-template-columns:minmax(0,1fr) auto}
   .ov-row span:nth-child(n+3),.ov-head span:nth-child(n+3){display:none}
   .ov-row span.age{display:inline}
+  .cal-dow,.cal-row{grid-template-columns:44px repeat(7,minmax(36px,1fr))}
+  .cal{overflow-x:auto}
+  .cal-week{grid-template-columns:1fr}
+  .cal-cols{grid-template-columns:1fr}
+  .cal-banner{flex-wrap:wrap}
+  .cal-banner .link{margin-left:0}
 }

@@ -185,3 +185,42 @@ tasks:
   done_at: null
   tags: ["kb"]
   notes: null
+- id: t-shelf
+  title: 整理书桌和阅读角
+  status: done
+  priority: P3
+  due: "2026-10-16"
+  recurrence: null
+  owner: "user"
+  area: house
+  plan: null
+  created: '2026-10-10'
+  done_at: '2026-10-16'
+  tags: ["home"]
+  notes: null
+- id: t-run-checkin
+  title: 交本周跑步打卡
+  status: done
+  priority: P2
+  due: "2026-10-21"
+  recurrence: null
+  owner: "user"
+  area: health
+  plan: p-jane-q4
+  created: '2026-10-19'
+  done_at: '2026-10-21'
+  tags: ["running"]
+  notes: null
+- id: t-week-draft
+  title: 写下这周还没做完的三件事
+  status: open
+  priority: P2
+  due: "2026-10-26"
+  recurrence: null
+  owner: "user"
+  area: journal
+  plan: null
+  created: '2026-10-26'
+  done_at: null
+  tags: ["weekly"]
+  notes: null

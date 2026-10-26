@@ -32,11 +32,14 @@ for (const [ref, hit] of index) {
 const nav = resolveNav(doc.nav, layer.modules);
 assert.deepEqual(nav.map(g => g.id), ["board", "planning", "domains", "library"]);
 assert.deepEqual(nav[0].items.map(i => i.id), ["overview", "timeline", "analysis"]);
-assert.deepEqual(nav[1].items.map(i => i.id), ["plan", "review", "topics"]);
+assert.deepEqual(nav[1].items.map(i => i.id), ["plan", "review", "calendar", "topics"]);
+assert.equal(nav[1].items.find(i => i.id === "calendar").href, "#calendar");
+assert.equal(nav[1].items.find(i => i.id === "calendar").title, "日历");
 assert.equal(nav[1].items.find(i => i.id === "plan").href, "#plan");
 assert.equal(nav[3].items.find(i => i.id === "kb").title, "知识库");
 assert.equal(nav[3].items.find(i => i.id === "kb").href, "#knowledge");
 assert.deepEqual(resolveNav(null, layer.modules).map(g => g.id), ["board", "planning", "domains", "library"]);
+assert.deepEqual(resolveNav(null, layer.modules)[1].items.map(i => i.id), ["plan", "review", "calendar", "topics"]);
 assert.equal(resolveNav(doc.nav, null), null);
 assert.equal(absorbedTarget("today", undefined, doc.sections), "overview");
 assert.equal(absorbedTarget("plan", "board", doc.sections), null);

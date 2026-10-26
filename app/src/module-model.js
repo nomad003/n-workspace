@@ -8,10 +8,11 @@ export const BUILTIN_NAV = {
   timeline: { title: "时间线", href: "#timeline" },
   analysis: { title: "分析", href: "#analysis" },
   topics: { title: "主题", href: "#topics" },
+  calendar: { title: "日历", href: "#calendar" },
 };
 export const DEFAULT_NAV = [
   { id: "board", title: "看板", items: ["overview", "timeline", "analysis"] },
-  { id: "planning", title: "规划", items: ["plan", "review", "topics"] },
+  { id: "planning", title: "规划", items: ["plan", "review", "calendar", "topics"] },
   { id: "domains", title: "领域", items: ["work", "life", "learn", "content"] },
   { id: "library", title: "资料", items: ["kb", "accounts", "team"] },
 ];

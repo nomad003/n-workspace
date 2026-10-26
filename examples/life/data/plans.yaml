@@ -26,6 +26,9 @@ reviews:
   instances:
   - {period: 2026-W40, due: '2026-10-04', status: open, done_at: null, note: null}
   - {period: 2026-W41, due: '2026-10-11', status: done, done_at: '2026-10-12', note: "见 life://review/weekly/2026-W41"}
+  - {period: 2026-W42, due: '2026-10-18', status: open, done_at: null, note: "见 life://review/weekly/2026-W42"}
+  - {period: 2026-W43, due: '2026-10-25', status: open, done_at: null, note: "见 life://review/weekly/2026-W43"}
+  - {period: 2026-W44, due: '2026-11-01', status: open, done_at: null, note: "见 life://review/weekly/2026-W44"}
 - id: r-annual
   kind: annual
   rrule: FREQ=YEARLY;BYMONTH=12;BYMONTHDAY=-1

@@ -18,6 +18,7 @@ import pOverview from "./pages/overview.js";
 import pTimeline from "./pages/timeline.js";
 import pAnalysis from "./pages/analysis.js";
 import pReview from "./pages/review.js";
+import pCalendar from "./pages/calendar.js";
 import { renderSurface } from "./pages/surface.js";
 import { life as pLife, journal as pJournal } from "./pages/folders.js";
 
@@ -26,17 +27,17 @@ function navGroups() {
 }
 function navItems() {
   const grouped = navGroups();
-  if (!grouped) return [["today", "今天"], ["plan", "计划"], ["topics", "主题"], ["analysis", "分析"], ["life", "生活"], ["journal", "记录"], ["accounts", "账号"], ["knowledge", "知识"], ["agents", "Agents"]];
+  if (!grouped) return [["today", "今天"], ["plan", "计划"], ["calendar", "日历"], ["topics", "主题"], ["analysis", "分析"], ["life", "生活"], ["journal", "记录"], ["accounts", "账号"], ["knowledge", "知识"], ["agents", "Agents"]];
   return grouped.flatMap(g => g.items.map(it => [it.href.slice(1).split("/")[0], it.title]));
 }
-const PAGES = { overview: pOverview, today: pToday, plan: pPlan, topics: pTopics, life: pLife, journal: pJournal, knowledge: pKnowledge, accounts: pMoney, agents: pAgents, settings: pSettings, account: pAccount, timeline: pTimeline, analysis: pAnalysis, reviews: pReview };
+const PAGES = { overview: pOverview, today: pToday, plan: pPlan, calendar: pCalendar, topics: pTopics, life: pLife, journal: pJournal, knowledge: pKnowledge, accounts: pMoney, agents: pAgents, settings: pSettings, account: pAccount, timeline: pTimeline, analysis: pAnalysis, reviews: pReview };
 const ALIAS = { kb: "knowledge", assets: "accounts", affairs: "plan", workcontent: "agents", sources: "settings", logs: "journal" };
 const NAV_OF = { account: "accounts", reviews: "review" };
 const ICON_SUN = `<svg class="th-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>`;
 const ICON_MOON = `<svg class="th-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`;
 const IC = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const NAV_IC = { today: IC('<circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/>'), plan: IC('<path d="M4 6h10M4 12h16M4 18h7"/><circle cx="18" cy="6" r="2"/>'), topics: IC('<path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-4 3 3 5-6"/>'), life: IC('<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>'),
-  journal: IC('<path d="M6 3h10l3 3v15H6z"/><path d="M9 9h7M9 13h7M9 17h4"/>'), accounts: IC('<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>'), knowledge: IC('<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/>'),
+  journal: IC('<path d="M6 3h10l3 3v15H6z"/><path d="M9 9h7M9 13h7M9 17h4"/>'), calendar: IC('<rect x="4" y="5" width="16" height="15" rx="1"/><path d="M8 3v4M16 3v4M4 10h16"/>'), accounts: IC('<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>'), knowledge: IC('<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/>'),
   agents: IC('<rect x="5" y="7" width="14" height="12" rx="3"/><path d="M12 3v4M9 12h.01M15 12h.01"/>'), analysis: IC('<path d="M4 19V5M4 19h16"/><path d="M8 16v-5M12 16V8M16 16v-3"/>'), settings: IC('<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.6 2 3.4 2.4-1c.6.5 1.3.9 2 1.2L10 21h4l.5-2.6c.7-.3 1.4-.7 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z"/>') };
 const setTheme = t => { document.documentElement.dataset.theme = t; localStorage.setItem("nw-theme", t); };
 
