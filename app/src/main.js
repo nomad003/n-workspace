@@ -192,6 +192,7 @@ function resolveRoute() {
   const mods = moduleList();
   if (!mods && raw === "overview") raw = "today";
   if (mods) {
+    if (raw === "calendar") return { kind: "page", id: "calendar", sub, rest, qs };
     if (raw === "knowledge" && sub === "note") return { kind: "page", id: "knowledge", sub, rest, qs };
     const absorbed = v9?.absorbed?.[`${raw}/${sub || raw}`];
     if (absorbed) {
@@ -225,7 +226,8 @@ function markActive() {
   else {
     const absorbed = v9?.absorbed?.[`${raw}/${sub || raw}`];
     const leg = legacyTarget(raw, sub, mods);
-    if (absorbed) active = absorbed.split("/")[0];
+    if (raw === "calendar") active = "calendar";
+    else if (absorbed) active = absorbed.split("/")[0];
     else if (leg) active = leg.split("/")[0];
     else if (!raw || raw === "overview") active = "overview";
     else if (moduleByRoute(raw) || viewById(raw)) active = raw;

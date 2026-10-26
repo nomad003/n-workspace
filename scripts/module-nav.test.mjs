@@ -40,6 +40,23 @@ assert.equal(nav[3].items.find(i => i.id === "kb").title, "知识库");
 assert.equal(nav[3].items.find(i => i.id === "kb").href, "#knowledge");
 assert.deepEqual(resolveNav(null, layer.modules).map(g => g.id), ["board", "planning", "domains", "library"]);
 assert.deepEqual(resolveNav(null, layer.modules)[1].items.map(i => i.id), ["plan", "review", "calendar", "topics"]);
+
+const withoutCalendar = [
+  { id: "board", title: "看板", items: ["overview", "timeline", "analysis"] },
+  { id: "planning", title: "规划", items: ["plan", "review", "topics"] },
+  { id: "domains", title: "领域", items: ["work", "life", "learn", "content"] },
+];
+const inserted = resolveNav(withoutCalendar, layer.modules);
+assert.equal(inserted.find(g => g.title === "规划").items.map(i => i.id).join(","), "plan,review,calendar,topics");
+assert.equal(inserted[1].items.find(i => i.id === "calendar").title, "日历");
+assert.deepEqual(withoutCalendar[1].items, ["plan", "review", "topics"]);
+const explicit = resolveNav([{ id: "board", title: "看板", items: ["calendar", "overview"] }, { id: "planning", title: "规划", items: ["plan", "review", "topics"] }], layer.modules);
+assert.deepEqual(explicit[0].items.map(i => i.id), ["calendar", "overview"]);
+assert.equal(explicit[1].items.some(i => i.id === "calendar"), false);
+const afterPlan = resolveNav([{ id: "planning", title: "规划", items: ["plan", "topics"] }], layer.modules);
+assert.deepEqual(afterPlan[0].items.map(i => i.id), ["plan", "calendar", "topics"]);
+const firstGroup = resolveNav([{ id: "board", title: "看板", items: ["overview"] }, { id: "domains", title: "领域", items: ["life"] }], layer.modules);
+assert.deepEqual(firstGroup[0].items.map(i => i.id), ["overview", "calendar"]);
 assert.equal(resolveNav(doc.nav, null), null);
 assert.equal(absorbedTarget("today", undefined, doc.sections), "overview");
 assert.equal(absorbedTarget("plan", "board", doc.sections), null);

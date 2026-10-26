@@ -48,10 +48,22 @@ export function absorbedTarget(raw, sub, sections) {
   return dest === "overview" ? "overview" : dest;
 }
 
+// 日历 is its own page. A nav that never names it still shows it: after 复盘, else after 计划, else at the end of the first group. An explicit item stays where it was written.
+function withCalendar(groups) {
+  const copy = groups.map(g => ({ ...g, items: [...(g.items || [])] }));
+  if (!copy.length || copy.some(g => g.items.includes("calendar"))) return copy;
+  const host = copy.find(g => g.items.includes("review")) || copy.find(g => g.items.includes("plan")) || copy[0];
+  const reviewAt = host.items.indexOf("review");
+  const planAt = host.items.indexOf("plan");
+  const at = reviewAt >= 0 ? reviewAt + 1 : planAt >= 0 ? planAt + 1 : host.items.length;
+  host.items.splice(at, 0, "calendar");
+  return copy;
+}
+
 // Groups of module ids and built-in page ids. Null when there is no module layer (the section nav stays).
 export function resolveNav(nav, modules) {
   if (!modules?.length) return null;
-  const groups = Array.isArray(nav) && nav.length ? nav : DEFAULT_NAV;
+  const groups = withCalendar(Array.isArray(nav) && nav.length ? nav : DEFAULT_NAV);
   const byId = new Map(modules.map(m => [m.id, m]));
   return groups.map(g => ({
     id: g.id || "",
