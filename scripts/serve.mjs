@@ -2,7 +2,7 @@
 // /files/<kb|life>/<path>: note attachments, ONLY those listed in data/attachments.json (written by build-index; never .md, .enc or data/).
 import http from "node:http"; import fs from "node:fs"; import path from "node:path";
 const ROOT = path.resolve(process.env.SERVE_ROOT || "."), PORT = +(process.env.PORT || 5173), HOST = "127.0.0.1";
-const ALLOW = ["/app/", "/views/", "/data/bundle.json", "/data/kb-index.json", "/data/life-index.json", "/data/timeline.json", "/data/rollups.json", "/data/coverage.json", "/data/notes/", "/index.html", "/"];
+const ALLOW = ["/app/", "/views/", "/data/bundle.json", "/data/kb-index.json", "/data/life-index.json", "/data/timeline.json", "/data/rollups.json", "/data/coverage.json", "/data/calendar.json", "/data/notes/", "/index.html", "/"];
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css", ".json": "application/json; charset=utf-8", ".png": "image/png", ".svg": "image/svg+xml",
   ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp", ".pdf": "application/pdf", ".mp4": "video/mp4", ".txt": "text/plain; charset=utf-8", ".csv": "text/csv; charset=utf-8" };
 const KB_ROOT = path.resolve(process.env.KB_ROOT || process.env.KB_DEST || (fs.existsSync("kb/n-knowledge-base") ? "kb/n-knowledge-base" : "kb")), LIFE_ROOT = path.resolve(process.env.LIFE_ROOT || "life");

@@ -87,7 +87,7 @@ if A.data:
                     x["sections: absorbed tab placed in a module"] += bool(owned[ref])
                     continue
                 x["sections: tab not in exactly one module"] += owned[ref] != 1
-            builtin = {"overview", "timeline", "analysis", "topics"}
+            builtin = {"overview", "timeline", "analysis", "topics", "calendar"}
             for g in sec.get("nav") or []:
                 for item in g.get("items") or []:
                     x["sections.nav → modules or pages"] += item not in mod_ids and item not in builtin

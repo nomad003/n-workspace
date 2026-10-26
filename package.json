@@ -11,7 +11,7 @@
   "fetch-life": "sh scripts/fetch-root.sh life",
   "validate-examples": "python3 examples/tools/validate.py --data examples/life/data --life examples/life --kb examples/kb/n-knowledge-base",
   "check-example-links": "sh scripts/check-example-links.sh",
-  "test": "node scripts/module-nav.test.mjs && node scripts/lookup.test.mjs && node scripts/analysis.test.mjs"
+  "test": "node scripts/module-nav.test.mjs && node scripts/lookup.test.mjs && node scripts/analysis.test.mjs && node scripts/calendar.test.mjs"
  },
  "dependencies": {
   "js-yaml": "^5.4.3",
